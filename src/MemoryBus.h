@@ -35,6 +35,7 @@ public:
 		auto& info = FindDeviceInfo(address);
 		return info.m_device->Read(address & info.m_shadowMask);
 	}
+
 	void Write(uint16_t address, uint8_t value)
 	{
 		auto& info = FindDeviceInfo(address);

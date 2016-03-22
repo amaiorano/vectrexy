@@ -1,5 +1,6 @@
 #include "Cartridge.h"
 #include "Stream.h"
+#include "MemoryMap.h"
 #include <vector>
 
 namespace
@@ -27,7 +28,7 @@ namespace
 
 void Cartridge::Init(MemoryBus & memoryBus)
 {
-	memoryBus.ConnectDevice(*this, std::make_pair(0x0000, 0x7FFF), 1);
+	memoryBus.ConnectDevice(*this, MemoryMap::Cartridge, 1);
 }
 
 void Cartridge::LoadRom(const char * file)
@@ -61,11 +62,14 @@ void Cartridge::LoadRom(const char * file)
 	m_data = ReadStreamUntilEnd(fs);
 }
 
-uint8_t Cartridge::Read(uint16_t) const
+uint8_t Cartridge::Read(uint16_t address) const
 {
-	return 0;
+	assert(IsInRange(address, MemoryMap::Cartridge));
+	return m_data[address - MemoryMap::Cartridge.first];
 }
 
-void Cartridge::Write(uint16_t, uint8_t)
+void Cartridge::Write(uint16_t address, uint8_t value)
 {
+	assert(IsInRange(address, MemoryMap::Cartridge));
+	m_data[address - MemoryMap::Cartridge.first] = value;
 }
