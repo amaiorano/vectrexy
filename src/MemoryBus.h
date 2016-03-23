@@ -18,9 +18,9 @@ class MemoryBus
 public:
 	void ConnectDevice(IMemoryBusDevice& device, MemoryRange range, int shadowDivisor)
 	{
-		uint16_t size = range.second - range.first + 1;
+		const uint16_t size = range.second - range.first + 1;
 
-		uint16_t shadowMask = std::numeric_limits<uint16_t>::max() - 1;
+		uint16_t shadowMask = std::numeric_limits<uint16_t>::max();
 		if (shadowDivisor > 1)
 		{
 			assert(IsPowerOfTwo(size));
