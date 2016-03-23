@@ -2,16 +2,20 @@
 #include "MemoryBus.h"
 #include "Cpu.h"
 #include "Cartridge.h"
+#include <memory>
 
 int main()
 {
-	MemoryBus memoryBus;
-	Cartridge cartridge;
-	//Cpu cpu;
+	auto memoryBus = std::make_unique<MemoryBus>();
+	auto cartridge = std::make_unique<Cartridge>();
+	auto cpu = std::make_unique<Cpu>();
 
-	cartridge.Init(memoryBus);
+	cartridge->Init(*memoryBus);
+	cpu->Init(*memoryBus);
 
-	cartridge.LoadRom("../roms/Scramble (1982).vec");
+	cartridge->LoadRom("../roms/Scramble (1982).vec");
+
+	cpu->ExecuteInstruction();
 
 	return 0;
 }

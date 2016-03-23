@@ -7,7 +7,6 @@ class Cartridge : IMemoryBusDevice
 {
 public:
 	void Init(MemoryBus& memoryBus);
-
 	void LoadRom(const char* file);
 
 private:
