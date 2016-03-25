@@ -14,26 +14,348 @@ void Cpu::Reset()
 	PC = 0;
 }
 
+constexpr uint16_t ZeroExtendToU16(uint8_t v) { return static_cast<uint16_t>(v); }
+constexpr uint16_t CombineToU16(uint8_t msb, uint8_t lsb) { return ZeroExtendToU16(msb) << 8 | ZeroExtendToU16(lsb); }
+
 void Cpu::ExecuteInstruction()
 {
-	const CpuOp& cpuOp = [&]
+	auto PrintOp = [](const CpuOp& cpuOp)
 	{
-		const uint8_t opCodeFirstByte = m_memoryBus->Read(PC++);
-		if (IsOpCodePage1(opCodeFirstByte))
-		{
-			return LookupCpuOp(1, m_memoryBus->Read(PC++));
-		}
-		if (IsOpCodePage2(opCodeFirstByte))
-		{
-			return LookupCpuOp(2, m_memoryBus->Read(PC++));
-		}
-		return LookupCpuOp(0, opCodeFirstByte);
-	}();
+		printf("opcode:%02X name:%s\n", cpuOp.opCode, cpuOp.name);
+	};
 
-	printf("%s\n", cpuOp.name);
+	auto UnhandledOp = [this](const CpuOp& cpuOp)
+	{
+		printf("\tUnhandled Op!\n");
+		for (int i = 0; i < cpuOp.size - 1; ++i)
+			printf("\tskipping 0x%02X\n", m_memoryBus->Read(PC++));
+	};
 
-	for (int i = 0; i < cpuOp.size - 1; ++i)
-		printf("  skipping 0x%02X\n", m_memoryBus->Read(PC++));
+	int cpuOpPage = 0;
+	uint8_t opCodeByte = m_memoryBus->Read(PC++);
+	if (IsOpCodePage1(opCodeByte))
+	{
+		cpuOpPage = 1;
+		opCodeByte = m_memoryBus->Read(PC++);
+	}
+	else if (IsOpCodePage2(opCodeByte))
+	{
+		cpuOpPage = 2;
+		opCodeByte = m_memoryBus->Read(PC++);
+	}
+	const CpuOp& cpuOp = LookupCpuOp(cpuOpPage, opCodeByte);
+
+
+	PrintOp(cpuOp);
+
+	assert(cpuOp.addrMode != AddressingMode::Illegal && "Illegal instruction!");
+	assert(cpuOp.addrMode != AddressingMode::Variant && "Page 1/2 instruction, should have read next byte by now");
+
+
+	// Compute EA from addressing mode
+	// NOTE: PC currently points to the first operand byte
+
+	uint16_t EA = 0; // effective address
+
+	switch (cpuOp.addrMode)
+	{
+	case AddressingMode::Relative:
+		FAIL("IMPLEMENT");
+		break;
+
+	case AddressingMode::Inherent:
+		// Operand byte is useless, so just skip it - @TODO: is this right?
+		++PC;
+		break;
+
+	case AddressingMode::Immediate:
+		// 8 or 16 bit immediate value follows opcode byte (2 or 3 byte instruction)
+		// 1 or 2 byte operand, depending on instruction. Here we'll just set the first byte to set the initial effective address. If the instruction
+		// needs to read a 16 bit value, it can perform the extra read on PC (i.e. EA+1) and increment PC - @TODO: verify!
+		EA = PC++;
+		break;
+
+	case AddressingMode::Direct:
+		// EA = DP : (PC)
+		EA = CombineToU16(DP, m_memoryBus->Read(PC++));
+		break;
+
+	case AddressingMode::Indexed:
+		FAIL("IMPLEMENT");
+		break;
+
+	case AddressingMode::Extended:
+	{
+		// Contents of 2 bytes following opcode byte specify 16-bit effective address (always 3 byte instruction)
+		// EA = (PC) : (PC + 1)
+		auto msb = m_memoryBus->Read(PC++);
+		auto lsb = m_memoryBus->Read(PC++);
+		EA = CombineToU16(msb, lsb);
+
+		// @TODO: "As a special case of indexed addressing, one level of indirection may be added to extended addressing. In extended indirect,
+		//         the two bytes following the postbyte of an indexed instruction contain the address of the data."
+		// *** Is this handled under Indexed??
+	} break;
+
+	default:
+		FAIL("Unexpected addressing mode");
+	}
+
+
+	switch (cpuOpPage)
+	{
+	case 0:
+		switch (cpuOp.opCode)
+		{
+				case 0x00: // NEG      
+				case 0x03: // COM      
+				case 0x04: // LSR      
+				case 0x06: // ROR      
+				case 0x07: // ASR      
+				case 0x08: // LSL/ASL  
+				case 0x09: // ROL      
+				case 0x0A: // DEC      
+				case 0x0C: // INC      
+				case 0x0D: // TST      
+				case 0x0E: // JMP      
+				case 0x0F: // CLR      
+				case 0x12: // NOP
+				case 0x13: // SYNC     
+				case 0x16: // LBRA     
+				case 0x17: // LBSR     
+				case 0x19: // DAA      
+				case 0x1A: // ORCC     
+				case 0x1C: // ANDCC    
+				case 0x1D: // SEX      
+				case 0x1E: // EXG      
+				case 0x1F: // TFR      
+				case 0x20: // BRA      
+				case 0x21: // BRN      
+				case 0x22: // BHI      
+				case 0x23: // BLS      
+				case 0x24: // BHS/BCC  
+				case 0x25: // BLO/BCS  
+				case 0x26: // BNE      
+				case 0x27: // BEQ      
+				case 0x28: // BVC      
+				case 0x29: // BVS      
+				case 0x2A: // BPL      
+				case 0x2B: // BMI      
+				case 0x2C: // BGE      
+				case 0x2D: // BLT      
+				case 0x2E: // BGT      
+				case 0x2F: // BLE      
+				case 0x30: // LEAX     
+				case 0x31: // LEAY     
+				case 0x32: // LEAS     
+				case 0x33: // LEAU     
+				case 0x34: // PSHS     
+				case 0x35: // PULS     
+				case 0x36: // PSHU     
+				case 0x37: // PULU     
+				case 0x39: // RTS      
+				case 0x3A: // ABX      
+				case 0x3B: // RTI      
+				case 0x3C: // CWAI     
+				case 0x3D: // MUL      
+				case 0x3E: // RESET*   
+				case 0x3F: // SWI      
+				case 0x40: // NEGA     
+				case 0x43: // COMA     
+				case 0x44: // LSRA     
+				case 0x46: // RORA     
+				case 0x47: // ASRA     
+				case 0x48: // LSLA/AS  
+				case 0x49: // ROLA     
+				case 0x4A: // DECA     
+				case 0x4C: // INCA     
+				case 0x4D: // TSTA     
+				case 0x4F: // CLRA     
+				case 0x50: // NEGB     
+				case 0x53: // COMB     
+				case 0x54: // LSRB     
+				case 0x56: // RORB     
+				case 0x57: // ASRB     
+				case 0x58: // LSLB/AS  
+				case 0x59: // ROLB     
+				case 0x5A: // DECB     
+				case 0x5C: // INCB     
+				case 0x5D: // TSTB     
+				case 0x5F: // CLRB     
+				case 0x60: // NEG      
+				case 0x63: // COM      
+				case 0x64: // LSR      
+				case 0x66: // ROR      
+				case 0x67: // ASR      
+				case 0x68: // LSL/ASL  
+				case 0x69: // ROL      
+				case 0x6A: // DEC      
+				case 0x6C: // INC      
+				case 0x6D: // TST      
+				case 0x6E: // JMP      
+				case 0x6F: // CLR      
+				case 0x70: // NEG      
+				case 0x73: // COM      
+				case 0x74: // LSR      
+				case 0x76: // ROR      
+				case 0x77: // ASR      
+				case 0x78: // LSL/ASL  
+				case 0x79: // ROL      
+				case 0x7A: // DEC      
+				case 0x7C: // INC      
+				case 0x7D: // TST      
+				case 0x7E: // JMP      
+				case 0x7F: // CLR      
+				case 0x80: // SUBA     
+				case 0x81: // CMPA     
+				case 0x82: // SBCA     
+				case 0x83: // SUBD     
+				case 0x84: // ANDA     
+				case 0x85: // BITA     
+				case 0x86: // LDA      
+				case 0x88: // EORA     
+				case 0x89: // ADCA     
+				case 0x8A: // ORA      
+				case 0x8B: // ADDA     
+				case 0x8C: // CMPX     
+				case 0x8D: // BSR      
+				case 0x8E: // LDX      
+				case 0x90: // SUBA     
+				case 0x91: // CMPA     
+				case 0x92: // SBCA     
+				case 0x93: // SUBD     
+				case 0x94: // ANDA     
+				case 0x95: // BITA     
+				case 0x96: // LDA      
+				case 0x97: // STA      
+				case 0x98: // EORA     
+				case 0x99: // ADCA     
+				case 0x9A: // ORA      
+				case 0x9B: // ADDA     
+				case 0x9C: // CMPX     
+				case 0x9D: // JSR      
+				case 0x9E: // LDX      
+				case 0x9F: // STX      
+				case 0xA0: // SUBA     
+				case 0xA1: // CMPA     
+				case 0xA2: // SBCA     
+				case 0xA3: // SUBD     
+				case 0xA4: // ANDA     
+				case 0xA5: // BITA     
+				case 0xA6: // LDA      
+				case 0xA7: // STA      
+				case 0xA8: // EORA     
+				case 0xA9: // ADCA     
+				case 0xAA: // ORA      
+				case 0xAB: // ADDA     
+				case 0xAC: // CMPX     
+				case 0xAD: // JSR      
+				case 0xAE: // LDX      
+				case 0xAF: // STX      
+				case 0xB0: // SUBA     
+				case 0xB1: // CMPA     
+				case 0xB2: // SBCA     
+				case 0xB3: // SUBD     
+				case 0xB4: // ANDA     
+				case 0xB5: // BITA     
+				case 0xB6: // LDA      
+				case 0xB7: // STA      
+				case 0xB8: // EORA     
+				case 0xB9: // ADCA     
+				case 0xBA: // ORA      
+				case 0xBB: // ADDA     
+				case 0xBC: // CMPX     
+				case 0xBD: // JSR      
+				case 0xBE: // LDX      
+				case 0xBF: // STX      
+				case 0xC0: // SUBB     
+				case 0xC1: // CMPB     
+				case 0xC2: // SBCB     
+				case 0xC3: // ADDD     
+				case 0xC4: // ANDB     
+				case 0xC5: // BITB     
+				case 0xC6: // LDB      
+				case 0xC8: // EORB     
+				case 0xC9: // ADCB     
+				case 0xCA: // ORB      
+				case 0xCB: // ADDB     
+				case 0xCC: // LDD      
+				case 0xCE: // LDU      
+				case 0xD0: // SUBB     
+				case 0xD1: // CMPB     
+				case 0xD2: // SBCB     
+				case 0xD3: // ADDD     
+				case 0xD4: // ANDB     
+				case 0xD5: // BITB     
+				case 0xD6: // LDB      
+				case 0xD7: // STB      
+				case 0xD8: // EORB     
+				case 0xD9: // ADCB     
+				case 0xDA: // ORB      
+				case 0xDB: // ADDB     
+				case 0xDC: // LDD      
+				case 0xDD: // STD      
+				case 0xDE: // LDU      
+				case 0xDF: // STU      
+				case 0xE0: // SUBB     
+				case 0xE1: // CMPB     
+				case 0xE2: // SBCB     
+				case 0xE3: // ADDD     
+				case 0xE4: // ANDB     
+				case 0xE5: // BITB     
+				case 0xE6: // LDB      
+				case 0xE7: // STB      
+				case 0xE8: // EORB     
+				case 0xE9: // ADCB     
+				case 0xEA: // ORB      
+				case 0xEB: // ADDB     
+				case 0xEC: // LDD      
+				case 0xED: // STD      
+				case 0xEE: // LDU      
+				case 0xEF: // STU      
+				case 0xF0: // SUBB     
+				case 0xF1: // CMPB     
+				case 0xF2: // SBCB     
+				case 0xF3: // ADDD     
+				case 0xF4: // ANDB     
+				case 0xF5: // BITB     
+				case 0xF6: // LDB      
+				case 0xF7: // STB      
+				case 0xF8: // EORB     
+				case 0xF9: // ADCB     
+				case 0xFA: // ORB      
+				case 0xFB: // ADDB     
+				case 0xFC: // LDD      
+				case 0xFD: // STD      
+				case 0xFE: // LDU      
+				case 0xFF: // STU      
+			break;
+
+		default:
+			UnhandledOp(cpuOp);
+		}
+		break;
+
+	case 1:
+		switch (cpuOp.opCode)
+		{
+		case 0x00:
+			break;
+		default:
+			UnhandledOp(cpuOp);
+		}
+		break;
+
+	case 2:
+		switch (cpuOp.opCode)
+		{
+		case 0x00:
+			break;
+		default:
+			UnhandledOp(cpuOp);
+		}
+		break;
+	}
 }
 
 void Cpu::InitOpCodeTables()
