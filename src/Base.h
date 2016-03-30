@@ -31,6 +31,54 @@ T checked_static_cast(U value)
 	return static_cast<T>(value);
 }
 
+// BITS macro evaluates to a size_t with the specified bits set
+// Example: BITS(0,2,4) evaluates 10101
+namespace Internal
+{
+	template <size_t value> struct ShiftLeft1 { static const size_t Result = 1 << value; };
+	template <> struct ShiftLeft1<~0u> { static const size_t Result = 0; };
+
+	template <
+		size_t b0,
+		size_t b1 = ~0u,
+		size_t b2 = ~0u,
+		size_t b3 = ~0u,
+		size_t b4 = ~0u,
+		size_t b5 = ~0u,
+		size_t b6 = ~0u,
+		size_t b7 = ~0u,
+		size_t b8 = ~0u,
+		size_t b9 = ~0u,
+		size_t b10 = ~0u,
+		size_t b11 = ~0u,
+		size_t b12 = ~0u,
+		size_t b13 = ~0u,
+		size_t b14 = ~0u,
+		size_t b15 = ~0u
+	>
+	struct BitMask
+	{
+		static const size_t Result =
+			ShiftLeft1<b0>::Result |
+			ShiftLeft1<b1>::Result |
+			ShiftLeft1<b2>::Result |
+			ShiftLeft1<b3>::Result |
+			ShiftLeft1<b4>::Result |
+			ShiftLeft1<b5>::Result |
+			ShiftLeft1<b6>::Result |
+			ShiftLeft1<b7>::Result |
+			ShiftLeft1<b8>::Result |
+			ShiftLeft1<b9>::Result |
+			ShiftLeft1<b10>::Result |
+			ShiftLeft1<b11>::Result |
+			ShiftLeft1<b12>::Result |
+			ShiftLeft1<b13>::Result |
+			ShiftLeft1<b14>::Result |
+			ShiftLeft1<b15>::Result;
+	};
+}
+#define BITS(...) Internal::BitMask<__VA_ARGS__>::Result
+
 // Utility for creating a temporary formatted string
 template <int MaxLength = 1024>
 struct FormattedString

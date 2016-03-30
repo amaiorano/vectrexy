@@ -2,6 +2,19 @@
 #include "MemoryBus.h"
 #include "CpuOpCodes.h"
 
+namespace
+{
+	template <typename T>
+	constexpr int16_t S16(T v) { return static_cast<int16_t>(v); }
+
+	template <typename T>
+	constexpr uint16_t U16(T v) { return static_cast<uint16_t>(v); }
+
+	constexpr uint16_t CombineToU16(uint8_t msb, uint8_t lsb) { return U16(msb) << 8 | U16(lsb); }
+
+	constexpr int16_t CombineToS16(uint8_t msb, uint8_t lsb) { return static_cast<int16_t>(CombineToU16(msb, lsb)); }
+}
+
 void Cpu::Init(MemoryBus& memoryBus)
 {
 	m_memoryBus = &memoryBus;
@@ -13,9 +26,6 @@ void Cpu::Reset()
 {
 	PC = 0;
 }
-
-constexpr uint16_t ZeroExtendToU16(uint8_t v) { return static_cast<uint16_t>(v); }
-constexpr uint16_t CombineToU16(uint8_t msb, uint8_t lsb) { return ZeroExtendToU16(msb) << 8 | ZeroExtendToU16(lsb); }
 
 void Cpu::ExecuteInstruction()
 {
@@ -56,6 +66,7 @@ void Cpu::ExecuteInstruction()
 	// NOTE: PC currently points to the first operand byte
 
 	uint16_t EA = 0; // effective address
+	uint8_t postbyte = 0;
 
 	switch (cpuOp.addrMode)
 	{
@@ -64,8 +75,8 @@ void Cpu::ExecuteInstruction()
 		break;
 
 	case AddressingMode::Inherent:
-		// Operand byte is useless, so just skip it - @TODO: is this right?
-		++PC;
+		// Always read the "postbyte"; some instructions use it for "register addressing"
+		postbyte = m_memoryBus->Read(PC++);
 		break;
 
 	case AddressingMode::Immediate:
@@ -81,8 +92,112 @@ void Cpu::ExecuteInstruction()
 		break;
 
 	case AddressingMode::Indexed:
-		FAIL("IMPLEMENT");
-		break;
+	{
+		// In all indexed addressing one of the pointer registers (X, Y, U, S and sometimes PC) is used in a calculation of the EA.
+		// The postbyte specifies type and variation of addressing mode as well as pointer registers to be used.
+		//@TODO: add extra cycles
+
+		auto RegisterSelect = [this](uint8_t postbyte) -> uint16_t
+		{
+			switch ((postbyte >> 5) & 0b11)
+			{
+			case 0b00: return X;
+			case 0b01: return Y;
+			case 0b10: return U;
+			case 0b11: return S;			
+			}
+			return 0xFF; // Impossible, but MSVC complains about "not all control paths return value"
+		};
+
+		bool supportsIndirect = true;
+
+		if (postbyte & BITS(7)) // (+/- 4 bit offset),R
+		{
+			// postbyte is a 5 bit two's complement number we convert to 8 bit.
+			// So if bit 4 is set (sign bit), we extend the sign bit by turning on bits 6,7,8;
+			uint8_t offset = postbyte & 0b0000'1111;
+			if (postbyte & BITS(4))
+				offset |= 0b1110'0000;
+			EA = RegisterSelect(postbyte) + S16(offset);
+			supportsIndirect = false;
+		}
+		else
+		{
+			switch (postbyte & 0b1111)
+			{
+			case 0b0000: // ,R+
+				EA = RegisterSelect(postbyte) + 1;
+				supportsIndirect = false;
+				break;
+			case 0b0001: // ,R++
+				EA = RegisterSelect(postbyte) + 2;
+				break;
+			case 0b0010: // ,-R
+				EA = RegisterSelect(postbyte) - 1;
+				supportsIndirect = false;
+				break;
+			case 0b0011: // ,--R
+				EA = RegisterSelect(postbyte) - 2;
+				break;
+			case 0b0100: // ,R
+				EA = RegisterSelect(postbyte);
+				break;
+			case 0b0101: // (+/- B),R
+				EA = RegisterSelect(postbyte) + S16(B);
+				break;
+			case 0b0110: // (+/- A),R
+				EA = RegisterSelect(postbyte) + S16(A);
+				break;
+			case 0b0111:
+				FAIL("Illegal");
+				break;
+			case 0b1000: // (+/- 7 bit offset),R
+			{
+				uint8_t postbyte2 = m_memoryBus->Read(PC++);
+				EA = RegisterSelect(postbyte) + S16(postbyte2);
+			} break;
+			case 0b1001: // (+/- 15 bit offset),R
+			{
+				uint8_t postbyte2 = m_memoryBus->Read(PC++);
+				uint8_t postbyte3 = m_memoryBus->Read(PC++);
+				EA = RegisterSelect(postbyte) + CombineToS16(postbyte2, postbyte3);
+			} break;
+			case 0b1010:
+				FAIL("Illegal");
+				break;
+			case 0b1011: // (+/- D),R
+				EA = RegisterSelect(postbyte) + S16(D);
+				break;
+			case 0b1100: // (+/- 7 bit offset),PC
+			{
+				uint8_t postbyte2 = m_memoryBus->Read(PC++);
+				EA = PC + S16(postbyte2);
+			} break;
+			case 0b1101: // (+/- 15 bit offset),PC
+			{
+				uint8_t postbyte2 = m_memoryBus->Read(PC++);
+				uint8_t postbyte3 = m_memoryBus->Read(PC++);
+				EA = PC + CombineToS16(postbyte2, postbyte3);
+			} break;
+			case 0b1110:
+				FAIL("Illegal");
+				break;
+			case 0b1111: // [address]
+				// Indirect-only
+				uint8_t postbyte2 = m_memoryBus->Read(PC++);
+				uint8_t postbyte3 = m_memoryBus->Read(PC++);
+				EA = CombineToS16(postbyte2, postbyte3);
+				break;
+			}
+		}
+
+		if (supportsIndirect && (postbyte & BITS(4)))
+		{
+			uint8_t msb = m_memoryBus->Read(EA);
+			uint8_t lsb = m_memoryBus->Read(EA+1);
+			EA = CombineToU16(lsb, msb);
+		}
+	} break;
 
 	case AddressingMode::Extended:
 	{
@@ -150,8 +265,10 @@ void Cpu::ExecuteInstruction()
 				case 0x32: // LEAS     
 				case 0x33: // LEAU     
 				case 0x34: // PSHS     
+					//TODO: assert that S is not selected in postbyte (assembler would not have allowed it)
 				case 0x35: // PULS     
-				case 0x36: // PSHU     
+				case 0x36: // PSHU    
+					//TODO: assert that U is not selected in postbyte (assembler would not have allowed it)
 				case 0x37: // PULU     
 				case 0x39: // RTS      
 				case 0x3A: // ABX      
