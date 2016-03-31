@@ -15,7 +15,8 @@ int main()
 
 	cartridge->LoadRom("../roms/Scramble (1982).vec");
 
-	cpu->ExecuteInstruction();
+	while (true)
+		cpu->ExecuteInstruction();
 
 	return 0;
 }

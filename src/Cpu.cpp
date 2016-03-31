@@ -10,6 +10,9 @@ namespace
 	template <typename T>
 	constexpr uint16_t U16(T v) { return static_cast<uint16_t>(v); }
 
+	template <typename T>
+	constexpr uint8_t U8(T v) { return static_cast<uint8_t>(v); }
+
 	constexpr uint16_t CombineToU16(uint8_t msb, uint8_t lsb) { return U16(msb) << 8 | U16(lsb); }
 
 	constexpr int16_t CombineToS16(uint8_t msb, uint8_t lsb) { return static_cast<int16_t>(CombineToU16(msb, lsb)); }
@@ -24,14 +27,26 @@ void Cpu::Init(MemoryBus& memoryBus)
 
 void Cpu::Reset()
 {
+	X = 0;
+	Y = 0;
+	U = 0;
+	S = 0; // @TODO: is this right? system stack pushes first value at [0xFE,0xFF]?
 	PC = 0;
+	DP = 0;
+
+	CC.Value = 0;
+	CC.InterruptMask = true;
+	CC.FastInterruptMask = true;
 }
 
 void Cpu::ExecuteInstruction()
 {
-	auto PrintOp = [](const CpuOp& cpuOp)
+	auto PrintOp = [this](const CpuOp& cpuOp)
 	{
-		printf("opcode:%02X name:%s\n", cpuOp.opCode, cpuOp.name);
+		printf("0x%04X: 0x%02X", PC - 1, cpuOp.opCode);
+		for (uint16_t i = 1; i < cpuOp.size; ++i)
+			printf(" 0x%02X", m_memoryBus->Read(PC + i - 1));
+		printf(" %s\n", cpuOp.name);
 	};
 
 	auto UnhandledOp = [this](const CpuOp& cpuOp)
@@ -71,7 +86,9 @@ void Cpu::ExecuteInstruction()
 	switch (cpuOp.addrMode)
 	{
 	case AddressingMode::Relative:
-		FAIL("IMPLEMENT");
+		// Used for branch instructions; can be either an 8 or 16 bit signed relative offset stored
+		// in postbyte(s). We delay reading the offset to when evaluating the condition so that we
+		// only pay for the reads (and cycles) if the branch is taken.
 		break;
 
 	case AddressingMode::Inherent:
@@ -350,7 +367,18 @@ void Cpu::ExecuteInstruction()
 				case 0x9A: // ORA      
 				case 0x9B: // ADDA     
 				case 0x9C: // CMPX     
-				case 0x9D: // JSR      
+
+				case 0x9D: // JSR
+				case 0xAD: // JSR      
+				case 0xBD: // JSR      
+					// Push return address onto system stack
+					--S;
+					m_memoryBus->Write(S, U8(PC >> 4));
+					--S;
+					m_memoryBus->Write(S, U8(PC & 0b1111));
+					// Jump to EA
+					PC = EA;
+					break;
 				case 0x9E: // LDX      
 				case 0x9F: // STX      
 				case 0xA0: // SUBA     
@@ -366,7 +394,6 @@ void Cpu::ExecuteInstruction()
 				case 0xAA: // ORA      
 				case 0xAB: // ADDA     
 				case 0xAC: // CMPX     
-				case 0xAD: // JSR      
 				case 0xAE: // LDX      
 				case 0xAF: // STX      
 				case 0xB0: // SUBA     
@@ -382,7 +409,6 @@ void Cpu::ExecuteInstruction()
 				case 0xBA: // ORA      
 				case 0xBB: // ADDA     
 				case 0xBC: // CMPX     
-				case 0xBD: // JSR      
 				case 0xBE: // LDX      
 				case 0xBF: // STX      
 				case 0xC0: // SUBB     
