@@ -14,7 +14,7 @@ public:
 	~Cpu();
 
 	void Init(MemoryBus& memoryBus);
-	void Reset();
+	void Reset(uint16_t initialPC);
 	void ExecuteInstruction();
 
 private:

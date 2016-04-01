@@ -68,8 +68,7 @@ uint8_t Cartridge::Read(uint16_t address) const
 	return m_data[address - MemoryMap::Cartridge.first];
 }
 
-void Cartridge::Write(uint16_t address, uint8_t value)
+void Cartridge::Write(uint16_t /*address*/, uint8_t /*value*/)
 {
-	assert(IsInRange(address, MemoryMap::Cartridge));
-	m_data[address - MemoryMap::Cartridge.first] = value;
+	assert(false && "Writes to ROM not allowed");
 }

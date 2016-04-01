@@ -93,16 +93,16 @@ public:
 	{
 		m_memoryBus = &memoryBus;
 		InitOpCodeTables();
-		Reset();
+		Reset(0);
 	}
 
-	void Reset()
+	void Reset(uint16_t initialPC)
 	{
 		X = 0;
 		Y = 0;
 		U = 0;
-		S = 0; // @TODO: is this right? system stack pushes first value at [0xFE,0xFF]?
-		PC = 0;
+		S = 0; // BIOS will init this to 0xCBEA, which is the last byte of programmer-usable RAM
+		PC = initialPC;
 		DP = 0;
 
 		CC.Value = 0;
@@ -639,9 +639,9 @@ void Cpu::Init(MemoryBus& memoryBus)
 	m_impl->Init(memoryBus);
 }
 
-void Cpu::Reset()
+void Cpu::Reset(uint16_t initialPC)
 {
-	m_impl->Reset();
+	m_impl->Reset(initialPC);
 }
 
 void Cpu::ExecuteInstruction()
