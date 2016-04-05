@@ -123,6 +123,13 @@ public:
 		return CombineToU16(high, low);
 	}
 
+	uint16_t Read16(uint16_t address)
+	{
+		auto high = m_memoryBus->Read(address++);
+		auto low = m_memoryBus->Read(address);
+		return CombineToU16(high, low);
+	}
+
 	uint16_t DirectEA()
 	{
 		// EA = DP : (PC)
@@ -130,10 +137,8 @@ public:
 		return EA;
 	}
 
-	uint16_t IndexedEA(const CpuOp& cpuOp)
+	uint16_t IndexedEA()
 	{
-		assert(cpuOp.addrMode == AddressingMode::Indexed);
-
 		// In all indexed addressing one of the pointer registers (X, Y, U, S and sometimes PC) is used in a calculation of the EA.
 		// The postbyte specifies type and variation of addressing mode as well as pointer registers to be used.
 		//@TODO: add extra cycles
@@ -244,10 +249,8 @@ public:
 		return EA;
 	}
 
-	uint16_t ExtendedEA(const CpuOp& cpuOp)
+	uint16_t ExtendedEA()
 	{
-		assert(cpuOp.addrMode == AddressingMode::Extended);
-
 		// Contents of 2 bytes following opcode byte specify 16-bit effective address (always 3 byte instruction)
 		// EA = (PC) : (PC + 1)
 		auto msb = m_memoryBus->Read(PC++);
@@ -261,11 +264,80 @@ public:
 		return EA;
 	}
 
+	uint16_t Immediate16()
+	{
+		auto msb = m_memoryBus->Read(PC++);
+		auto lsb = m_memoryBus->Read(PC++);
+		uint16_t value = CombineToU16(msb, lsb);
+		return value;
+	}
+
+	template <AddressingMode addressingMode>
+	uint16_t ReadOperand() 
+	{
+		FAIL("Not implemented for addressing mode");
+		return 0xFFFF;
+	}
+
+	template <>
+	uint16_t ReadOperand<AddressingMode::Indexed>()
+	{
+		return IndexedEA();
+	}
+	template <>
+	uint16_t ReadOperand<AddressingMode::Extended>()
+	{
+		return ExtendedEA();
+	}
+	template <>
+	uint16_t ReadOperand<AddressingMode::Immediate>()
+	{
+		return Immediate16();
+	}
+
+	//TODO: we need to factor in the instruction page here!
+	static constexpr AddressingMode OpCodeToAddressingMode(uint8_t opCode)
+	{
+		return GetCpuOpPage0(opCode).addrMode;
+	}
+
+	// Default template assumes operand is EA and de-refs it
+	template <AddressingMode addressingMode>
+	uint16_t ReadOperandValue16()
+	{
+		auto EA = ReadOperand<addressingMode>();
+		return Read16(EA);
+	}
+	// Specialize for Immediate mode where we don't de-ref
+	template <>
+	uint16_t ReadOperandValue16<AddressingMode::Immediate>()
+	{
+		return ReadOperand<AddressingMode::Immediate>();
+	}
+
+	template <uint8_t opCode>
+	void OpLD(uint16_t& targetReg)
+	{
+		uint16_t value = ReadOperandValue16<OpCodeToAddressingMode(opCode)>();
+		CC.Negative = (value & BITS(15)) != 0;
+		CC.Zero = (value == 0);
+		CC.Overflow = 0;
+		targetReg = value;
+	}
+
+	template <uint8_t opCode>
+	void OpJSR()
+	{
+		uint16_t EA = ReadOperand<OpCodeToAddressingMode(opCode)>();
+		Push16(S, PC);
+		PC = EA;
+	}
+
 	void ExecuteInstruction()
 	{
-		auto PrintOp = [this](const CpuOp& cpuOp)
+		auto PrintOp = [this](const CpuOp& cpuOp, int cpuOpPage)
 		{
-			printf("0x%04X: 0x%02X", PC - 1, cpuOp.opCode);
+			printf("0x%04X: 0x%02X", PC - (cpuOpPage==0? 1 : 2), cpuOp.opCode);
 			for (uint16_t i = 1; i < cpuOp.size; ++i)
 				printf(" 0x%02X", m_memoryBus->Read(PC + i - 1));
 			printf(" %s\n", cpuOp.name);
@@ -293,7 +365,7 @@ public:
 		const CpuOp& cpuOp = LookupCpuOp(cpuOpPage, opCodeByte);
 
 
-		PrintOp(cpuOp);
+		PrintOp(cpuOp, cpuOpPage);
 
 		assert(cpuOp.addrMode != AddressingMode::Illegal && "Illegal instruction!");
 		assert(cpuOp.addrMode != AddressingMode::Variant && "Page 1/2 instruction, should have read next byte by now");
@@ -302,7 +374,7 @@ public:
 		// Compute EA from addressing mode
 		// NOTE: PC currently points to the first operand byte
 
-		uint16_t EA = 0; // effective address
+		//uint16_t EA = 0; // effective address
 		uint8_t postbyte = 0;
 
 		switch (cpuOp.addrMode)
@@ -322,7 +394,7 @@ public:
 			// 8 or 16 bit immediate value follows opcode byte (2 or 3 byte instruction)
 			// 1 or 2 byte operand, depending on instruction. Here we'll just set the first byte to set the initial effective address. If the instruction
 			// needs to read a 16 bit value, it can perform the extra read on PC (i.e. EA+1) and increment PC - @TODO: verify!
-			EA = PC++;
+			//EA = PC++;
 			break;
 
 		case AddressingMode::Direct:
@@ -344,256 +416,22 @@ public:
 		case 0:
 			switch (cpuOp.opCode)
 			{
-			case 0x00: // NEG
-			case 0x03: // COM
-			case 0x04: // LSR
-			case 0x06: // ROR
-			case 0x07: // ASR
-			case 0x08: // LSL/ASL
-			case 0x09: // ROL
-			case 0x0A: // DEC
-			case 0x0C: // INC
-			case 0x0D: // TST
-			case 0x0E: // JMP
-			case 0x0F: // CLR
-			case 0x12: // NOP
-			case 0x13: // SYNC
-			case 0x16: // LBRA
-			case 0x17: // LBSR
-			case 0x19: // DAA
-			case 0x1A: // ORCC
-			case 0x1C: // ANDCC
-			case 0x1D: // SEX
-			case 0x1E: // EXG
-			case 0x1F: // TFR
-			case 0x20: // BRA
-			case 0x21: // BRN
-			case 0x22: // BHI
-			case 0x23: // BLS
-			case 0x24: // BHS/BCC
-			case 0x25: // BLO/BCS
-			case 0x26: // BNE
-			case 0x27: // BEQ
-			case 0x28: // BVC
-			case 0x29: // BVS
-			case 0x2A: // BPL
-			case 0x2B: // BMI
-			case 0x2C: // BGE
-			case 0x2D: // BLT
-			case 0x2E: // BGT
-			case 0x2F: // BLE
-			case 0x30: // LEAX
-			case 0x31: // LEAY
-			case 0x32: // LEAS
-			case 0x33: // LEAU
-			case 0x34: // PSHS
-				//TODO: assert that S is not selected in postbyte (assembler would not have allowed it)
-			case 0x35: // PULS
-			case 0x36: // PSHU
-				//TODO: assert that U is not selected in postbyte (assembler would not have allowed it)
-			case 0x37: // PULU
-			case 0x39: // RTS
-			case 0x3A: // ABX
-			case 0x3B: // RTI
-			case 0x3C: // CWAI
-			case 0x3D: // MUL
-			case 0x3E: // RESET*
-			case 0x3F: // SWI
-			case 0x40: // NEGA
-			case 0x43: // COMA
-			case 0x44: // LSRA
-			case 0x46: // RORA
-			case 0x47: // ASRA
-			case 0x48: // LSLA/AS
-			case 0x49: // ROLA
-			case 0x4A: // DECA
-			case 0x4C: // INCA
-			case 0x4D: // TSTA
-			case 0x4F: // CLRA
-			case 0x50: // NEGB
-			case 0x53: // COMB
-			case 0x54: // LSRB
-			case 0x56: // RORB
-			case 0x57: // ASRB
-			case 0x58: // LSLB/AS
-			case 0x59: // ROLB
-			case 0x5A: // DECB
-			case 0x5C: // INCB
-			case 0x5D: // TSTB
-			case 0x5F: // CLRB
-			case 0x60: // NEG
-			case 0x63: // COM
-			case 0x64: // LSR
-			case 0x66: // ROR
-			case 0x67: // ASR
-			case 0x68: // LSL/ASL
-			case 0x69: // ROL
-			case 0x6A: // DEC
-			case 0x6C: // INC
-			case 0x6D: // TST
-			case 0x6E: // JMP
-			case 0x6F: // CLR
-			case 0x70: // NEG
-			case 0x73: // COM
-			case 0x74: // LSR
-			case 0x76: // ROR
-			case 0x77: // ASR
-			case 0x78: // LSL/ASL
-			case 0x79: // ROL
-			case 0x7A: // DEC
-			case 0x7C: // INC
-			case 0x7D: // TST
-			case 0x7E: // JMP
-			case 0x7F: // CLR
-			case 0x80: // SUBA
-			case 0x81: // CMPA
-			case 0x82: // SBCA
-			case 0x83: // SUBD
-			case 0x84: // ANDA
-			case 0x85: // BITA
-			case 0x86: // LDA
-			case 0x88: // EORA
-			case 0x89: // ADCA
-			case 0x8A: // ORA
-			case 0x8B: // ADDA
-			case 0x8C: // CMPX
-			case 0x8D: // BSR
-			case 0x8E: // LDX
-			case 0x90: // SUBA
-			case 0x91: // CMPA
-			case 0x92: // SBCA
-			case 0x93: // SUBD
-			case 0x94: // ANDA
-			case 0x95: // BITA
-			case 0x96: // LDA
-			case 0x97: // STA
-			case 0x98: // EORA
-			case 0x99: // ADCA
-			case 0x9A: // ORA
-			case 0x9B: // ADDA
-			case 0x9C: // CMPX
-				UnhandledOp(cpuOp);
-				break;
+			case 0x9D: OpJSR<0x9D>(); break;
+			case 0xAD: OpJSR<0xAD>(); break;
+			case 0xBD: OpJSR<0xBD>(); break;
 
-			case 0x9D: // JSR
-				EA = DirectEA();
-				Push16(S, PC);
-				PC = EA;
-				break;
-
-			case 0x9E: // LDX
-			case 0x9F: // STX
-			case 0xA0: // SUBA
-			case 0xA1: // CMPA
-			case 0xA2: // SBCA
-			case 0xA3: // SUBD
-			case 0xA4: // ANDA
-			case 0xA5: // BITA
-			case 0xA6: // LDA
-			case 0xA7: // STA
-			case 0xA8: // EORA
-			case 0xA9: // ADCA
-			case 0xAA: // ORA
-			case 0xAB: // ADDA
-			case 0xAC: // CMPX
-				UnhandledOp(cpuOp);
-				break;
-
-			case 0xAD: // JSR
-				EA = IndexedEA(cpuOp);
-				Push16(S, PC);
-				PC = EA;
-				break;
-
-			case 0xAE: // LDX
-			case 0xAF: // STX
-			case 0xB0: // SUBA
-			case 0xB1: // CMPA
-			case 0xB2: // SBCA
-			case 0xB3: // SUBD
-			case 0xB4: // ANDA
-			case 0xB5: // BITA
-			case 0xB6: // LDA
-			case 0xB7: // STA
-			case 0xB8: // EORA
-			case 0xB9: // ADCA
-			case 0xBA: // ORA
-			case 0xBB: // ADDA
-			case 0xBC: // CMPX
-				UnhandledOp(cpuOp);
-				break;
-
-			case 0xBD: // JSR
-				EA = ExtendedEA(cpuOp);
-				Push16(S, PC);
-				PC = EA;
-				break;
-
-			case 0xBE: // LDX
-			case 0xBF: // STX
-			case 0xC0: // SUBB
-			case 0xC1: // CMPB
-			case 0xC2: // SBCB
-			case 0xC3: // ADDD
-			case 0xC4: // ANDB
-			case 0xC5: // BITB
-			case 0xC6: // LDB
-			case 0xC8: // EORB
-			case 0xC9: // ADCB
-			case 0xCA: // ORB
-			case 0xCB: // ADDB
-			case 0xCC: // LDD
-			case 0xCE: // LDU
-			case 0xD0: // SUBB
-			case 0xD1: // CMPB
-			case 0xD2: // SBCB
-			case 0xD3: // ADDD
-			case 0xD4: // ANDB
-			case 0xD5: // BITB
-			case 0xD6: // LDB
-			case 0xD7: // STB
-			case 0xD8: // EORB
-			case 0xD9: // ADCB
-			case 0xDA: // ORB
-			case 0xDB: // ADDB
-			case 0xDC: // LDD
-			case 0xDD: // STD
-			case 0xDE: // LDU
-			case 0xDF: // STU
-			case 0xE0: // SUBB
-			case 0xE1: // CMPB
-			case 0xE2: // SBCB
-			case 0xE3: // ADDD
-			case 0xE4: // ANDB
-			case 0xE5: // BITB
-			case 0xE6: // LDB
-			case 0xE7: // STB
-			case 0xE8: // EORB
-			case 0xE9: // ADCB
-			case 0xEA: // ORB
-			case 0xEB: // ADDB
-			case 0xEC: // LDD
-			case 0xED: // STD
-			case 0xEE: // LDU
-			case 0xEF: // STU
-			case 0xF0: // SUBB
-			case 0xF1: // CMPB
-			case 0xF2: // SBCB
-			case 0xF3: // ADDD
-			case 0xF4: // ANDB
-			case 0xF5: // BITB
-			case 0xF6: // LDB
-			case 0xF7: // STB
-			case 0xF8: // EORB
-			case 0xF9: // ADCB
-			case 0xFA: // ORB
-			case 0xFB: // ADDB
-			case 0xFC: // LDD
-			case 0xFD: // STD
-			case 0xFE: // LDU
-			case 0xFF: // STU
-				UnhandledOp(cpuOp);
-				break;
+			case 0x8E: OpLD<0x8E>(X); break;
+			case 0x9E: OpLD<0x9E>(X); break;
+			case 0xAE: OpLD<0xAE>(X); break;
+			case 0xBE: OpLD<0xBE>(X); break;
+			case 0xCC: OpLD<0xCC>(D); break;
+			case 0xDC: OpLD<0xDC>(D); break;
+			case 0xEC: OpLD<0xEC>(D); break;
+			case 0xFC: OpLD<0xFC>(D); break;
+			case 0xCE: OpLD<0xCE>(U); break;
+			case 0xDE: OpLD<0xDE>(U); break;
+			case 0xEE: OpLD<0xEE>(U); break;
+			case 0xFE: OpLD<0xFE>(U); break;
 
 			default:
 				UnhandledOp(cpuOp);
@@ -603,9 +441,9 @@ public:
 		case 1:
 			switch (cpuOp.opCode)
 			{
-			case 0x00:
-				UnhandledOp(cpuOp);
-				break;
+			//TODO: won't work becase it looks up page 0
+			case 0xCE: OpLD<0xCE>(S); break;
+
 			default:
 				UnhandledOp(cpuOp);
 			}

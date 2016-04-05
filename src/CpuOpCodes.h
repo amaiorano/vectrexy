@@ -22,7 +22,7 @@ struct CpuOp
 	int size;
 };
 
-const CpuOp CpuOpsPage0[] =
+constexpr CpuOp CpuOpsPage0[] =
 {
 	{ 0x00, "NEG      ", AddressingMode::Direct   ,  6, 2 },
 	{ 0x01, "Illegal  ", AddressingMode::Illegal  ,  1, 1 },
@@ -281,6 +281,13 @@ const CpuOp CpuOpsPage0[] =
 	{ 0xFE, "LDU      ", AddressingMode::Extended ,  6, 3 },
 	{ 0xFF, "STU      ", AddressingMode::Extended ,  6, 3 },
 };
+static_assert(sizeof(CpuOpsPage0) / sizeof(CpuOpsPage0[0]) == 256, "");
+
+constexpr const CpuOp& GetCpuOpPage0(uint8_t opCode)
+{
+	return CpuOpsPage0[opCode];
+}
+
 
 // First byte of instruction is 0x10
 inline bool IsOpCodePage1(uint8_t firstByte) { return firstByte == 0x10; }
