@@ -15,7 +15,7 @@ namespace MemoryMap
 	constexpr size_t UnmappedSize = Unmapped.second - Unmapped.first + 1;
 	static_assert(UnmappedSize == 18432, "");
 
-	// 1 KB shadowed twice
+	// RAM 1 KB shadowed twice
 	// NOTES:
 	// - C800-C87F and CBEA-CBFE are used by BIOS for housekeeping
 	// - C880-CBEA (874 bytes) can by used by programmer, which includes system stack (S)

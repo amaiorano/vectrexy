@@ -2,6 +2,7 @@
 #include "MemoryBus.h"
 #include "MemoryMap.h"
 #include "Cpu.h"
+#include "Ram.h"
 #include "BiosRom.h"
 #include "Cartridge.h"
 #include <memory>
@@ -16,10 +17,12 @@ int main(int argc, char** argv)
 
 	auto memoryBus = std::make_unique<MemoryBus>();
 	auto cpu = std::make_unique<Cpu>();
+	auto ram = std::make_unique<Ram>();
 	auto biosRom = std::make_unique<BiosRom>();
 	auto cartridge = std::make_unique<Cartridge>();
 
 	cpu->Init(*memoryBus);
+	ram->Init(*memoryBus);
 	biosRom->Init(*memoryBus);
 	cartridge->Init(*memoryBus);
 
