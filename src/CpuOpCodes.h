@@ -292,7 +292,7 @@ constexpr const CpuOp& GetCpuOpPage0(uint8_t opCode)
 // First byte of instruction is 0x10
 inline bool IsOpCodePage1(uint8_t firstByte) { return firstByte == 0x10; }
 
-const CpuOp CpuOpsPage1[] =
+constexpr CpuOp CpuOpsPage1[] =
 {
 	{ 0x21, "LBRN     ", AddressingMode::Relative ,  5, 4 },
 	{ 0x22, "LBHI     ", AddressingMode::Relative ,  5, 4 },
@@ -337,7 +337,7 @@ const CpuOp CpuOpsPage1[] =
 // First byte of instruction is 0x11
 inline bool IsOpCodePage2(uint8_t firstByte) { return firstByte == 0x11; }
 
-const CpuOp CpuOpsPage2[] =
+constexpr CpuOp CpuOpsPage2[] =
 {
 	{ 0x3F, "SWI3     ", AddressingMode::Inherent , 20, 2 },
 	{ 0x83, "CMPU     ", AddressingMode::Immediate,  5, 4 },
@@ -353,3 +353,36 @@ const CpuOp CpuOpsPage2[] =
 constexpr size_t NumCpuOpsPage0 = sizeof(CpuOpsPage0) / sizeof(CpuOpsPage0[0]);
 constexpr size_t NumCpuOpsPage1 = sizeof(CpuOpsPage1) / sizeof(CpuOpsPage1[0]);
 constexpr size_t NumCpuOpsPage2 = sizeof(CpuOpsPage2) / sizeof(CpuOpsPage2[0]);
+
+constexpr const CpuOp& FindCpuOp(const CpuOp table[], uint8_t opCode, int index = 0)
+{
+	return table[index].opCode == opCode ? table[index] : FindCpuOp(table, opCode, index + 1);
+}
+
+// Compile-time lookup - use LookupCpuOpRuntime for runtime lookups
+//@TODO: Make this faster and get rid of LookupCpuOpRuntime! One way is to fill up the page 1+2 tables with invalid entries
+//       so that valid entries are on their opCode index so we can look them up the same way we do page 0.
+constexpr const CpuOp& LookupCpuOp(int page, uint8_t opCode)
+{
+	return page == 0 ? CpuOpsPage0[opCode] : page == 1 ? FindCpuOp(CpuOpsPage1, opCode) : FindCpuOp(CpuOpsPage2, opCode);
+}
+
+// Faster version for runtime lookup
+inline const CpuOp& LookupCpuOpRuntime(int page, uint8_t opCode)
+{
+	auto InitLookupTables = []
+	{
+		//static std::array<const struct CpuOp*, 256> opCodeTables[3];
+		static const CpuOp* opCodeTables[3][256];
+		for (auto& opCodeTable : opCodeTables)
+			std::fill(std::begin(opCodeTable), std::end(opCodeTable), nullptr);
+
+		for (size_t i = 0; i < NumCpuOpsPage0; ++i) opCodeTables[0][CpuOpsPage0[i].opCode] = &CpuOpsPage0[i];
+		for (size_t i = 0; i < NumCpuOpsPage1; ++i) opCodeTables[1][CpuOpsPage1[i].opCode] = &CpuOpsPage1[i];
+		for (size_t i = 0; i < NumCpuOpsPage2; ++i) opCodeTables[2][CpuOpsPage2[i].opCode] = &CpuOpsPage2[i];
+		return opCodeTables;
+	};
+
+	static const auto& lookupTables = InitLookupTables();
+	return *lookupTables[page][opCode];
+}

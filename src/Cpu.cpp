@@ -62,7 +62,6 @@ public:
 	ConditionCode CC; // condition code register (aka status register)
 
 	MemoryBus* m_memoryBus = nullptr;
-	std::array<const struct CpuOp*, 256> m_opCodeTables[3]; // Lookup tables by page
 
 	// Compile-time layout validation
 	static void ValidateLayout()
@@ -72,27 +71,9 @@ public:
 		static_assert((offsetof(CpuImpl, D) - offsetof(CpuImpl, A)) == 0, "Reorder union so that A is msb and B is lsb of D");
 	}
 
-	void InitOpCodeTables()
-	{
-		// Init m_opCodeTables to map opCode to CpuOp for fast lookups (op code indices are not all sequential)
-
-		for (auto& opCodeTable : m_opCodeTables)
-			std::fill(opCodeTable.begin(), opCodeTable.end(), nullptr);
-
-		for (size_t i = 0; i < NumCpuOpsPage0; ++i) m_opCodeTables[0][CpuOpsPage0[i].opCode] = &CpuOpsPage0[i];
-		for (size_t i = 0; i < NumCpuOpsPage1; ++i) m_opCodeTables[1][CpuOpsPage1[i].opCode] = &CpuOpsPage1[i];
-		for (size_t i = 0; i < NumCpuOpsPage2; ++i) m_opCodeTables[2][CpuOpsPage2[i].opCode] = &CpuOpsPage2[i];
-	}
-
-	const struct CpuOp& LookupCpuOp(int page, uint8_t opCode) const
-	{
-		return *m_opCodeTables[page][opCode];
-	}
-
 	void Init(MemoryBus& memoryBus)
 	{
 		m_memoryBus = &memoryBus;
-		InitOpCodeTables();
 		Reset(0);
 	}
 
@@ -273,9 +254,9 @@ public:
 	}
 
 	template <AddressingMode addressingMode>
-	uint16_t ReadOperand() 
+	uint16_t ReadOperand()
 	{
-		FAIL("Not implemented for addressing mode");
+		assert(false && "Not implemented for addressing mode");
 		return 0xFFFF;
 	}
 
@@ -295,12 +276,6 @@ public:
 		return Immediate16();
 	}
 
-	//TODO: we need to factor in the instruction page here!
-	static constexpr AddressingMode OpCodeToAddressingMode(uint8_t opCode)
-	{
-		return GetCpuOpPage0(opCode).addrMode;
-	}
-
 	// Default template assumes operand is EA and de-refs it
 	template <AddressingMode addressingMode>
 	uint16_t ReadOperandValue16()
@@ -315,20 +290,20 @@ public:
 		return ReadOperand<AddressingMode::Immediate>();
 	}
 
-	template <uint8_t opCode>
+	template <int page, uint8_t opCode>
 	void OpLD(uint16_t& targetReg)
 	{
-		uint16_t value = ReadOperandValue16<OpCodeToAddressingMode(opCode)>();
+		uint16_t value = ReadOperandValue16<LookupCpuOp(page, opCode).addrMode>();
 		CC.Negative = (value & BITS(15)) != 0;
 		CC.Zero = (value == 0);
 		CC.Overflow = 0;
 		targetReg = value;
 	}
 
-	template <uint8_t opCode>
+	template <int page, uint8_t opCode>
 	void OpJSR()
 	{
-		uint16_t EA = ReadOperand<OpCodeToAddressingMode(opCode)>();
+		uint16_t EA = ReadOperand<LookupCpuOp(page, opCode).addrMode>();
 		Push16(S, PC);
 		PC = EA;
 	}
@@ -362,7 +337,8 @@ public:
 			cpuOpPage = 2;
 			opCodeByte = m_memoryBus->Read(PC++);
 		}
-		const CpuOp& cpuOp = LookupCpuOp(cpuOpPage, opCodeByte);
+		
+		const CpuOp& cpuOp = LookupCpuOpRuntime(cpuOpPage, opCodeByte);
 
 
 		PrintOp(cpuOp, cpuOpPage);
@@ -374,7 +350,6 @@ public:
 		// Compute EA from addressing mode
 		// NOTE: PC currently points to the first operand byte
 
-		//uint16_t EA = 0; // effective address
 		uint8_t postbyte = 0;
 
 		switch (cpuOp.addrMode)
@@ -416,22 +391,22 @@ public:
 		case 0:
 			switch (cpuOp.opCode)
 			{
-			case 0x9D: OpJSR<0x9D>(); break;
-			case 0xAD: OpJSR<0xAD>(); break;
-			case 0xBD: OpJSR<0xBD>(); break;
+			case 0x9D: OpJSR<0, 0x9D>(); break;
+			case 0xAD: OpJSR<0, 0xAD>(); break;
+			case 0xBD: OpJSR<0, 0xBD>(); break;
 
-			case 0x8E: OpLD<0x8E>(X); break;
-			case 0x9E: OpLD<0x9E>(X); break;
-			case 0xAE: OpLD<0xAE>(X); break;
-			case 0xBE: OpLD<0xBE>(X); break;
-			case 0xCC: OpLD<0xCC>(D); break;
-			case 0xDC: OpLD<0xDC>(D); break;
-			case 0xEC: OpLD<0xEC>(D); break;
-			case 0xFC: OpLD<0xFC>(D); break;
-			case 0xCE: OpLD<0xCE>(U); break;
-			case 0xDE: OpLD<0xDE>(U); break;
-			case 0xEE: OpLD<0xEE>(U); break;
-			case 0xFE: OpLD<0xFE>(U); break;
+			case 0x8E: OpLD<0, 0x8E>(X); break;
+			case 0x9E: OpLD<0, 0x9E>(X); break;
+			case 0xAE: OpLD<0, 0xAE>(X); break;
+			case 0xBE: OpLD<0, 0xBE>(X); break;
+			case 0xCC: OpLD<0, 0xCC>(D); break;
+			case 0xDC: OpLD<0, 0xDC>(D); break;
+			case 0xEC: OpLD<0, 0xEC>(D); break;
+			case 0xFC: OpLD<0, 0xFC>(D); break;
+			case 0xCE: OpLD<0, 0xCE>(U); break;
+			case 0xDE: OpLD<0, 0xDE>(U); break;
+			case 0xEE: OpLD<0, 0xEE>(U); break;
+			case 0xFE: OpLD<0, 0xFE>(U); break;
 
 			default:
 				UnhandledOp(cpuOp);
@@ -441,8 +416,7 @@ public:
 		case 1:
 			switch (cpuOp.opCode)
 			{
-			//TODO: won't work becase it looks up page 0
-			case 0xCE: OpLD<0xCE>(S); break;
+			case 0xCE: OpLD<1, 0xCE>(S); break;
 
 			default:
 				UnhandledOp(cpuOp);
