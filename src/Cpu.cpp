@@ -320,9 +320,11 @@ public:
 
 		auto UnhandledOp = [this](const CpuOp& cpuOp)
 		{
-			printf("\tUnhandled Op!\n");
-			for (int i = 0; i < cpuOp.size - 1; ++i)
-				printf("\tskipping 0x%02X\n", m_memoryBus->Read(PC++));
+			(void)cpuOp;
+			//printf("\tUnhandled Op!\n");
+			//for (int i = 0; i < cpuOp.size - 1; ++i)
+			//	printf("\tskipping 0x%02X\n", m_memoryBus->Read(PC++));
+			FAIL("Unhandled Op!");
 		};
 
 		int cpuOpPage = 0;
@@ -339,7 +341,6 @@ public:
 		}
 		
 		const CpuOp& cpuOp = LookupCpuOpRuntime(cpuOpPage, opCodeByte);
-
 
 		PrintOp(cpuOp, cpuOpPage);
 
@@ -416,7 +417,14 @@ public:
 		case 1:
 			switch (cpuOp.opCode)
 			{
+			case 0x8E: OpLD<1, 0x8E>(Y); break;
+			case 0x9E: OpLD<1, 0x9E>(Y); break;
+			case 0xAE: OpLD<1, 0xAE>(Y); break;
+			case 0xBE: OpLD<1, 0xBE>(Y); break;
 			case 0xCE: OpLD<1, 0xCE>(S); break;
+			case 0xDE: OpLD<1, 0xDE>(S); break;
+			case 0xEE: OpLD<1, 0xEE>(S); break;
+			case 0xFE: OpLD<1, 0xFE>(S); break;
 
 			default:
 				UnhandledOp(cpuOp);
