@@ -91,6 +91,29 @@ public:
 		CC.FastInterruptMask = true;
 	}
 
+	uint8_t Read8(uint16_t address)
+	{
+		return m_memoryBus->Read(address);
+	}
+
+	uint16_t Read16(uint16_t address)
+	{
+		auto high = m_memoryBus->Read(address++);
+		auto low = m_memoryBus->Read(address);
+		return CombineToU16(high, low);
+	}
+
+	uint8_t ReadPC8()
+	{
+		return Read8(PC++);
+	}
+	uint16_t ReadPC16()
+	{
+		uint16_t value = Read16(PC);
+		PC += 2;
+		return value;
+	}
+
 	void Push16(uint16_t& stackPointer, uint16_t value)
 	{
 		m_memoryBus->Write(--stackPointer, U8(value & 0b1111)); // Low
@@ -104,21 +127,14 @@ public:
 		return CombineToU16(high, low);
 	}
 
-	uint16_t Read16(uint16_t address)
-	{
-		auto high = m_memoryBus->Read(address++);
-		auto low = m_memoryBus->Read(address);
-		return CombineToU16(high, low);
-	}
-
-	uint16_t DirectEA()
+	uint16_t ReadDirectEA()
 	{
 		// EA = DP : (PC)
-		uint16_t EA = CombineToU16(DP, m_memoryBus->Read(PC++));
+		uint16_t EA = CombineToU16(DP, ReadPC8());
 		return EA;
 	}
 
-	uint16_t IndexedEA()
+	uint16_t ReadIndexedEA()
 	{
 		// In all indexed addressing one of the pointer registers (X, Y, U, S and sometimes PC) is used in a calculation of the EA.
 		// The postbyte specifies type and variation of addressing mode as well as pointer registers to be used.
@@ -137,7 +153,7 @@ public:
 		};
 
 		uint16_t EA = 0;
-		uint8_t postbyte = m_memoryBus->Read(PC++);
+		uint8_t postbyte = ReadPC8();
 		bool supportsIndirect = true;
 
 		if (postbyte & BITS(7)) // (+/- 4 bit offset),R
@@ -182,13 +198,13 @@ public:
 				break;
 			case 0b1000: // (+/- 7 bit offset),R
 			{
-				uint8_t postbyte2 = m_memoryBus->Read(PC++);
+				uint8_t postbyte2 = ReadPC8();
 				EA = RegisterSelect(postbyte) + S16(postbyte2);
 			} break;
 			case 0b1001: // (+/- 15 bit offset),R
 			{
-				uint8_t postbyte2 = m_memoryBus->Read(PC++);
-				uint8_t postbyte3 = m_memoryBus->Read(PC++);
+				uint8_t postbyte2 = ReadPC8();
+				uint8_t postbyte3 = ReadPC8();
 				EA = RegisterSelect(postbyte) + CombineToS16(postbyte2, postbyte3);
 			} break;
 			case 0b1010:
@@ -199,13 +215,13 @@ public:
 				break;
 			case 0b1100: // (+/- 7 bit offset),PC
 			{
-				uint8_t postbyte2 = m_memoryBus->Read(PC++);
+				uint8_t postbyte2 = ReadPC8();
 				EA = PC + S16(postbyte2);
 			} break;
 			case 0b1101: // (+/- 15 bit offset),PC
 			{
-				uint8_t postbyte2 = m_memoryBus->Read(PC++);
-				uint8_t postbyte3 = m_memoryBus->Read(PC++);
+				uint8_t postbyte2 = ReadPC8();
+				uint8_t postbyte3 = ReadPC8();
 				EA = PC + CombineToS16(postbyte2, postbyte3);
 			} break;
 			case 0b1110:
@@ -213,8 +229,8 @@ public:
 				break;
 			case 0b1111: // [address]
 						 // Indirect-only
-				uint8_t postbyte2 = m_memoryBus->Read(PC++);
-				uint8_t postbyte3 = m_memoryBus->Read(PC++);
+				uint8_t postbyte2 = ReadPC8();
+				uint8_t postbyte3 = ReadPC8();
 				EA = CombineToS16(postbyte2, postbyte3);
 				break;
 			}
@@ -230,12 +246,12 @@ public:
 		return EA;
 	}
 
-	uint16_t ExtendedEA()
+	uint16_t ReadExtendedEA()
 	{
 		// Contents of 2 bytes following opcode byte specify 16-bit effective address (always 3 byte instruction)
 		// EA = (PC) : (PC + 1)
-		auto msb = m_memoryBus->Read(PC++);
-		auto lsb = m_memoryBus->Read(PC++);
+		auto msb = ReadPC8();
+		auto lsb = ReadPC8();
 		uint16_t EA = CombineToU16(msb, lsb);
 
 		// @TODO: "As a special case of indexed addressing, one level of indirection may be added to extended addressing. In extended indirect,
@@ -245,49 +261,72 @@ public:
 		return EA;
 	}
 
-	uint16_t Immediate16()
-	{
-		auto msb = m_memoryBus->Read(PC++);
-		auto lsb = m_memoryBus->Read(PC++);
-		uint16_t value = CombineToU16(msb, lsb);
-		return value;
-	}
 
 	template <AddressingMode addressingMode>
-	uint16_t ReadOperand()
+	uint16_t ReadOperand16()
 	{
 		assert(false && "Not implemented for addressing mode");
 		return 0xFFFF;
 	}
 
 	template <>
-	uint16_t ReadOperand<AddressingMode::Indexed>()
+	uint16_t ReadOperand16<AddressingMode::Indexed>()
 	{
-		return IndexedEA();
+		return ReadIndexedEA();
 	}
 	template <>
-	uint16_t ReadOperand<AddressingMode::Extended>()
+	uint16_t ReadOperand16<AddressingMode::Extended>()
 	{
-		return ExtendedEA();
+		return ReadExtendedEA();
 	}
-	template <>
-	uint16_t ReadOperand<AddressingMode::Immediate>()
-	{
-		return Immediate16();
-	}
+
 
 	// Default template assumes operand is EA and de-refs it
 	template <AddressingMode addressingMode>
 	uint16_t ReadOperandValue16()
 	{
-		auto EA = ReadOperand<addressingMode>();
+		auto EA = ReadOperand16<addressingMode>();
 		return Read16(EA);
 	}
 	// Specialize for Immediate mode where we don't de-ref
 	template <>
 	uint16_t ReadOperandValue16<AddressingMode::Immediate>()
 	{
-		return ReadOperand<AddressingMode::Immediate>();
+		return ReadPC16();
+	}
+
+	template <AddressingMode addressingMode>
+	uint8_t ReadOperandValue8()
+	{
+		auto EA = ReadOperand16<addressingMode>();
+		return Read8(EA);
+	}
+	template <>
+	uint8_t ReadOperandValue8<AddressingMode::Immediate>()
+	{
+		return ReadPC8();
+	}
+
+
+	int8_t ReadRelativeOffset8()
+	{
+		return static_cast<int8_t>(ReadPC8());
+	}
+
+	int16_t ReadRelativeOffset16()
+	{
+		return static_cast<int16_t>(ReadPC16());
+	}
+
+
+	template <int page, uint8_t opCode>
+	void OpLD(uint8_t& targetReg)
+	{
+		uint8_t value = ReadOperandValue8<LookupCpuOp(page, opCode).addrMode>();
+		CC.Negative = (value & BITS(7)) != 0;
+		CC.Zero = (value == 0);
+		CC.Overflow = 0;
+		targetReg = value;
 	}
 
 	template <int page, uint8_t opCode>
@@ -303,7 +342,7 @@ public:
 	template <int page, uint8_t opCode>
 	void OpJSR()
 	{
-		uint16_t EA = ReadOperand<LookupCpuOp(page, opCode).addrMode>();
+		uint16_t EA = ReadOperand16<LookupCpuOp(page, opCode).addrMode>();
 		Push16(S, PC);
 		PC = EA;
 	}
@@ -312,32 +351,29 @@ public:
 	{
 		auto PrintOp = [this](const CpuOp& cpuOp, int cpuOpPage)
 		{
-			printf("0x%04X: 0x%02X", PC - (cpuOpPage==0? 1 : 2), cpuOp.opCode);
+			printf("0x%04X: %9s 0x%02X", PC - (cpuOpPage==0? 1 : 2), cpuOp.name, cpuOp.opCode);
 			for (uint16_t i = 1; i < cpuOp.size; ++i)
 				printf(" 0x%02X", m_memoryBus->Read(PC + i - 1));
-			printf(" %s\n", cpuOp.name);
+			printf("\n");
 		};
 
 		auto UnhandledOp = [this](const CpuOp& cpuOp)
 		{
 			(void)cpuOp;
-			//printf("\tUnhandled Op!\n");
-			//for (int i = 0; i < cpuOp.size - 1; ++i)
-			//	printf("\tskipping 0x%02X\n", m_memoryBus->Read(PC++));
 			FAIL("Unhandled Op!");
 		};
 
 		int cpuOpPage = 0;
-		uint8_t opCodeByte = m_memoryBus->Read(PC++);
+		uint8_t opCodeByte = ReadPC8();
 		if (IsOpCodePage1(opCodeByte))
 		{
 			cpuOpPage = 1;
-			opCodeByte = m_memoryBus->Read(PC++);
+			opCodeByte = ReadPC8();
 		}
 		else if (IsOpCodePage2(opCodeByte))
 		{
 			cpuOpPage = 2;
-			opCodeByte = m_memoryBus->Read(PC++);
+			opCodeByte = ReadPC8();
 		}
 		
 		const CpuOp& cpuOp = LookupCpuOpRuntime(cpuOpPage, opCodeByte);
@@ -347,45 +383,21 @@ public:
 		assert(cpuOp.addrMode != AddressingMode::Illegal && "Illegal instruction!");
 		assert(cpuOp.addrMode != AddressingMode::Variant && "Page 1/2 instruction, should have read next byte by now");
 
-
 		// Compute EA from addressing mode
 		// NOTE: PC currently points to the first operand byte
-
-		uint8_t postbyte = 0;
-
 		switch (cpuOp.addrMode)
 		{
-		case AddressingMode::Relative:
-			// Used for branch instructions; can be either an 8 or 16 bit signed relative offset stored
-			// in postbyte(s). We delay reading the offset to when evaluating the condition so that we
-			// only pay for the reads (and cycles) if the branch is taken.
-			break;
-
 		case AddressingMode::Inherent:
+		{
 			// Always read the "postbyte"; some instructions use it for "register addressing"
-			postbyte = m_memoryBus->Read(PC++);
-			break;
-
-		case AddressingMode::Immediate:
-			// 8 or 16 bit immediate value follows opcode byte (2 or 3 byte instruction)
-			// 1 or 2 byte operand, depending on instruction. Here we'll just set the first byte to set the initial effective address. If the instruction
-			// needs to read a 16 bit value, it can perform the extra read on PC (i.e. EA+1) and increment PC - @TODO: verify!
-			//EA = PC++;
-			break;
-
-		case AddressingMode::Direct:
-			break;
-
-		case AddressingMode::Indexed:
-		 break;
-
-		case AddressingMode::Extended:
-		 break;
+			uint8_t postbyte = ReadPC8();
+			(void)postbyte;
+		} break;
 
 		default:
-			FAIL("Unexpected addressing mode");
+			//FAIL("Unexpected addressing mode");
+			break;
 		}
-
 
 		switch (cpuOpPage)
 		{
@@ -396,6 +408,16 @@ public:
 			case 0xAD: OpJSR<0, 0xAD>(); break;
 			case 0xBD: OpJSR<0, 0xBD>(); break;
 
+			// 8-bit LD
+			case 0x86: OpLD<0, 0x86>(A); break;
+			case 0x96: OpLD<0, 0x96>(A); break;
+			case 0xA6: OpLD<0, 0xA6>(A); break;
+			case 0xB6: OpLD<0, 0xB6>(A); break;
+			case 0xC6: OpLD<0, 0xC6>(B); break;
+			case 0xD6: OpLD<0, 0xD6>(B); break;
+			case 0xE6: OpLD<0, 0xE6>(B); break;
+			case 0xF6: OpLD<0, 0xF6>(B); break;
+			// 16-bit LD
 			case 0x8E: OpLD<0, 0x8E>(X); break;
 			case 0x9E: OpLD<0, 0x9E>(X); break;
 			case 0xAE: OpLD<0, 0xAE>(X); break;
@@ -408,6 +430,19 @@ public:
 			case 0xDE: OpLD<0, 0xDE>(U); break;
 			case 0xEE: OpLD<0, 0xEE>(U); break;
 			case 0xFE: OpLD<0, 0xFE>(U); break;
+
+			case 0x8D: // BSR (branch to subroutine)
+			{
+				auto offset = ReadRelativeOffset8();
+				Push16(S, PC);
+				PC += offset;
+			} break;
+			case 0x17: // LBSR (long branch to subroutine)
+			{
+				auto offset = ReadRelativeOffset16();
+				Push16(S, PC);
+				PC += offset;
+			} break;
 
 			default:
 				UnhandledOp(cpuOp);
