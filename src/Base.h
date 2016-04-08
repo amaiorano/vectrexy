@@ -117,8 +117,3 @@ inline void FailHandler(const char* msg)
 #define FAIL_HELPER(msg, ...) FailHandler(FormattedString<>(msg, __VA_ARGS__))
 #define FAIL(...) FAIL_HELPER(__VA_ARGS__, "")
 
-template <typename T1, typename T2, typename T3>
-inline bool IsInRange(T1 value, const std::pair<T2, T3>& range)
-{
-	return value >= range.first && value <= range.second;
-}

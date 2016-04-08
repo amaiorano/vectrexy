@@ -4,7 +4,7 @@
 
 void BiosRom::Init(MemoryBus& memoryBus)
 {
-	memoryBus.ConnectDevice(*this, MemoryMap::Bios, 1);
+	memoryBus.ConnectDevice(*this, MemoryMap::Bios.range);
 }
 
 void BiosRom::LoadBiosRom(const char* file)
@@ -15,8 +15,7 @@ void BiosRom::LoadBiosRom(const char* file)
 
 uint8_t BiosRom::Read(uint16_t address) const
 {
-	assert(IsInRange(address, MemoryMap::Bios));
-	return m_data[address - MemoryMap::Bios.first];
+	return m_data[MemoryMap::Bios.MapAddress(address)];
 }
 
 void BiosRom::Write(uint16_t /*address*/, uint8_t /*value*/)

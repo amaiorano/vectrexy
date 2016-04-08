@@ -30,7 +30,7 @@ int main(int argc, char** argv)
 	cartridge->LoadRom(argv[1]);
 
 	// Start executing at the first instruction of the BIOS routines (at 0xF000)
-	const uint16_t BiosRoutines = MemoryMap::Bios.first + 0x1000;
+	const uint16_t BiosRoutines = MemoryMap::Bios.range.first + 0x1000;
 	cpu->Reset(BiosRoutines);
 
 	while (true)

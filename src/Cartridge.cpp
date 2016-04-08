@@ -28,7 +28,7 @@ namespace
 
 void Cartridge::Init(MemoryBus & memoryBus)
 {
-	memoryBus.ConnectDevice(*this, MemoryMap::Cartridge, 1);
+	memoryBus.ConnectDevice(*this, MemoryMap::Cartridge.range);
 }
 
 void Cartridge::LoadRom(const char * file)
@@ -64,8 +64,7 @@ void Cartridge::LoadRom(const char * file)
 
 uint8_t Cartridge::Read(uint16_t address) const
 {
-	assert(IsInRange(address, MemoryMap::Cartridge));
-	return m_data[address - MemoryMap::Cartridge.first];
+	return m_data[MemoryMap::Cartridge.MapAddress(address)];
 }
 
 void Cartridge::Write(uint16_t /*address*/, uint8_t /*value*/)
