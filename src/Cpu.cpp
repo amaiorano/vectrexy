@@ -383,22 +383,6 @@ public:
 		assert(cpuOp.addrMode != AddressingMode::Illegal && "Illegal instruction!");
 		assert(cpuOp.addrMode != AddressingMode::Variant && "Page 1/2 instruction, should have read next byte by now");
 
-		// Compute EA from addressing mode
-		// NOTE: PC currently points to the first operand byte
-		switch (cpuOp.addrMode)
-		{
-		case AddressingMode::Inherent:
-		{
-			// Always read the "postbyte"; some instructions use it for "register addressing"
-			uint8_t postbyte = ReadPC8();
-			(void)postbyte;
-		} break;
-
-		default:
-			//FAIL("Unexpected addressing mode");
-			break;
-		}
-
 		switch (cpuOpPage)
 		{
 		case 0:
@@ -433,15 +417,37 @@ public:
 
 			case 0x8D: // BSR (branch to subroutine)
 			{
-				auto offset = ReadRelativeOffset8();
+				int8_t offset = ReadRelativeOffset8();
 				Push16(S, PC);
 				PC += offset;
 			} break;
 			case 0x17: // LBSR (long branch to subroutine)
 			{
-				auto offset = ReadRelativeOffset16();
+				int16_t offset = ReadRelativeOffset16();
 				Push16(S, PC);
 				PC += offset;
+			} break;
+
+			case 0x1F: // TFR (transfer register to register)
+			{
+				uint8_t postbyte = ReadPC8();
+				assert(!!(postbyte & BITS(3)) == !!(postbyte & BITS(7))); // 8-bit to 8-bit or 16-bit to 16-bit only
+
+				uint8_t src = (postbyte >> 4) & 0b111;
+				uint8_t dst = postbyte & 0b111;
+
+				if (postbyte & BITS(3))
+				{
+					assert(src < 4 && dst < 4); // Only first 4 are valid 8-bit register indices
+					uint8_t* const reg[]{ &A, &B, &CC.Value, &DP };
+					*reg[dst] = *reg[src];
+				}
+				else
+				{
+					assert(src < 6 && dst < 6); // Only first 6 are valid 16-bit register indices
+					uint16_t* const reg[]{ &D, &X, &Y, &U, &S, &PC };
+					*reg[dst] = *reg[src];
+				}
 			} break;
 
 			default:
