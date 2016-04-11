@@ -347,6 +347,14 @@ public:
 		PC = EA;
 	}
 
+	template <typename CondFunc>
+	void Branch(CondFunc condFunc)
+	{
+		int8_t offset = ReadRelativeOffset8();
+		if (condFunc())
+			PC += offset;
+	}
+
 	void ExecuteInstruction()
 	{
 		auto PrintOp = [this](const CpuOp& cpuOp, int cpuOpPage)
@@ -428,6 +436,23 @@ public:
 				PC += offset;
 			} break;
 
+			case 0x24: Branch([this] { return CC.Carry == 0; }); break; // BCC (branch if carry clear) or BHS (branch if higher or same)
+			case 0x25: Branch([this] { return CC.Carry != 0; }); break; // BCS (branch if carry set) or BLO (branch if lower)
+			case 0x27: Branch([this] { return CC.Zero != 0; }); break; // BEQ (branch if equal)
+			case 0x2C: Branch([this] { return (CC.Negative ^ CC.Overflow) == 0; }); // BGE (branch if greater or equal)
+			case 0x2E: Branch([this] { return (CC.Zero | (CC.Negative ^ CC.Overflow)) == 0; }); // BGT (branch if greater)
+			case 0x22: Branch([this] { return (CC.Carry | CC.Overflow) == 0; }); // BHI (branch if higher)
+			case 0x2F: Branch([this] { return (CC.Zero | (CC.Negative ^ CC.Overflow)) != 0; }); // BLE (branch if less or equal)
+			case 0x23: Branch([this] { return (CC.Carry | CC.Overflow) != 0; }); // BLS (banch if lower or same)
+			case 0x2D: Branch([this] { return (CC.Negative ^ CC.Overflow) != 0; }); // BLT (branch if less than)
+			case 0x2B: Branch([this] { return CC.Negative != 0; }); // BMI (brach if minus)
+			case 0x26: Branch([this] { return CC.Zero == 0; }); break; // BNE (branch if not equal)
+			case 0x2A: Branch([this] { return CC.Negative == 0; }); // BPL (branch if plus)
+			case 0x20: Branch([this] { return true; }); break; // BRA (branch always)
+			case 0x21: Branch([this] { return false; }); break; // BRN (branch never)
+			case 0x28: Branch([this] { return CC.Overflow == 0; }); // BVC (branch if overflow clear)
+			case 0x29: Branch([this] { return CC.Overflow != 0; }); // BVS (branch if overflow set)
+
 			case 0x1F: // TFR (transfer register to register)
 			{
 				uint8_t postbyte = ReadPC8();
@@ -450,10 +475,18 @@ public:
 				}
 			} break;
 
-
 			case 0x39: // RTS (return from subroutine)
 			{
 				PC = Pop16(S);
+			} break;
+
+			case 0x4F: // CLRA (clear A)
+			{
+				A = 0;
+				CC.Negative = 0;
+				CC.Zero = 1;
+				CC.Overflow = 0;
+				CC.Carry = 0;
 			} break;
 
 			default:
