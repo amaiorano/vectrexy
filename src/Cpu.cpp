@@ -116,14 +116,14 @@ public:
 
 	void Push16(uint16_t& stackPointer, uint16_t value)
 	{
-		m_memoryBus->Write(--stackPointer, U8(value & 0b1111)); // Low
-		m_memoryBus->Write(--stackPointer, U8(value >> 4)); // High
+		m_memoryBus->Write(--stackPointer, U8(value & 0b11111111)); // Low
+		m_memoryBus->Write(--stackPointer, U8(value >> 8)); // High
 	}
 
 	uint16_t Pop16(uint16_t& stackPointer)
 	{
-		auto high = m_memoryBus->Read(stackPointer--);
-		auto low = m_memoryBus->Read(stackPointer--);
+		auto high = m_memoryBus->Read(stackPointer++);
+		auto low = m_memoryBus->Read(stackPointer++);
 		return CombineToU16(high, low);
 	}
 
@@ -448,6 +448,12 @@ public:
 					uint16_t* const reg[]{ &D, &X, &Y, &U, &S, &PC };
 					*reg[dst] = *reg[src];
 				}
+			} break;
+
+
+			case 0x39: // RTS (return from subroutine)
+			{
+				PC = Pop16(S);
 			} break;
 
 			default:
