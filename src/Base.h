@@ -8,6 +8,19 @@
 #include <stdexcept>
 #include <utility>
 
+// Platform defines
+#ifdef _MSC_VER
+#define PLATFORM_WINDOWS 1
+#elif __linux__
+#define PLATFORM_LINUX 1
+#else
+#error "Define current platform"
+#endif
+
+//@TODO: Find standard way to detect endianness
+#define ENDIANESS_LITTLE 1
+#define ENDIANESS_BIG 0
+
 // Build config defines
 #if defined(_DEBUG)
 #define CONFIG_DEBUG 1

@@ -53,8 +53,13 @@ public:
 	{
 		struct
 		{
+		#if ENDIANESS_LITTLE
+			uint8_t B;
+			uint8_t A;
+		#else
 			uint8_t A;
 			uint8_t B;
+		#endif
 		};
 		uint16_t D;
 	};
@@ -62,14 +67,6 @@ public:
 	ConditionCode CC; // condition code register (aka status register)
 
 	MemoryBus* m_memoryBus = nullptr;
-
-	// Compile-time layout validation
-	static void ValidateLayout()
-	{
-		static_assert(std::is_standard_layout<CpuImpl>::value, "Can't use offsetof");
-		static_assert(offsetof(CpuImpl, A) < offsetof(CpuImpl, B), "Reorder union so that A is msb and B is lsb of D");
-		static_assert((offsetof(CpuImpl, D) - offsetof(CpuImpl, A)) == 0, "Reorder union so that A is msb and B is lsb of D");
-	}
 
 	void Init(MemoryBus& memoryBus)
 	{
