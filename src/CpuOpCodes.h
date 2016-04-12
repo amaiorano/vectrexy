@@ -283,15 +283,6 @@ constexpr CpuOp CpuOpsPage0[] =
 };
 static_assert(sizeof(CpuOpsPage0) / sizeof(CpuOpsPage0[0]) == 256, "");
 
-constexpr const CpuOp& GetCpuOpPage0(uint8_t opCode)
-{
-	return CpuOpsPage0[opCode];
-}
-
-
-// First byte of instruction is 0x10
-inline bool IsOpCodePage1(uint8_t firstByte) { return firstByte == 0x10; }
-
 constexpr CpuOp CpuOpsPage1[] =
 {
 	{ 0x21, "LBRN     ", AddressingMode::Relative ,  5, 4 },
@@ -334,9 +325,6 @@ constexpr CpuOp CpuOpsPage1[] =
 	{ 0xFF, "STS      ", AddressingMode::Extended ,  7, 4 },
 };
 
-// First byte of instruction is 0x11
-inline bool IsOpCodePage2(uint8_t firstByte) { return firstByte == 0x11; }
-
 constexpr CpuOp CpuOpsPage2[] =
 {
 	{ 0x3F, "SWI3     ", AddressingMode::Inherent , 20, 2 },
@@ -353,6 +341,12 @@ constexpr CpuOp CpuOpsPage2[] =
 constexpr size_t NumCpuOpsPage0 = sizeof(CpuOpsPage0) / sizeof(CpuOpsPage0[0]);
 constexpr size_t NumCpuOpsPage1 = sizeof(CpuOpsPage1) / sizeof(CpuOpsPage1[0]);
 constexpr size_t NumCpuOpsPage2 = sizeof(CpuOpsPage2) / sizeof(CpuOpsPage2[0]);
+
+// First byte of instruction is 0x10
+inline bool IsOpCodePage1(uint8_t firstByte) { return firstByte == 0x10; }
+
+// First byte of instruction is 0x11
+inline bool IsOpCodePage2(uint8_t firstByte) { return firstByte == 0x11; }
 
 constexpr const CpuOp& FindCpuOp(const CpuOp table[], uint8_t opCode, int index = 0)
 {
