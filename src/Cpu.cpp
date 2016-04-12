@@ -276,6 +276,11 @@ public:
 	{
 		return ReadExtendedEA();
 	}
+	template <>
+	uint16_t ReadOperand16<AddressingMode::Direct>()
+	{
+		return ReadDirectEA();
+	}
 
 
 	// Default template assumes operand is EA and de-refs it
@@ -342,6 +347,17 @@ public:
 		uint16_t EA = ReadOperand16<LookupCpuOp(page, opCode).addrMode>();
 		Push16(S, PC);
 		PC = EA;
+	}
+
+	template <int page, uint8_t opCode>
+	void OpCLR()
+	{
+		uint16_t EA = ReadOperand16<LookupCpuOp(page, opCode).addrMode>();
+		m_memoryBus->Write(EA, 0);
+		CC.Negative = 0;
+		CC.Zero = 1;
+		CC.Overflow = 0;
+		CC.Carry = 0;
 	}
 
 	template <typename CondFunc>
@@ -485,6 +501,18 @@ public:
 				CC.Overflow = 0;
 				CC.Carry = 0;
 			} break;
+			case 0x5F: // CLRB (clear B)
+			{
+				B = 0;
+				CC.Negative = 0;
+				CC.Zero = 1;
+				CC.Overflow = 0;
+				CC.Carry = 0;
+			} break;
+			case 0x0F: OpCLR<0, 0x0F>(); break;
+			case 0x6F: OpCLR<0, 0x6F>(); break;
+			case 0x7F: OpCLR<0, 0x7F>(); break;
+			
 
 			default:
 				UnhandledOp(cpuOp);
