@@ -153,7 +153,7 @@ public:
 		uint8_t postbyte = ReadPC8();
 		bool supportsIndirect = true;
 
-		if (postbyte & BITS(7)) // (+/- 4 bit offset),R
+		if ((postbyte & BITS(7)) == 0) // (+/- 4 bit offset),R
 		{
 			// postbyte is a 5 bit two's complement number we convert to 8 bit.
 			// So if bit 4 is set (sign bit), we extend the sign bit by turning on bits 6,7,8;
