@@ -13,6 +13,9 @@ namespace
 	constexpr uint16_t U16(T v) { return static_cast<uint16_t>(v); }
 
 	template <typename T>
+	constexpr uint32_t U32(T v) { return static_cast<uint32_t>(v); }
+
+	template <typename T>
 	constexpr uint8_t U8(T v) { return static_cast<uint8_t>(v); }
 
 	constexpr uint16_t CombineToU16(uint8_t msb, uint8_t lsb) { return U16(msb) << 8 | U16(lsb); }
@@ -360,6 +363,52 @@ public:
 		CC.Carry = 0;
 	}
 
+	// SUBA, SUBB
+	template <int page, uint8_t opCode>
+	void OpSUB(uint8_t& reg)
+	{
+		const uint8_t value = ReadOperandValue8<LookupCpuOp(page, opCode).addrMode>();
+
+		// Instead of subtracting, we add the 2's complement of the value
+		uint16_t a = U16(reg);
+		uint16_t b = ~U16(value); // 1's complement (we add one next to make it 2's complement)
+		uint16_t r = a + b + 1;
+
+		CC.Carry = (r & 0xFF00) != 0;
+		CC.Carry = !CC.Carry; // For subtraction, C is the complement of the resulting carry since it represents a borrow
+		
+		// If we look at sign bits of a, b, r, then overflow is set if 0 0 1 or 1 1 0
+		CC.Overflow = ((a ^ r) & (a ^ b) & BITS(7)) != 0;
+
+		CC.Zero = (r == 0);
+		CC.Negative = (r & BITS(7)) != 0;
+
+		reg = U8(r);
+	}
+
+	// SUBD
+	template <int page, uint8_t opCode>
+	void OpSUB(uint16_t& reg)
+	{
+		const uint16_t value = ReadOperandValue16<LookupCpuOp(page, opCode).addrMode>();
+
+		// Instead of subtracting, we add the 2's complement of the value
+		uint32_t a = U32(reg);
+		uint32_t b = ~U32(value); // 1's complement (we add one next to make it 2's complement)
+		uint32_t r = a + b + 1;
+
+		CC.Carry = (r & 0xFFFF'0000) != 0;
+		CC.Carry = !CC.Carry; // For subtraction, C is the complement of the resulting carry since it represents a borrow
+
+		// If we look at sign bits of a, b, r, then overflow is set if 0 0 1 or 1 1 0
+		CC.Overflow = ((a ^ r) & (a ^ b) & BITS(15)) != 0;
+
+		CC.Zero = (r == 0);
+		CC.Negative = (r & BITS(15)) != 0;
+
+		reg = U16(r);
+	}
+
 	template <typename CondFunc>
 	void Branch(CondFunc condFunc)
 	{
@@ -512,7 +561,19 @@ public:
 			case 0x0F: OpCLR<0, 0x0F>(); break;
 			case 0x6F: OpCLR<0, 0x6F>(); break;
 			case 0x7F: OpCLR<0, 0x7F>(); break;
-			
+
+			case 0x80: OpSUB<0, 0x80>(A); break;
+			case 0x83: OpSUB<0, 0x83>(D); break;
+			case 0x90: OpSUB<0, 0x90>(A); break;
+			case 0x93: OpSUB<0, 0x93>(D); break;
+			case 0xA0: OpSUB<0, 0xA0>(A); break;
+			case 0xA3: OpSUB<0, 0xA3>(D); break;
+			case 0xB0: OpSUB<0, 0xB0>(A); break;
+			case 0xB3: OpSUB<0, 0xB3>(D); break;
+			case 0xC0: OpSUB<0, 0xC0>(B); break;
+			case 0xD0: OpSUB<0, 0xD0>(B); break;
+			case 0xE0: OpSUB<0, 0xE0>(B); break;
+			case 0xF0: OpSUB<0, 0xF0>(B); break;
 
 			default:
 				UnhandledOp(cpuOp);
