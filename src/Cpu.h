@@ -7,16 +7,15 @@ class MemoryBus;
 
 // Implementation of Motorola 68A09 1.5 MHz 8-Bit Microprocessor
 
-class Cpu
-{
+class Cpu {
 public:
-	Cpu();
-	~Cpu();
+    Cpu();
+    ~Cpu();
 
-	void Init(MemoryBus& memoryBus);
-	void Reset(uint16_t initialPC);
-	void ExecuteInstruction();
+    void Init(MemoryBus& memoryBus);
+    void Reset(uint16_t initialPC);
+    void ExecuteInstruction();
 
 private:
-	std::unique_ptr<class CpuImpl> m_impl;
+    std::unique_ptr<class CpuImpl> m_impl;
 };
