@@ -5,28 +5,26 @@
 #include <type_traits>
 
 namespace {
+    // Convenience cast functions
     template <typename T>
     constexpr int16_t S16(T v) {
         return static_cast<int16_t>(v);
     }
-
     template <typename T>
     constexpr uint16_t U16(T v) {
         return static_cast<uint16_t>(v);
     }
-
     template <typename T>
     constexpr uint32_t U32(T v) {
         return static_cast<uint32_t>(v);
     }
-
     template <typename T>
     constexpr uint8_t U8(T v) {
         return static_cast<uint8_t>(v);
     }
 
+    // Combine two 8-bit values into a 16-bit value
     constexpr uint16_t CombineToU16(uint8_t msb, uint8_t lsb) { return U16(msb) << 8 | U16(lsb); }
-
     constexpr int16_t CombineToS16(uint8_t msb, uint8_t lsb) {
         return static_cast<int16_t>(CombineToU16(msb, lsb));
     }
@@ -96,6 +94,7 @@ public:
     uint8_t Read8(uint16_t address) { return m_memoryBus->Read(address); }
 
     uint16_t Read16(uint16_t address) {
+        // Big endian
         auto high = m_memoryBus->Read(address++);
         auto low = m_memoryBus->Read(address);
         return CombineToU16(high, low);
@@ -109,8 +108,8 @@ public:
     }
 
     void Push16(uint16_t& stackPointer, uint16_t value) {
-        m_memoryBus->Write(--stackPointer, U8(value & 0b11111111)); // Low
-        m_memoryBus->Write(--stackPointer, U8(value >> 8));         // High
+        m_memoryBus->Write(--stackPointer, U8(value & 0b1111'1111)); // Low
+        m_memoryBus->Write(--stackPointer, U8(value >> 8));          // High
     }
 
     uint16_t Pop16(uint16_t& stackPointer) {
@@ -252,29 +251,30 @@ public:
         return EA;
     }
 
+    // Read 16-bit effective address based on addressing mode
     template <AddressingMode addressingMode>
-    uint16_t ReadOperand16() {
+    uint16_t ReadEA16() {
         assert(false && "Not implemented for addressing mode");
         return 0xFFFF;
     }
-
     template <>
-    uint16_t ReadOperand16<AddressingMode::Indexed>() {
+    uint16_t ReadEA16<AddressingMode::Indexed>() {
         return ReadIndexedEA();
     }
     template <>
-    uint16_t ReadOperand16<AddressingMode::Extended>() {
+    uint16_t ReadEA16<AddressingMode::Extended>() {
         return ReadExtendedEA();
     }
     template <>
-    uint16_t ReadOperand16<AddressingMode::Direct>() {
+    uint16_t ReadEA16<AddressingMode::Direct>() {
         return ReadDirectEA();
     }
 
-    // Default template assumes operand is EA and de-refs it
+    // Read CPU op's value (8/16 bit) either directly or indirectly (via EA) depending on addressing
+    // mode Default template assumes operand is EA and de-refs it
     template <AddressingMode addressingMode>
     uint16_t ReadOperandValue16() {
-        auto EA = ReadOperand16<addressingMode>();
+        auto EA = ReadEA16<addressingMode>();
         return Read16(EA);
     }
     // Specialize for Immediate mode where we don't de-ref
@@ -285,7 +285,7 @@ public:
 
     template <AddressingMode addressingMode>
     uint8_t ReadOperandValue8() {
-        auto EA = ReadOperand16<addressingMode>();
+        auto EA = ReadEA16<addressingMode>();
         return Read8(EA);
     }
     template <>
@@ -293,8 +293,8 @@ public:
         return ReadPC8();
     }
 
+    // Read CPU op's relative offset from next 8/16 bits
     int8_t ReadRelativeOffset8() { return static_cast<int8_t>(ReadPC8()); }
-
     int16_t ReadRelativeOffset16() { return static_cast<int16_t>(ReadPC16()); }
 
     template <int page, uint8_t opCode>
@@ -317,14 +317,14 @@ public:
 
     template <int page, uint8_t opCode>
     void OpJSR() {
-        uint16_t EA = ReadOperand16<LookupCpuOp(page, opCode).addrMode>();
+        uint16_t EA = ReadEA16<LookupCpuOp(page, opCode).addrMode>();
         Push16(S, PC);
         PC = EA;
     }
 
     template <int page, uint8_t opCode>
     void OpCLR() {
-        uint16_t EA = ReadOperand16<LookupCpuOp(page, opCode).addrMode>();
+        uint16_t EA = ReadEA16<LookupCpuOp(page, opCode).addrMode>();
         m_memoryBus->Write(EA, 0);
         CC.Negative = 0;
         CC.Zero = 1;
@@ -378,8 +378,10 @@ public:
         reg = U16(r);
     }
 
+    // Helper for conditional branch ops. Always reads relative offset, and if condition is true,
+    // applies it to PC.
     template <typename CondFunc>
-    void Branch(CondFunc condFunc) {
+    void BranchIf(CondFunc condFunc) {
         int8_t offset = ReadRelativeOffset8();
         if (condFunc())
             PC += offset;
@@ -401,10 +403,10 @@ public:
         int cpuOpPage = 0;
         uint8_t opCodeByte = ReadPC8();
         if (IsOpCodePage1(opCodeByte)) {
-            cpuOpPage = 1;
+            cpuOpPage = 1; //@TODO: 1 cycle (see CpuOpsPage0)
             opCodeByte = ReadPC8();
         } else if (IsOpCodePage2(opCodeByte)) {
-            cpuOpPage = 2;
+            cpuOpPage = 2; //@TODO: 1 cycle (see CpuOpsPage0)
             opCodeByte = ReadPC8();
         }
 
@@ -506,52 +508,52 @@ public:
             } break;
 
             case 0x24: // BCC (branch if carry clear) or BHS (branch if higher or same)
-                Branch([this] { return CC.Carry == 0; });
+                BranchIf([this] { return CC.Carry == 0; });
                 break;
             case 0x25: // BCS (branch if carry set) or BLO (branch if lower)
-                Branch([this] { return CC.Carry != 0; });
+                BranchIf([this] { return CC.Carry != 0; });
                 break;
             case 0x27: // BEQ (branch if equal)
-                Branch([this] { return CC.Zero != 0; });
+                BranchIf([this] { return CC.Zero != 0; });
                 break;
             case 0x2C: // BGE (branch if greater or equal)
-                Branch([this] { return (CC.Negative ^ CC.Overflow) == 0; });
+                BranchIf([this] { return (CC.Negative ^ CC.Overflow) == 0; });
                 break;
             case 0x2E: // BGT (branch if greater)
-                Branch([this] { return (CC.Zero | (CC.Negative ^ CC.Overflow)) == 0; });
+                BranchIf([this] { return (CC.Zero | (CC.Negative ^ CC.Overflow)) == 0; });
                 break;
             case 0x22: // BHI (branch if higher)
-                Branch([this] { return (CC.Carry | CC.Overflow) == 0; });
+                BranchIf([this] { return (CC.Carry | CC.Overflow) == 0; });
                 break;
             case 0x2F: // BLE (branch if less or equal)
-                Branch([this] { return (CC.Zero | (CC.Negative ^ CC.Overflow)) != 0; });
+                BranchIf([this] { return (CC.Zero | (CC.Negative ^ CC.Overflow)) != 0; });
                 break;
             case 0x23: // BLS (banch if lower or same)
-                Branch([this] { return (CC.Carry | CC.Overflow) != 0; });
+                BranchIf([this] { return (CC.Carry | CC.Overflow) != 0; });
                 break;
             case 0x2D: // BLT (branch if less than)
-                Branch([this] { return (CC.Negative ^ CC.Overflow) != 0; });
+                BranchIf([this] { return (CC.Negative ^ CC.Overflow) != 0; });
                 break;
             case 0x2B: // BMI (brach if minus)
-                Branch([this] { return CC.Negative != 0; });
+                BranchIf([this] { return CC.Negative != 0; });
                 break;
             case 0x26: // BNE (branch if not equal)
-                Branch([this] { return CC.Zero == 0; });
+                BranchIf([this] { return CC.Zero == 0; });
                 break;
             case 0x2A: // BPL (branch if plus)
-                Branch([this] { return CC.Negative == 0; });
+                BranchIf([this] { return CC.Negative == 0; });
                 break;
             case 0x20: // BRA (branch always)
-                Branch([this] { return true; });
+                BranchIf([this] { return true; });
                 break;
             case 0x21: // BRN (branch never)
-                Branch([this] { return false; });
+                BranchIf([this] { return false; });
                 break;
             case 0x28: // BVC (branch if overflow clear)
-                Branch([this] { return CC.Overflow == 0; });
+                BranchIf([this] { return CC.Overflow == 0; });
                 break;
             case 0x29: // BVS (branch if overflow set)
-                Branch([this] { return CC.Overflow != 0; });
+                BranchIf([this] { return CC.Overflow != 0; });
                 break;
 
             case 0x1F: // TFR (transfer register to register)

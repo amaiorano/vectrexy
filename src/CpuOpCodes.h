@@ -2,14 +2,19 @@
 #include <cstdint>
 
 enum class AddressingMode {
-    Relative,
-    Inherent,
-    Immediate,
-    Direct,
-    Indexed,
-    Extended,
-    Illegal,
-    Variant,
+    Relative,  // Used for branch instructions, involves addding signed constant to PC if branch is
+               // taken (+/- 7 or 15 bits).
+    Inherent,  // Opcode contains all addressing info (no EA). Also known as "Register" addressing.
+    Immediate, // Data follows opcode byte immediately, e.g. 'LDA #$20' loads $20 into A ('#'
+               // signifies immediate addressing)
+    Direct,    // EA of data is made up of DP value (high) and byte following opcode byte (low):
+               // EA = DP:(PC). So there are 256 pages of 256 values.
+    Indexed,   // EA is computed using one of the pointer registers (X, Y, U, S, PC). The "postbyte"
+               // (byte following opcode byte) specifies variation of computation of EA.
+    Extended,  // EA of data is 16 bits following opcode byte: EA = (PC):(PC+1). Always 3 byte
+               // instruction.
+    Illegal,   // Not an addressing mode; used to denote an illegal addressing.
+    Variant,   // Not an addressing mode; used for Page1/Page2 byte
 };
 
 struct CpuOp {
@@ -344,12 +349,12 @@ constexpr size_t NumCpuOpsPage1 = sizeof(CpuOpsPage1) / sizeof(CpuOpsPage1[0]);
 constexpr size_t NumCpuOpsPage2 = sizeof(CpuOpsPage2) / sizeof(CpuOpsPage2[0]);
 
 // First byte of instruction is 0x10
-inline bool IsOpCodePage1(uint8_t firstByte) {
+constexpr bool IsOpCodePage1(uint8_t firstByte) {
     return firstByte == 0x10;
 }
 
 // First byte of instruction is 0x11
-inline bool IsOpCodePage2(uint8_t firstByte) {
+constexpr bool IsOpCodePage2(uint8_t firstByte) {
     return firstByte == 0x11;
 }
 

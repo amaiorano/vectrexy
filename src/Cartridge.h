@@ -3,7 +3,7 @@
 #include "MemoryBus.h"
 #include <vector>
 
-class Cartridge : IMemoryBusDevice {
+class Cartridge : public IMemoryBusDevice {
 public:
     void Init(MemoryBus& memoryBus);
     void LoadRom(const char* file);
