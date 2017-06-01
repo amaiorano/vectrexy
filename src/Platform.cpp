@@ -18,6 +18,7 @@ void Platform::SetConsoleCtrlHandler(std::function<bool()> handler) {
     g_consoleCtrlHandler = std::move(handler);
     BOOL succeeded =
         ::SetConsoleCtrlHandler(&Win32ConsoleCtrlHandler, g_consoleCtrlHandler != nullptr);
+    (void)succeeded;
     assert(succeeded);
 }
 
