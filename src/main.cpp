@@ -4,8 +4,11 @@
 #include "Cpu.h"
 #include "MemoryBus.h"
 #include "MemoryMap.h"
+#include "Platform.h"
 #include "Ram.h"
+#include <iostream>
 #include <memory>
+#include <string>
 
 int main(int argc, char** argv) {
     if (argc != 2) {
@@ -31,8 +34,28 @@ int main(int argc, char** argv) {
     const uint16_t BiosRoutines = MemoryMap::Bios.range.first + 0x1000;
     cpu->Reset(BiosRoutines);
 
-    while (true)
-        cpu->ExecuteInstruction();
+    bool breakIntoDebugger = false;
+
+    Platform::SetConsoleCtrlHandler([&breakIntoDebugger] {
+        breakIntoDebugger = true;
+        return true;
+    });
+
+    while (true) {
+        if (breakIntoDebugger) {
+            auto& reg = cpu->Registers();
+            std::cout << FormattedString<>("[$%x]>", reg.PC);
+            std::string input;
+            std::getline(std::cin, input); //@TODO: check return value
+
+            if (input.find("c") != -1 || input.find("continue") != -1)
+                breakIntoDebugger = false;
+            else
+                cpu->ExecuteInstruction();
+        } else {
+            cpu->ExecuteInstruction();
+        }
+    }
 
     return 0;
 }
