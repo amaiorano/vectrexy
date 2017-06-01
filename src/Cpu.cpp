@@ -30,47 +30,8 @@ namespace {
     }
 } // namespace
 
-class CpuImpl {
+class CpuImpl : public CpuRegisters {
 public:
-    struct ConditionCode {
-        union {
-            struct {
-                uint8_t Carry : 1;
-                uint8_t Overflow : 1; // V
-                uint8_t Zero : 1;
-                uint8_t Negative : 1;
-                uint8_t InterruptMask : 1; // IRQ
-                uint8_t HalfCarry : 1;
-                uint8_t FastInterruptMask : 1; // FIRQ
-                uint8_t Entire : 1;
-            };
-            uint8_t Value; // Use only to reset to 0 or serialize
-        };
-    };
-    static_assert(sizeof(ConditionCode) == 1, "");
-
-    // Registers
-    uint16_t X;  // index register
-    uint16_t Y;  // index register
-    uint16_t U;  // user stack pointer
-    uint16_t S;  // hardware stack pointer
-    uint16_t PC; // program counter
-    union        // accumulators
-    {
-        struct {
-#if ENDIANESS_LITTLE
-            uint8_t B;
-            uint8_t A;
-#else
-            uint8_t A;
-            uint8_t B;
-#endif
-        };
-        uint16_t D;
-    };
-    uint8_t DP;       // direct page register (msb of zero-page address)
-    ConditionCode CC; // condition code register (aka status register)
-
     MemoryBus* m_memoryBus = nullptr;
 
     void Init(MemoryBus& memoryBus) {
@@ -389,9 +350,12 @@ public:
 
     void ExecuteInstruction() {
         auto PrintOp = [this](const CpuOp& cpuOp, int cpuOpPage) {
-            printf("0x%04X: %9s 0x%02X", PC - (cpuOpPage == 0 ? 1 : 2), cpuOp.name, cpuOp.opCode);
-            for (uint16_t i = 1; i < cpuOp.size; ++i)
-                printf(" 0x%02X", m_memoryBus->Read(PC + i - 1));
+            uint16_t opStart = PC - (cpuOpPage == 0 ? 1 : 2);
+            printf("$%04x: %9s", opStart, cpuOp.name);
+            // Print instruction in hex
+            printf("\t");
+            for (uint16_t i = 0; i < cpuOp.size; ++i)
+                printf(" %02x", m_memoryBus->Read(opStart + i));
             printf("\n");
         };
 
@@ -709,4 +673,8 @@ void Cpu::Reset(uint16_t initialPC) {
 
 void Cpu::ExecuteInstruction() {
     m_impl->ExecuteInstruction();
+}
+
+const CpuRegisters& Cpu::Registers() {
+    return *m_impl;
 }
