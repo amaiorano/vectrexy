@@ -2,13 +2,12 @@
 #include "BiosRom.h"
 #include "Cartridge.h"
 #include "Cpu.h"
+#include "Debugger.h"
 #include "MemoryBus.h"
 #include "MemoryMap.h"
 #include "Platform.h"
 #include "Ram.h"
-#include <iostream>
 #include <memory>
-#include <string>
 
 int main(int argc, char** argv) {
     if (argc != 2) {
@@ -21,11 +20,13 @@ int main(int argc, char** argv) {
     auto ram = std::make_unique<Ram>();
     auto biosRom = std::make_unique<BiosRom>();
     auto cartridge = std::make_unique<Cartridge>();
+    auto debugger = std::make_unique<Debugger>();
 
     cpu->Init(*memoryBus);
     ram->Init(*memoryBus);
     biosRom->Init(*memoryBus);
     cartridge->Init(*memoryBus);
+    debugger->Init(*memoryBus, *cpu);
 
     biosRom->LoadBiosRom("bios_rom.bin");
     cartridge->LoadRom(argv[1]);
@@ -34,28 +35,8 @@ int main(int argc, char** argv) {
     const uint16_t BiosRoutines = MemoryMap::Bios.range.first + 0x1000;
     cpu->Reset(BiosRoutines);
 
-    bool breakIntoDebugger = false;
-
-    Platform::SetConsoleCtrlHandler([&breakIntoDebugger] {
-        breakIntoDebugger = true;
-        return true;
-    });
-
-    while (true) {
-        if (breakIntoDebugger) {
-            auto& reg = cpu->Registers();
-            std::cout << FormattedString<>("[$%x]>", reg.PC);
-            std::string input;
-            std::getline(std::cin, input); //@TODO: check return value
-
-            if (input.find("c") != -1 || input.find("continue") != -1)
-                breakIntoDebugger = false;
-            else
-                cpu->ExecuteInstruction();
-        } else {
-            cpu->ExecuteInstruction();
-        }
-    }
+    // For now (and maybe forever), we always run via the debugger
+    debugger->Run();
 
     return 0;
 }
