@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+
 class MemoryBus;
 class Cpu;
 
@@ -12,4 +14,5 @@ private:
     MemoryBus* m_memoryBus = nullptr;
     Cpu* m_cpu = nullptr;
     bool m_breakIntoDebugger = false;
+    std::string m_lastCommand;
 };
