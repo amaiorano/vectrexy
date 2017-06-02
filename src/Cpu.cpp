@@ -349,16 +349,6 @@ public:
     }
 
     void ExecuteInstruction() {
-        auto PrintOp = [this](const CpuOp& cpuOp, int cpuOpPage) {
-            uint16_t opStart = PC - (cpuOpPage == 0 ? 1 : 2);
-            printf("$%04x: %9s", opStart, cpuOp.name);
-            // Print instruction in hex
-            printf("\t");
-            for (uint16_t i = 0; i < cpuOp.size; ++i)
-                printf(" %02x", m_memoryBus->Read(opStart + i));
-            printf("\n");
-        };
-
         auto UnhandledOp = [this](const CpuOp& cpuOp) {
             (void)cpuOp;
             FAIL("Unhandled Op!");
@@ -375,8 +365,6 @@ public:
         }
 
         const CpuOp& cpuOp = LookupCpuOpRuntime(cpuOpPage, opCodeByte);
-
-        PrintOp(cpuOp, cpuOpPage);
 
         assert(cpuOp.addrMode != AddressingMode::Illegal && "Illegal instruction!");
         assert(cpuOp.addrMode != AddressingMode::Variant &&

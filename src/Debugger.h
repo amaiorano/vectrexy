@@ -14,5 +14,6 @@ private:
     MemoryBus* m_memoryBus = nullptr;
     Cpu* m_cpu = nullptr;
     bool m_breakIntoDebugger = false;
+    bool m_traceEnabled = false;
     std::string m_lastCommand;
 };
