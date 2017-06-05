@@ -1,8 +1,10 @@
 #include "Debugger.h"
 #include "Cpu.h"
+#include "CpuHelpers.h"
 #include "CpuOpCodes.h"
 #include "MemoryBus.h"
 #include "Platform.h"
+#include <array>
 #include <iostream>
 #include <vector>
 
@@ -25,7 +27,13 @@ namespace {
         return result;
     }
 
-    const CpuOp& GetCpuOpAtAddress(uint16_t opAddr, const MemoryBus& memoryBus) {
+    struct Instruction {
+        const CpuOp& cpuOp;
+        int page;
+        std::array<uint8_t, 2> operands;
+    };
+
+    Instruction ReadInstruction(uint16_t opAddr, const MemoryBus& memoryBus) {
         int cpuOpPage = 0;
         uint8_t opCodeByte = memoryBus.Read(opAddr++);
         if (IsOpCodePage1(opCodeByte)) {
@@ -35,16 +43,44 @@ namespace {
             cpuOpPage = 2;
             opCodeByte = memoryBus.Read(opAddr++);
         }
-        return LookupCpuOpRuntime(cpuOpPage, opCodeByte);
+
+        const auto& cpuOp = LookupCpuOpRuntime(cpuOpPage, opCodeByte);
+        const int numOperands = cpuOp.size - 1 - (cpuOpPage == 0 ? 0 : 1);
+
+        Instruction result = {cpuOp, cpuOpPage};
+        for (int i = 0; i < numOperands; ++i) {
+            result.operands[i] = memoryBus.Read(opAddr++);
+        }
+        return result;
     }
 
-    std::string DisassembleOp(uint16_t opAddr, const MemoryBus& memoryBus) {
-        const CpuOp& cpuOp = GetCpuOpAtAddress(opAddr, memoryBus);
-        std::string result = FormattedString<>("%9s", cpuOp.name);
-        // Print instruction in hex
-        result += "\t";
+    std::string DisassembleOp(const CpuRegisters& reg, const MemoryBus& memoryBus) {
+        uint16_t opAddr = reg.PC;
+        auto instruction = ReadInstruction(opAddr, memoryBus);
+        const auto& cpuOp = instruction.cpuOp;
+
+        std::string hexInstruction;
+        // Output instruction in hex
         for (uint16_t i = 0; i < cpuOp.size; ++i)
-            result += FormattedString<>(" %02x", memoryBus.Read(opAddr + i));
+            hexInstruction += FormattedString<>("%02x", memoryBus.Read(opAddr + i));
+
+        std::string disasmInstruction, comment;
+
+        if (cpuOp.addrMode == AddressingMode::Direct) {
+            //@TODO: compute EA = DP : (operand[0]) and show it in comments
+            uint16_t EA = CombineToU16(reg.DP, instruction.operands[0]);
+            uint8_t value = memoryBus.Read(EA);
+
+            disasmInstruction = FormattedString<>("%s $%02x", cpuOp.name, instruction.operands[0]);
+
+            comment = FormattedString<>("DP:(PC) = $%02x = $%02x (%d)", EA, value, value);
+        } else {
+            disasmInstruction = cpuOp.name;
+        }
+
+        std::string result =
+            FormattedString<>("%-10s %-10s %s", hexInstruction.c_str(), disasmInstruction.c_str(),
+                              comment.size() > 0 ? ("# " + comment).c_str() : "");
         return result;
     };
 
@@ -71,7 +107,7 @@ void Debugger::Run() {
 
     auto PrintOp = [&] {
         auto& reg = m_cpu->Registers();
-        std::string op = DisassembleOp(reg.PC, *m_memoryBus);
+        std::string op = DisassembleOp(reg, *m_memoryBus);
         std::cout << FormattedString<>("[$%x] %s\n", reg.PC, op.c_str());
     };
 

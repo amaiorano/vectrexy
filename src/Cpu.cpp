@@ -1,34 +1,9 @@
 #include "Cpu.h"
+#include "CpuHelpers.h"
 #include "CpuOpCodes.h"
 #include "MemoryBus.h"
 #include <array>
 #include <type_traits>
-
-namespace {
-    // Convenience cast functions
-    template <typename T>
-    constexpr int16_t S16(T v) {
-        return static_cast<int16_t>(v);
-    }
-    template <typename T>
-    constexpr uint16_t U16(T v) {
-        return static_cast<uint16_t>(v);
-    }
-    template <typename T>
-    constexpr uint32_t U32(T v) {
-        return static_cast<uint32_t>(v);
-    }
-    template <typename T>
-    constexpr uint8_t U8(T v) {
-        return static_cast<uint8_t>(v);
-    }
-
-    // Combine two 8-bit values into a 16-bit value
-    constexpr uint16_t CombineToU16(uint8_t msb, uint8_t lsb) { return U16(msb) << 8 | U16(lsb); }
-    constexpr int16_t CombineToS16(uint8_t msb, uint8_t lsb) {
-        return static_cast<int16_t>(CombineToU16(msb, lsb));
-    }
-} // namespace
 
 class CpuImpl : public CpuRegisters {
 public:
