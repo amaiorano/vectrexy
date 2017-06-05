@@ -44,8 +44,8 @@ public:
     }
 
     void Push16(uint16_t& stackPointer, uint16_t value) {
-        m_memoryBus->Write(--stackPointer, U8(value & 0b1111'1111)); // Low
-        m_memoryBus->Write(--stackPointer, U8(value >> 8));          // High
+        m_memoryBus->Write(--stackPointer, U8(value & 0xFF)); // Low
+        m_memoryBus->Write(--stackPointer, U8(value >> 8));   // High
     }
 
     uint16_t Pop16(uint16_t& stackPointer) {
@@ -252,6 +252,25 @@ public:
     }
 
     template <int page, uint8_t opCode>
+    void OpST(const uint8_t& sourceReg) {
+        uint16_t EA = ReadEA16<LookupCpuOp(page, opCode).addrMode>();
+        m_memoryBus->Write(EA, sourceReg);
+        CC.Negative = (sourceReg & BITS(7)) != 0;
+        CC.Zero = (sourceReg == 0);
+        CC.Overflow = 0;
+    }
+
+    template <int page, uint8_t opCode>
+    void OpST(const uint16_t& sourceReg) {
+        uint16_t EA = ReadEA16<LookupCpuOp(page, opCode).addrMode>();
+        m_memoryBus->Write(EA, U8(sourceReg >> 8));       // High
+        m_memoryBus->Write(EA + 1, U8(sourceReg & 0xFF)); // Low
+        CC.Negative = (sourceReg & BITS(7)) != 0;
+        CC.Zero = (sourceReg == 0);
+        CC.Overflow = 0;
+    }
+
+    template <int page, uint8_t opCode>
     void OpJSR() {
         uint16_t EA = ReadEA16<LookupCpuOp(page, opCode).addrMode>();
         Push16(S, PC);
@@ -421,6 +440,54 @@ public:
                 OpLD<0, 0xFE>(U);
                 break;
 
+            // 8-bit ST
+            case 0x97:
+                OpST<0, 0x97>(A);
+                break;
+            case 0xA7:
+                OpST<0, 0xA7>(A);
+                break;
+            case 0xB7:
+                OpST<0, 0xB7>(A);
+                break;
+            case 0xD7:
+                OpST<0, 0xD7>(B);
+                break;
+            case 0xE7:
+                OpST<0, 0xE7>(B);
+                break;
+            case 0xF7:
+                OpST<0, 0xF7>(B);
+                break;
+            // 16-bit ST
+            case 0x9F:
+                OpST<0, 0x9F>(X);
+                break;
+            case 0xAF:
+                OpST<0, 0xAF>(X);
+                break;
+            case 0xBF:
+                OpST<0, 0xBF>(X);
+                break;
+            case 0xDD:
+                OpST<0, 0xDD>(D);
+                break;
+            case 0xDF:
+                OpST<0, 0xDF>(U);
+                break;
+            case 0xED:
+                OpST<0, 0xED>(D);
+                break;
+            case 0xEF:
+                OpST<0, 0xEF>(U);
+                break;
+            case 0xFD:
+                OpST<0, 0xFD>(D);
+                break;
+            case 0xFF:
+                OpST<0, 0xFF>(U);
+                break;
+
             case 0x8D: // BSR (branch to subroutine)
             {
                 int8_t offset = ReadRelativeOffset8();
@@ -578,6 +645,7 @@ public:
 
         case 1:
             switch (cpuOp.opCode) {
+            // 16-bit LD
             case 0x8E:
                 OpLD<1, 0x8E>(Y);
                 break;
@@ -601,6 +669,26 @@ public:
                 break;
             case 0xFE:
                 OpLD<1, 0xFE>(S);
+                break;
+
+            // 16-bit ST
+            case 0x9F:
+                OpST<1, 0x9F>(Y);
+                break;
+            case 0xAF:
+                OpST<1, 0xAF>(Y);
+                break;
+            case 0xBF:
+                OpST<1, 0xBF>(Y);
+                break;
+            case 0xDF:
+                OpST<1, 0xDF>(S);
+                break;
+            case 0xEF:
+                OpST<1, 0xEF>(S);
+                break;
+            case 0xFF:
+                OpST<1, 0xFF>(S);
                 break;
 
             default:
