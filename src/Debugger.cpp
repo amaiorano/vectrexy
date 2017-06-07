@@ -68,8 +68,23 @@ namespace {
 
         switch (cpuOp.addrMode) {
         case AddressingMode::Inherent: {
-            //@TODO: Some inherent instructions do take operands, like TFR
-            disasmInstruction = cpuOp.name;
+            // Handle specific instructions that take operands (most inherent instructions don't)
+            if (cpuOp.opCode == 0x1E /*EXG*/ || cpuOp.opCode == 0x1F /*TFR*/) {
+                uint8_t postbyte = instruction.operands[0];
+                uint8_t src = (postbyte >> 4) & 0b111;
+                uint8_t dst = postbyte & 0b111;
+                if (postbyte & BITS(3)) {
+                    char* const regName[]{"A", "B", "CC", "DP"};
+                    disasmInstruction =
+                        FormattedString<>("%s %s,%s", cpuOp.name, regName[src], regName[dst]);
+                } else {
+                    char* const regName[]{"D", "X", "Y", "U", "S", "PC"};
+                    disasmInstruction =
+                        FormattedString<>("%s %s,%s", cpuOp.name, regName[src], regName[dst]);
+                }
+            } else {
+                disasmInstruction = cpuOp.name;
+            }
         } break;
 
         case AddressingMode::Immediate: {
