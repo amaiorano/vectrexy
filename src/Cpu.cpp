@@ -550,6 +550,7 @@ public:
                 BranchIf([this] { return CC.Overflow != 0; });
                 break;
 
+            case 0x1E: // EXG (exchange/swap register values)
             case 0x1F: // TFR (transfer register to register)
             {
                 uint8_t postbyte = ReadPC8();
@@ -562,11 +563,17 @@ public:
                 if (postbyte & BITS(3)) {
                     assert(src < 4 && dst < 4); // Only first 4 are valid 8-bit register indices
                     uint8_t* const reg[]{&A, &B, &CC.Value, &DP};
-                    *reg[dst] = *reg[src];
+                    if (cpuOp.opCode == 0x1E)
+                        std::swap(*reg[dst], *reg[src]);
+                    else
+                        *reg[dst] = *reg[src];
                 } else {
                     assert(src < 6 && dst < 6); // Only first 6 are valid 16-bit register indices
                     uint16_t* const reg[]{&D, &X, &Y, &U, &S, &PC};
-                    *reg[dst] = *reg[src];
+                    if (cpuOp.opCode == 0x1E)
+                        std::swap(*reg[dst], *reg[src]);
+                    else
+                        *reg[dst] = *reg[src];
                 }
             } break;
 
