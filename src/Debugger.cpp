@@ -66,16 +66,43 @@ namespace {
 
         std::string disasmInstruction, comment;
 
-        if (cpuOp.addrMode == AddressingMode::Direct) {
-            //@TODO: compute EA = DP : (operand[0]) and show it in comments
+        switch (cpuOp.addrMode) {
+        case AddressingMode::Inherent: {
+            //@TODO: Some inherent instructions do take operands, like TFR
+            disasmInstruction = cpuOp.name;
+        } break;
+
+        case AddressingMode::Immediate: {
+            uint8_t value = instruction.operands[0];
+            disasmInstruction = FormattedString<>("%s #$%02x", cpuOp.name, value);
+            comment = FormattedString<>("(%d)", value);
+        } break;
+
+        case AddressingMode::Extended: {
+            auto msb = instruction.operands[0];
+            auto lsb = instruction.operands[1];
+            uint16_t EA = CombineToU16(msb, lsb);
+            uint8_t value = memoryBus.Read(EA);
+            disasmInstruction = FormattedString<>("%s $%04x", cpuOp.name, EA);
+            comment = FormattedString<>("$%02x (%d)", value, value);
+        } break;
+
+        case AddressingMode::Direct: {
             uint16_t EA = CombineToU16(reg.DP, instruction.operands[0]);
             uint8_t value = memoryBus.Read(EA);
-
             disasmInstruction = FormattedString<>("%s $%02x", cpuOp.name, instruction.operands[0]);
-
             comment = FormattedString<>("DP:(PC) = $%02x = $%02x (%d)", EA, value, value);
-        } else {
+        } break;
+
+        case AddressingMode::Indexed:  //@TODO
+        case AddressingMode::Relative: //@TODO
             disasmInstruction = cpuOp.name;
+            break;
+
+        case AddressingMode::Illegal:
+        case AddressingMode::Variant:
+            assert(false);
+            break;
         }
 
         std::string result =
