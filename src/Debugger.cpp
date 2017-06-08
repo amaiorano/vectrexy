@@ -147,6 +147,25 @@ namespace {
         return result;
     };
 
+    void PrintOp(const CpuRegisters& reg, const MemoryBus& memoryBus) {
+        std::string op = DisassembleOp(reg, memoryBus);
+        std::cout << FormattedString<>("[$%x] %s\n", reg.PC, op.c_str());
+    }
+
+    void PrintRegisters(const CpuRegisters& reg) {
+        const auto& cc = reg.CC;
+
+        std::string CC = FormattedString<>(
+            "%c%c%c%c%c%c%c%c", cc.Carry ? 'C' : 'c', cc.Overflow ? 'V' : 'v', cc.Zero ? 'Z' : 'z',
+            cc.Negative ? 'N' : 'n', cc.InterruptMask ? 'I' : 'i', cc.HalfCarry ? 'H' : 'h',
+            cc.FastInterruptMask ? 'F' : 'f', cc.Entire ? 'E' : 'e');
+
+        std::cout << FormattedString<>("A=$%02x (%d) B=$%02x (%d) D=$%04x (%d) X=$%04x (%d) "
+                                       "Y=$%04x (%d) U=$%04x S=$%04x DP=$%02x PC=$%04x CC=%s\n",
+                                       reg.A, reg.A, reg.B, reg.B, reg.D, reg.D, reg.X, reg.X,
+                                       reg.Y, reg.Y, reg.U, reg.S, reg.DP, reg.PC, CC.c_str());
+    }
+
 } // namespace
 
 void Debugger::Init(MemoryBus& memoryBus, Cpu& cpu) {
@@ -168,16 +187,10 @@ void Debugger::Run() {
     // Enable trace when running normally
     m_traceEnabled = true;
 
-    auto PrintOp = [&] {
-        auto& reg = m_cpu->Registers();
-        std::string op = DisassembleOp(reg, *m_memoryBus);
-        std::cout << FormattedString<>("[$%x] %s\n", reg.PC, op.c_str());
-    };
-
     while (true) {
         if (m_breakIntoDebugger) {
-            PrintOp();
-            std::cout << FormattedString<>("(%s)>", m_lastCommand.c_str());
+            std::cout << FormattedString<>("$%04x (%s)>", m_cpu->Registers().PC,
+                                           m_lastCommand.c_str());
 
             std::string input;
             const auto& stream = std::getline(std::cin, input);
@@ -206,18 +219,27 @@ void Debugger::Run() {
                 m_breakIntoDebugger = false;
             } else if (tokens[0] == "step" || tokens[0] == "s") {
                 // "Step into"
+                PrintOp(m_cpu->Registers(), *m_memoryBus);
                 m_cpu->ExecuteInstruction();
+            } else if (tokens[0] == "info") {
+                if (tokens[1] == "registers" || tokens[1] == "reg") {
+                    PrintRegisters(m_cpu->Registers());
+                } else {
+                    validCommand = false;
+                }
             } else {
-                std::cout << "Invalid command: " << input << std::endl;
                 validCommand = false;
             }
 
-            if (validCommand)
+            if (validCommand) {
                 m_lastCommand = input;
+            } else {
+                std::cout << "Invalid command: " << input << std::endl;
+            }
 
         } else {
             if (m_traceEnabled)
-                PrintOp();
+                PrintOp(m_cpu->Registers(), *m_memoryBus);
 
             m_cpu->ExecuteInstruction();
         }
