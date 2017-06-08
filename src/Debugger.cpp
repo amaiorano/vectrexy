@@ -88,9 +88,15 @@ namespace {
         } break;
 
         case AddressingMode::Immediate: {
-            uint8_t value = instruction.operands[0];
-            disasmInstruction = FormattedString<>("%s #$%02x", cpuOp.name, value);
-            comment = FormattedString<>("(%d)", value);
+            if (cpuOp.size == 2) {
+                auto value = instruction.operands[0];
+                disasmInstruction = FormattedString<>("%s #$%02x", cpuOp.name, value);
+                comment = FormattedString<>("(%d)", value);
+            } else {
+                auto value = CombineToU16(instruction.operands[0], instruction.operands[1]);
+                disasmInstruction = FormattedString<>("%s #$%04x", cpuOp.name, value);
+                comment = FormattedString<>("(%d)", value);
+            }
         } break;
 
         case AddressingMode::Extended: {
