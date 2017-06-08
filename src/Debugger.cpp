@@ -215,18 +215,24 @@ void Debugger::Run() {
 
             if (tokens.size() == 0) {
                 // Don't do anything (no command entered yet)
+            } else if (tokens[0] == "quit" || tokens[0] == "q") {
+                return;
+
             } else if (tokens[0] == "continue" || tokens[0] == "c") {
                 m_breakIntoDebugger = false;
+
             } else if (tokens[0] == "step" || tokens[0] == "s") {
                 // "Step into"
                 PrintOp(m_cpu->Registers(), *m_memoryBus);
                 m_cpu->ExecuteInstruction();
+
             } else if (tokens[0] == "info") {
                 if (tokens[1] == "registers" || tokens[1] == "reg") {
                     PrintRegisters(m_cpu->Registers());
                 } else {
                     validCommand = false;
                 }
+
             } else {
                 validCommand = false;
             }
