@@ -5,10 +5,20 @@
 #include "MemoryBus.h"
 #include "Platform.h"
 #include <array>
+#include <iomanip>
 #include <iostream>
+#include <sstream>
 #include <vector>
 
 namespace {
+    template <typename T>
+    T HexStringToIntegral(const char* s) {
+        std::stringstream converter(s);
+        T value;
+        converter >> std::hex >> value;
+        return value;
+    }
+
     std::vector<std::string> Tokenize(const std::string& s) {
         std::vector<std::string> result;
         const char* whitespace = " \t";
@@ -227,8 +237,17 @@ void Debugger::Run() {
                 m_cpu->ExecuteInstruction();
 
             } else if (tokens[0] == "info") {
-                if (tokens[1] == "registers" || tokens[1] == "reg") {
+                if (tokens.size() > 1 && (tokens[1] == "registers" || tokens[1] == "reg")) {
                     PrintRegisters(m_cpu->Registers());
+                } else {
+                    validCommand = false;
+                }
+
+            } else if (tokens[0] == "print" || tokens[0] == "p") {
+                if (tokens.size() > 1 && tokens[1][0] == '$') {
+                    uint16_t address = HexStringToIntegral<uint16_t>(tokens[1].substr(1).c_str());
+                    uint8_t value = m_memoryBus->Read(address);
+                    std::cout << FormattedString<>("$%04x = $%02x (%d)\n", address, value, value);
                 } else {
                     validCommand = false;
                 }
