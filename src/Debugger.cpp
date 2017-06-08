@@ -109,15 +109,30 @@ namespace {
             comment = FormattedString<>("DP:(PC) = $%02x = $%02x (%d)", EA, value, value);
         } break;
 
-        case AddressingMode::Indexed:  //@TODO
-        case AddressingMode::Relative: //@TODO
+        case AddressingMode::Indexed: { //@TODO
             disasmInstruction = cpuOp.name;
-            break;
+        } break;
 
-        case AddressingMode::Illegal:
+        case AddressingMode::Relative: {
+            // Branch instruction with 8 or 16 bit signed relative offset
+            auto nextPC = reg.PC + cpuOp.size;
+            if (cpuOp.size == 2) {
+                auto offset = static_cast<int8_t>(instruction.operands[0]);
+                disasmInstruction = FormattedString<>("%s $%02x", cpuOp.name, U16(offset) & 0x00FF);
+                comment = FormattedString<>("(%d), PC + offset = $%04x", offset, nextPC + offset);
+            } else {
+                assert(cpuOp.size == 3);
+                auto offset = static_cast<int16_t>(
+                    CombineToU16(instruction.operands[0], instruction.operands[1]));
+                disasmInstruction = FormattedString<>("%s $%04x", cpuOp.name, offset);
+                comment = FormattedString<>("(%d), PC + offset = $%04x", offset, nextPC + offset);
+            }
+        } break;
+
+        case AddressingMode::Illegal: {
         case AddressingMode::Variant:
             assert(false);
-            break;
+        } break;
         }
 
         std::string result =
