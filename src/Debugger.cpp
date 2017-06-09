@@ -159,7 +159,7 @@ namespace {
 
     void PrintOp(const CpuRegisters& reg, const MemoryBus& memoryBus) {
         std::string op = DisassembleOp(reg, memoryBus);
-        std::cout << FormattedString<>("[$%x] %s\n", reg.PC, op.c_str());
+        std::cout << FormattedString<>("[$%x] %s", reg.PC, op.c_str()) << std::endl;
     }
 
     void PrintRegisters(const CpuRegisters& reg) {
@@ -171,9 +171,20 @@ namespace {
             cc.FastInterruptMask ? 'F' : 'f', cc.Entire ? 'E' : 'e');
 
         std::cout << FormattedString<>("A=$%02x (%d) B=$%02x (%d) D=$%04x (%d) X=$%04x (%d) "
-                                       "Y=$%04x (%d) U=$%04x S=$%04x DP=$%02x PC=$%04x CC=%s\n",
+                                       "Y=$%04x (%d) U=$%04x S=$%04x DP=$%02x PC=$%04x CC=%s",
                                        reg.A, reg.A, reg.B, reg.B, reg.D, reg.D, reg.X, reg.X,
-                                       reg.Y, reg.Y, reg.U, reg.S, reg.DP, reg.PC, CC.c_str());
+                                       reg.Y, reg.Y, reg.U, reg.S, reg.DP, reg.PC, CC.c_str())
+                  << std::endl;
+    }
+
+    void PrintHelp() {
+        std::cout << "s[tep]                step instruction\n"
+                     "c[continue]           continue running\n"
+                     "info reg[isters]      display register values\n"
+                     "p[rint] <address>     display value add address\n"
+                     "q[uit]                quit\n"
+                     "h[help]               display this help text\n"
+                  << std::flush;
     }
 
 } // namespace
@@ -200,7 +211,8 @@ void Debugger::Run() {
     while (true) {
         if (m_breakIntoDebugger) {
             std::cout << FormattedString<>("$%04x (%s)>", m_cpu->Registers().PC,
-                                           m_lastCommand.c_str());
+                                           m_lastCommand.c_str())
+                      << std::flush;
 
             std::string input;
             const auto& stream = std::getline(std::cin, input);
@@ -228,6 +240,9 @@ void Debugger::Run() {
             } else if (tokens[0] == "quit" || tokens[0] == "q") {
                 return;
 
+            } else if (tokens[0] == "help" || tokens[0] == "h") {
+                PrintHelp();
+
             } else if (tokens[0] == "continue" || tokens[0] == "c") {
                 m_breakIntoDebugger = false;
 
@@ -247,7 +262,8 @@ void Debugger::Run() {
                 if (tokens.size() > 1 && tokens[1][0] == '$') {
                     uint16_t address = HexStringToIntegral<uint16_t>(tokens[1].substr(1).c_str());
                     uint8_t value = m_memoryBus->Read(address);
-                    std::cout << FormattedString<>("$%04x = $%02x (%d)\n", address, value, value);
+                    std::cout << FormattedString<>("$%04x = $%02x (%d)", address, value, value)
+                              << std::endl;
                 } else {
                     validCommand = false;
                 }
