@@ -128,13 +128,11 @@ public:
             case 0b0111:
                 FAIL("Illegal");
                 break;
-            case 0b1000: // (+/- 7 bit offset),R
-            {
+            case 0b1000: { // (+/- 7 bit offset),R
                 uint8_t postbyte2 = ReadPC8();
                 EA = RegisterSelect(postbyte) + S16(postbyte2);
             } break;
-            case 0b1001: // (+/- 15 bit offset),R
-            {
+            case 0b1001: { // (+/- 15 bit offset),R
                 uint8_t postbyte2 = ReadPC8();
                 uint8_t postbyte3 = ReadPC8();
                 EA = RegisterSelect(postbyte) + CombineToS16(postbyte2, postbyte3);
@@ -145,13 +143,11 @@ public:
             case 0b1011: // (+/- D),R
                 EA = RegisterSelect(postbyte) + S16(D);
                 break;
-            case 0b1100: // (+/- 7 bit offset),PC
-            {
+            case 0b1100: { // (+/- 7 bit offset),PC
                 uint8_t postbyte2 = ReadPC8();
                 EA = PC + S16(postbyte2);
             } break;
-            case 0b1101: // (+/- 15 bit offset),PC
-            {
+            case 0b1101: { // (+/- 15 bit offset),PC
                 uint8_t postbyte2 = ReadPC8();
                 uint8_t postbyte3 = ReadPC8();
                 EA = PC + CombineToS16(postbyte2, postbyte3);
@@ -159,11 +155,13 @@ public:
             case 0b1110:
                 FAIL("Illegal");
                 break;
-            case 0b1111: // [address]
-                         // Indirect-only
+            case 0b1111: { // [address] (Indirect-only)
                 uint8_t postbyte2 = ReadPC8();
                 uint8_t postbyte3 = ReadPC8();
                 EA = CombineToS16(postbyte2, postbyte3);
+            } break;
+            default:
+                FAIL("Illegal");
                 break;
             }
         }
