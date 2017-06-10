@@ -66,7 +66,7 @@ public:
         // mode as well as pointer registers to be used.
         //@TODO: add extra cycles
 
-        auto RegisterSelect = [this](uint8_t postbyte) -> uint16_t {
+        auto RegisterSelect = [this](uint8_t postbyte) -> uint16_t& {
             switch ((postbyte >> 5) & 0b11) {
             case 0b00:
                 return X;
@@ -74,11 +74,9 @@ public:
                 return Y;
             case 0b10:
                 return U;
-            case 0b11:
+            default: // 0b11:
                 return S;
             }
-            return 0xFF; // Impossible, but MSVC complains about "not all control paths return
-                         // value"
         };
 
         uint16_t EA = 0;
@@ -96,20 +94,28 @@ public:
             supportsIndirect = false;
         } else {
             switch (postbyte & 0b1111) {
-            case 0b0000: // ,R+
-                EA = RegisterSelect(postbyte) + 1;
+            case 0b0000: { // ,R+
+                auto& reg = RegisterSelect(postbyte);
+                EA = reg;
+                reg += 1;
                 supportsIndirect = false;
-                break;
-            case 0b0001: // ,R++
-                EA = RegisterSelect(postbyte) + 2;
-                break;
-            case 0b0010: // ,-R
-                EA = RegisterSelect(postbyte) - 1;
+            } break;
+            case 0b0001: { // ,R++
+                auto& reg = RegisterSelect(postbyte);
+                EA = reg;
+                reg += 2;
+            } break;
+            case 0b0010: { // ,-R
+                auto& reg = RegisterSelect(postbyte);
+                reg -= 1;
+                EA = reg;
                 supportsIndirect = false;
-                break;
-            case 0b0011: // ,--R
-                EA = RegisterSelect(postbyte) - 2;
-                break;
+            } break;
+            case 0b0011: { // ,--R
+                auto& reg = RegisterSelect(postbyte);
+                reg -= 2;
+                EA = reg;
+            } break;
             case 0b0100: // ,R
                 EA = RegisterSelect(postbyte);
                 break;
