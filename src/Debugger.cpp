@@ -7,10 +7,84 @@
 #include <array>
 #include <iomanip>
 #include <iostream>
+#include <optional>
 #include <sstream>
+#include <string>
 #include <vector>
 
 namespace {
+    struct Breakpoint {
+        uint16_t address = 0;
+        bool enabled = true;
+        bool autoDelete = false;
+    };
+
+    class Breakpoints {
+    public:
+        Breakpoint* Add(uint16_t address) {
+            auto& bp = m_breakpoints[address];
+            bp.address = address;
+            return &bp;
+        }
+
+        std::optional<Breakpoint> Remove(uint16_t address) {
+            auto iter = m_breakpoints.find(address);
+            if (iter != m_breakpoints.end()) {
+                auto bp = iter->second;
+                m_breakpoints.erase(iter);
+                return bp;
+            }
+            return {};
+        }
+
+        std::optional<Breakpoint> RemoveAtIndex(size_t index) {
+            auto iter = GetBreakpointIterAtIndex(index);
+            if (iter != m_breakpoints.end()) {
+                auto bp = iter->second;
+                m_breakpoints.erase(iter);
+                return bp;
+            }
+            return {};
+        }
+
+        Breakpoint* Get(uint16_t address) {
+            auto iter = m_breakpoints.find(address);
+            if (iter != m_breakpoints.end()) {
+                return &iter->second;
+            }
+            return nullptr;
+        }
+
+        Breakpoint* GetAtIndex(size_t index) {
+            auto iter = GetBreakpointIterAtIndex(index);
+            if (iter != m_breakpoints.end()) {
+                return &iter->second;
+            }
+            return nullptr;
+        }
+
+        std::optional<size_t> GetIndex(uint16_t address) {
+            auto iter = m_breakpoints.find(address);
+            if (iter != m_breakpoints.end()) {
+                return std::distance(m_breakpoints.begin(), iter);
+            }
+            return {};
+        }
+
+        size_t Num() const { return m_breakpoints.size(); }
+
+    private:
+        std::map<uint16_t, Breakpoint> m_breakpoints;
+
+        using IterType = decltype(m_breakpoints.begin());
+        IterType GetBreakpointIterAtIndex(size_t index) {
+            auto iter = m_breakpoints.begin();
+            if (iter != m_breakpoints.end())
+                std::advance(iter, index);
+            return iter;
+        }
+    };
+
     template <typename T>
     T HexStringToIntegral(const char* s) {
         std::stringstream converter(s);
@@ -296,11 +370,11 @@ namespace {
                 uint8_t src = (postbyte >> 4) & 0b111;
                 uint8_t dst = postbyte & 0b111;
                 if (postbyte & BITS(3)) {
-                    char* const regName[]{"A", "B", "CC", "DP"};
+                    const char* const regName[]{"A", "B", "CC", "DP"};
                     disasmInstruction =
                         FormattedString<>("%s %s,%s", cpuOp.name, regName[src], regName[dst]);
                 } else {
-                    char* const regName[]{"D", "X", "Y", "U", "S", "PC"};
+                    const char* const regName[]{"D", "X", "Y", "U", "S", "PC"};
                     disasmInstruction =
                         FormattedString<>("%s %s,%s", cpuOp.name, regName[src], regName[dst]);
                 }
@@ -365,8 +439,9 @@ namespace {
         }
 
         std::string result =
-            FormattedString<>("%-10s %-10s %s", hexInstruction.c_str(), disasmInstruction.c_str(),
-                              comment.size() > 0 ? ("# " + comment).c_str() : "");
+            FormattedString<>("%-10s %-14s %s", hexInstruction.c_str(), disasmInstruction.c_str(),
+                              comment.size() > 0 ? ("# " + comment).c_str() : "")
+                .Value();
         return result;
     };
 
@@ -378,10 +453,12 @@ namespace {
     void PrintRegisters(const CpuRegisters& cpuRegisters) {
         const auto& cc = cpuRegisters.CC;
 
-        std::string CC = FormattedString<>(
-            "%c%c%c%c%c%c%c%c", cc.Carry ? 'C' : 'c', cc.Overflow ? 'V' : 'v', cc.Zero ? 'Z' : 'z',
-            cc.Negative ? 'N' : 'n', cc.InterruptMask ? 'I' : 'i', cc.HalfCarry ? 'H' : 'h',
-            cc.FastInterruptMask ? 'F' : 'f', cc.Entire ? 'E' : 'e');
+        std::string CC =
+            FormattedString<>("%c%c%c%c%c%c%c%c", cc.Carry ? 'C' : 'c', cc.Overflow ? 'V' : 'v',
+                              cc.Zero ? 'Z' : 'z', cc.Negative ? 'N' : 'n',
+                              cc.InterruptMask ? 'I' : 'i', cc.HalfCarry ? 'H' : 'h',
+                              cc.FastInterruptMask ? 'F' : 'f', cc.Entire ? 'E' : 'e')
+                .Value();
 
         const auto& r = cpuRegisters;
         std::cout << FormattedString<>("A=$%02x (%d) B=$%02x (%d) D=$%04x (%d) X=$%04x (%d) "
@@ -422,6 +499,8 @@ void Debugger::Run() {
     // Enable trace when running normally
     m_traceEnabled = true;
 
+    Breakpoints breakpoints;
+
     while (true) {
         if (m_breakIntoDebugger) {
             std::cout << FormattedString<>("$%04x (%s)>", m_cpu->Registers().PC,
@@ -451,6 +530,7 @@ void Debugger::Run() {
 
             if (tokens.size() == 0) {
                 // Don't do anything (no command entered yet)
+
             } else if (tokens[0] == "quit" || tokens[0] == "q") {
                 return;
 
@@ -465,9 +545,83 @@ void Debugger::Run() {
                 PrintOp(m_cpu->Registers(), *m_memoryBus);
                 m_cpu->ExecuteInstruction();
 
+            } else if (tokens[0] == "until" || tokens[0] == "u") {
+                if (tokens.size() > 1 && tokens[1][0] == '$') {
+                    uint16_t address = HexStringToIntegral<uint16_t>(tokens[1].substr(1).c_str());
+                    auto bp = breakpoints.Add(address);
+                    bp->autoDelete = true;
+                    m_breakIntoDebugger = false;
+                } else {
+                    validCommand = false;
+                }
+
+            } else if (tokens[0] == "breakpoint" || tokens[0] == "b") {
+                validCommand = false;
+                if (tokens.size() > 1 && tokens[1][0] == '$') {
+                    uint16_t address = HexStringToIntegral<uint16_t>(tokens[1].substr(1).c_str());
+                    if (auto bp = breakpoints.Add(address)) {
+                        std::cout << FormattedString<>("Added breakpoint at $%04x", address)
+                                  << std::endl;
+                        validCommand = true;
+                    }
+                }
+
+            } else if (tokens[0] == "delete") {
+                validCommand = false;
+                if (tokens.size() > 1) {
+                    int breakpointIndex = std::stoi(tokens[1]);
+                    if (auto bp = breakpoints.RemoveAtIndex(breakpointIndex)) {
+                        std::cout << FormattedString<>("Deleted breakpoint %d at $%04x",
+                                                       breakpointIndex, bp->address)
+                                  << std::endl;
+                        validCommand = true;
+                    } else {
+                        std::cout << "Invalid breakpoint specified" << std::endl;
+                    }
+                }
+
+            } else if (tokens[0] == "enable") {
+                validCommand = false;
+                if (tokens.size() > 1) {
+                    size_t breakpointIndex = std::stoi(tokens[1]);
+                    if (auto bp = breakpoints.GetAtIndex(breakpointIndex)) {
+                        bp->enabled = true;
+                        std::cout << FormattedString<>("Enabled breakpoint %d at $%04x",
+                                                       breakpointIndex, bp->address)
+                                  << std::endl;
+                        validCommand = true;
+                    } else {
+                        std::cout << "Invalid breakpoint specified" << std::endl;
+                    }
+                }
+
+            } else if (tokens[0] == "disable") {
+                validCommand = false;
+                if (tokens.size() > 1) {
+                    size_t breakpointIndex = std::stoi(tokens[1]);
+                    if (auto bp = breakpoints.GetAtIndex(breakpointIndex)) {
+                        bp->enabled = false;
+                        std::cout << FormattedString<>("Disabled breakpoint %d at $%04x",
+                                                       breakpointIndex, bp->address)
+                                  << std::endl;
+                        validCommand = true;
+                    } else {
+                        std::cout << "Invalid breakpoint specified" << std::endl;
+                    }
+                }
+
             } else if (tokens[0] == "info") {
                 if (tokens.size() > 1 && (tokens[1] == "registers" || tokens[1] == "reg")) {
                     PrintRegisters(m_cpu->Registers());
+                } else if (tokens.size() > 1 && (tokens[1] == "break")) {
+                    std::cout << "Breakpoints:\n";
+                    for (size_t i = 0; i < breakpoints.Num(); ++i) {
+                        auto bp = breakpoints.GetAtIndex(i);
+                        std::cout << FormattedString<>("%3d: $%04x\t%s\n", i, bp->address,
+                                                       bp->enabled ? "Enabled" : "Disabled");
+                    }
+                    std::cout << std::flush;
+
                 } else {
                     validCommand = false;
                 }
@@ -492,11 +646,23 @@ void Debugger::Run() {
                 std::cout << "Invalid command: " << input << std::endl;
             }
 
-        } else {
+        } else { // Not broken into debugger (running)
+
             if (m_traceEnabled)
                 PrintOp(m_cpu->Registers(), *m_memoryBus);
 
             m_cpu->ExecuteInstruction();
+
+            if (auto bp = breakpoints.Get(m_cpu->Registers().PC)) {
+                if (bp->autoDelete) {
+                    breakpoints.Remove(m_cpu->Registers().PC);
+                    m_breakIntoDebugger = true;
+                } else if (bp->enabled) {
+                    std::cout << FormattedString<>("Breakpoint hit at %04x", bp->address)
+                              << std::endl;
+                    m_breakIntoDebugger = true;
+                }
+            }
         }
     }
 }
