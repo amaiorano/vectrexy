@@ -218,38 +218,34 @@ namespace {
         } else {
             switch (postbyte & 0b1111) {
             case 0b0000: { // ,R+
-                auto reg = RegisterSelect(postbyte);
+                auto& reg = RegisterSelect(postbyte);
                 EA = reg;
-                reg += 1;
                 supportsIndirect = false;
 
                 operands = FormattedString<>(",%s+", GetRegisterName(cpuRegisters, reg));
-                comment = FormattedString<>(",$%04x", reg);
+                comment = FormattedString<>(",$%04x+", reg);
             } break;
             case 0b0001: { // ,R++
-                auto reg = RegisterSelect(postbyte);
+                auto& reg = RegisterSelect(postbyte);
                 EA = reg;
-                reg += 2;
 
                 operands = FormattedString<>(",%s++", GetRegisterName(cpuRegisters, reg));
-                comment = FormattedString<>(",$%04x", reg);
+                comment = FormattedString<>(",$%04x++", reg);
             } break;
             case 0b0010: { // ,-R
-                auto reg = RegisterSelect(postbyte);
-                reg -= 1;
-                EA = reg;
+                auto& reg = RegisterSelect(postbyte);
+                EA = reg - 1;
                 supportsIndirect = false;
 
                 operands = FormattedString<>(",-%s", GetRegisterName(cpuRegisters, reg));
-                comment = FormattedString<>(",$%04x", reg);
+                comment = FormattedString<>(",-$%04x", reg);
             } break;
             case 0b0011: { // ,--R
-                auto reg = RegisterSelect(postbyte);
-                reg -= 2;
-                EA = reg;
+                auto& reg = RegisterSelect(postbyte);
+                EA = reg - 2;
 
                 operands = FormattedString<>(",--%s", GetRegisterName(cpuRegisters, reg));
-                comment = FormattedString<>(",$%04x", reg);
+                comment = FormattedString<>(",--$%04x", reg);
             } break;
             case 0b0100: { // ,R
                 auto& reg = RegisterSelect(postbyte);
@@ -347,7 +343,7 @@ namespace {
 
         disasmInstruction = std::string(instruction.cpuOp.name) + " " + operands;
         uint8_t value = memoryBus.Read(EA);
-        comment += FormattedString<>(" = $%04x = $%02x (%d)", EA, value, value);
+        comment += FormattedString<>(", EA = $%04x = $%02x (%d)", EA, value, value);
     }
 
     std::string DisassembleOp(const CpuRegisters& cpuRegisters, const MemoryBus& memoryBus) {
