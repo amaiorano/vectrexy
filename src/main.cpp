@@ -7,6 +7,7 @@
 #include "MemoryMap.h"
 #include "Platform.h"
 #include "Ram.h"
+#include "Via.h"
 #include <memory>
 
 int main(int argc, char** argv) {
@@ -17,12 +18,14 @@ int main(int argc, char** argv) {
 
     auto memoryBus = std::make_unique<MemoryBus>();
     auto cpu = std::make_unique<Cpu>();
+    auto via = std::make_unique<Via>();
     auto ram = std::make_unique<Ram>();
     auto biosRom = std::make_unique<BiosRom>();
     auto cartridge = std::make_unique<Cartridge>();
     auto debugger = std::make_unique<Debugger>();
 
     cpu->Init(*memoryBus);
+    via->Init(*memoryBus);
     ram->Init(*memoryBus);
     biosRom->Init(*memoryBus);
     cartridge->Init(*memoryBus);
