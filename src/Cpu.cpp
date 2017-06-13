@@ -337,6 +337,48 @@ public:
         reg = U16(r);
     }
 
+    // INCA, INCB
+    template <int page, uint8_t opCode>
+    void OpINC(uint8_t& reg) {
+        ++reg;
+        CC.Overflow = reg == 0;
+        CC.Zero = (reg == 0);
+        CC.Negative = (reg & BITS(7)) != 0;
+    }
+
+    // INC <address>
+    template <int page, uint8_t opCode>
+    void OpINC() {
+        uint16_t EA = ReadEA16<LookupCpuOp(page, opCode).addrMode>();
+        uint8_t value = m_memoryBus->Read(EA);
+        ++value;
+        m_memoryBus->Write(EA, value);
+        CC.Overflow = value == 0;
+        CC.Zero = (value == 0);
+        CC.Negative = (value & BITS(7)) != 0;
+    }
+
+    // DECA, DECB
+    template <int page, uint8_t opCode>
+    void OpDEC(uint8_t& reg) {
+        --reg;
+        CC.Overflow = reg == 0;
+        CC.Zero = (reg == 0);
+        CC.Negative = (reg & BITS(7)) != 0;
+    }
+
+    // DEC <address>
+    template <int page, uint8_t opCode>
+    void OpDEC() {
+        uint16_t EA = ReadEA16<LookupCpuOp(page, opCode).addrMode>();
+        uint8_t value = m_memoryBus->Read(EA);
+        --value;
+        m_memoryBus->Write(EA, value);
+        CC.Overflow = value == 0;
+        CC.Zero = (value == 0);
+        CC.Negative = (value & BITS(7)) != 0;
+    }
+
     // Helper for conditional branch ops. Always reads relative offset, and if condition is true,
     // applies it to PC.
     template <typename CondFunc>
@@ -647,6 +689,38 @@ public:
                 break;
             case 0xF0:
                 OpSUB<0, 0xF0>(B);
+                break;
+
+            // INC
+            case 0x0C:
+                OpINC<0, 0x0C>();
+                break;
+            case 0x4C:
+                OpINC<0, 0x4C>(A);
+                break;
+            case 0x5C:
+                OpINC<0, 0x5C>(B);
+            case 0x6C:
+                OpINC<0, 0x6C>();
+                break;
+            case 0x7C:
+                OpINC<0, 0x7C>();
+                break;
+
+            // DEC
+            case 0x0A:
+                OpDEC<0, 0x0A>();
+                break;
+            case 0x4A:
+                OpDEC<0, 0x4A>(A);
+                break;
+            case 0x5A:
+                OpDEC<0, 0x5A>(B);
+            case 0x6A:
+                OpDEC<0, 0x6A>();
+                break;
+            case 0x7A:
+                OpDEC<0, 0x7A>();
                 break;
 
             default:
