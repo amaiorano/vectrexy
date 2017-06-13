@@ -470,9 +470,15 @@ namespace {
 
     void PrintHelp() {
         std::cout << "s[tep]                step instruction\n"
-                     "c[continue]           continue running\n"
+                     "c[ontinue]            continue running\n"
+                     "u[ntil] <address>     run until address is reached\n"
                      "info reg[isters]      display register values\n"
                      "p[rint] <address>     display value add address\n"
+                     "info break            display breakpoints\n"
+                     "b[reak] <address>     set breakpoint at address\n"
+                     "delete <index>        delete breakpoint at index\n"
+                     "disable <index>       disable breakpoint at index\n"
+                     "enable <index>        enable breakpoint at index\n"
                      "q[uit]                quit\n"
                      "h[help]               display this help text\n"
                   << std::flush;
