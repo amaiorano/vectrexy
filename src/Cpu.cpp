@@ -379,6 +379,12 @@ public:
         CC.Negative = (value & BITS(7)) != 0;
     }
 
+    template <int page, uint8_t opCode>
+    void OpJMP() {
+        uint16_t EA = ReadEA16<LookupCpuOp(page, opCode).addrMode>();
+        PC = EA;
+    }
+
     // Helper for conditional branch ops. Always reads relative offset, and if condition is true,
     // applies it to PC.
     template <typename CondFunc>
@@ -391,7 +397,7 @@ public:
     void ExecuteInstruction() {
         auto UnhandledOp = [this](const CpuOp& cpuOp) {
             (void)cpuOp;
-            FAIL("Unhandled Op!");
+            FAIL("Unhandled Op: %s", cpuOp.name);
         };
 
         int cpuOpPage = 0;
@@ -721,6 +727,17 @@ public:
                 break;
             case 0x7A:
                 OpDEC<0, 0x7A>();
+                break;
+
+            // JMP
+            case 0x0E:
+                OpJMP<0, 0x0E>();
+                break;
+            case 0x6E:
+                OpJMP<0, 0x6E>();
+                break;
+            case 0x7E:
+                OpJMP<0, 0x7E>();
                 break;
 
             default:
