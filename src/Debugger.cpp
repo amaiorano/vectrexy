@@ -436,7 +436,7 @@ namespace {
 
         std::string result =
             FormattedString<>("%-10s %-14s %s", hexInstruction.c_str(), disasmInstruction.c_str(),
-                              comment.size() > 0 ? ("# " + comment).c_str() : "")
+                              comment.size() > 0 ? ("; " + comment).c_str() : "")
                 .Value();
         return result;
     };
