@@ -166,6 +166,61 @@ namespace {
         return result;
     }
 
+    void DisassembleOp_EXG_TFR(const Instruction& instruction, const CpuRegisters& cpuRegisters,
+                               const MemoryBus& memoryBus, std::string& disasmInstruction,
+                               std::string& comment) {
+        (void)cpuRegisters;
+        (void)memoryBus;
+        (void)comment;
+
+        const auto& cpuOp = instruction.cpuOp;
+        assert(cpuOp.addrMode == AddressingMode::Inherent);
+        uint8_t postbyte = instruction.operands[0];
+        uint8_t src = (postbyte >> 4) & 0b111;
+        uint8_t dst = postbyte & 0b111;
+        if (postbyte & BITS(3)) {
+            const char* const regName[]{"A", "B", "CC", "DP"};
+            disasmInstruction =
+                FormattedString<>("%s %s,%s", cpuOp.name, regName[src], regName[dst]);
+        } else {
+            const char* const regName[]{"D", "X", "Y", "U", "S", "PC"};
+            disasmInstruction =
+                FormattedString<>("%s %s,%s", cpuOp.name, regName[src], regName[dst]);
+        }
+    }
+
+    void DisassembleOp_PSH_PUL(const Instruction& instruction, const CpuRegisters& cpuRegisters,
+                               const MemoryBus& memoryBus, std::string& disasmInstruction,
+                               std::string& comment) {
+        (void)cpuRegisters;
+        (void)memoryBus;
+
+        const auto& cpuOp = instruction.cpuOp;
+        assert(cpuOp.addrMode == AddressingMode::Immediate);
+        auto value = instruction.operands[0];
+        std::vector<std::string> registers;
+        if (value & BITS(0))
+            registers.push_back("CC");
+        if (value & BITS(1))
+            registers.push_back("A");
+        if (value & BITS(2))
+            registers.push_back("B");
+        if (value & BITS(3))
+            registers.push_back("DP");
+        if (value & BITS(4))
+            registers.push_back("X");
+        if (value & BITS(5))
+            registers.push_back("Y");
+        if (value & BITS(6)) {
+            registers.push_back(cpuOp.opCode < 0x36 ? "U" : "S");
+        }
+        if (value & BITS(7))
+            registers.push_back("PC");
+
+        disasmInstruction = FormattedString<>("%s %s", cpuOp.name, Join(registers, ",").c_str());
+        comment = FormattedString<>("#$%02x (%d)", value, value);
+    }
+
     void DisassembleIndexedInstruction(const Instruction& instruction,
                                        const CpuRegisters& cpuRegisters, const MemoryBus& memoryBus,
                                        std::string& disasmInstruction, std::string& comment) {
@@ -343,105 +398,91 @@ namespace {
 
         std::string disasmInstruction, comment;
 
-        switch (cpuOp.addrMode) {
-        case AddressingMode::Inherent: {
-            // Handle specific instructions that take operands (most inherent instructions don't)
-            if (cpuOp.opCode == 0x1E /*EXG*/ || cpuOp.opCode == 0x1F /*TFR*/) {
-                uint8_t postbyte = instruction.operands[0];
-                uint8_t src = (postbyte >> 4) & 0b111;
-                uint8_t dst = postbyte & 0b111;
-                if (postbyte & BITS(3)) {
-                    const char* const regName[]{"A", "B", "CC", "DP"};
-                    disasmInstruction =
-                        FormattedString<>("%s %s,%s", cpuOp.name, regName[src], regName[dst]);
-                } else {
-                    const char* const regName[]{"D", "X", "Y", "U", "S", "PC"};
-                    disasmInstruction =
-                        FormattedString<>("%s %s,%s", cpuOp.name, regName[src], regName[dst]);
-                }
-            } else {
+        // First see if we have instruction-specific handlers. These are for special cases where the
+        // default addressing mode handlers don't give enough information.
+        bool handled = true;
+        switch (cpuOp.opCode) {
+        case 0x1E: // EXG
+        case 0x1F: // TFR
+            DisassembleOp_EXG_TFR(instruction, cpuRegisters, memoryBus, disasmInstruction, comment);
+            break;
+
+        case 0x34: // PSHS
+        case 0x35: // PULS
+        case 0x36: // PSHU
+        case 0x37: // PULU
+            DisassembleOp_PSH_PUL(instruction, cpuRegisters, memoryBus, disasmInstruction, comment);
+            break;
+
+        default:
+            handled = false;
+        }
+
+        // If no instruction-specific handler, we disassemble based on addressing mode.
+        if (!handled) {
+            switch (cpuOp.addrMode) {
+            case AddressingMode::Inherent: {
                 disasmInstruction = cpuOp.name;
-            }
-        } break;
+            } break;
 
-        case AddressingMode::Immediate: {
-            if (cpuOp.opCode >= 0x34 && cpuOp.opCode <= 0x37) { // PSHS, PULS, PSHU, PULU
-                auto value = instruction.operands[0];
-                std::vector<std::string> registers;
-                if (value & BITS(0))
-                    registers.push_back("CC");
-                if (value & BITS(1))
-                    registers.push_back("A");
-                if (value & BITS(2))
-                    registers.push_back("B");
-                if (value & BITS(3))
-                    registers.push_back("DP");
-                if (value & BITS(4))
-                    registers.push_back("X");
-                if (value & BITS(5))
-                    registers.push_back("Y");
-                if (value & BITS(6)) {
-                    registers.push_back(cpuOp.opCode < 0x36 ? "U" : "S");
+            case AddressingMode::Immediate: {
+                if (cpuOp.size == 2) {
+                    auto value = instruction.operands[0];
+                    disasmInstruction = FormattedString<>("%s #$%02x", cpuOp.name, value);
+                    comment = FormattedString<>("(%d)", value);
+                } else {
+                    auto value = CombineToU16(instruction.operands[0], instruction.operands[1]);
+                    disasmInstruction = FormattedString<>("%s #$%04x", cpuOp.name, value);
+                    comment = FormattedString<>("(%d)", value);
                 }
-                if (value & BITS(7))
-                    registers.push_back("PC");
+            } break;
 
+            case AddressingMode::Extended: {
+                auto msb = instruction.operands[0];
+                auto lsb = instruction.operands[1];
+                uint16_t EA = CombineToU16(msb, lsb);
+                uint8_t value = memoryBus.Read(EA);
+                disasmInstruction = FormattedString<>("%s $%04x", cpuOp.name, EA);
+                comment = FormattedString<>("$%02x (%d)", value, value);
+            } break;
+
+            case AddressingMode::Direct: {
+                uint16_t EA = CombineToU16(cpuRegisters.DP, instruction.operands[0]);
+                uint8_t value = memoryBus.Read(EA);
                 disasmInstruction =
-                    FormattedString<>("%s %s", cpuOp.name, Join(registers, ",").c_str());
-                comment = FormattedString<>("#$%02x (%d)", value, value);
+                    FormattedString<>("%s $%02x", cpuOp.name, instruction.operands[0]);
+                comment = FormattedString<>("DP:(PC) = $%02x = $%02x (%d)", EA, value, value);
+            } break;
 
-            } else if (cpuOp.size == 2) {
-                auto value = instruction.operands[0];
-                disasmInstruction = FormattedString<>("%s #$%02x", cpuOp.name, value);
-                comment = FormattedString<>("(%d)", value);
-            } else {
-                auto value = CombineToU16(instruction.operands[0], instruction.operands[1]);
-                disasmInstruction = FormattedString<>("%s #$%04x", cpuOp.name, value);
-                comment = FormattedString<>("(%d)", value);
+            case AddressingMode::Indexed: {
+                DisassembleIndexedInstruction(instruction, cpuRegisters, memoryBus,
+                                              disasmInstruction, comment);
+            } break;
+
+            case AddressingMode::Relative: {
+                // Branch instruction with 8 or 16 bit signed relative offset
+                auto nextPC = cpuRegisters.PC + cpuOp.size;
+                if (cpuOp.size == 2) {
+                    auto offset = static_cast<int8_t>(instruction.operands[0]);
+                    disasmInstruction =
+                        FormattedString<>("%s $%02x", cpuOp.name, U16(offset) & 0x00FF);
+                    comment =
+                        FormattedString<>("(%d), PC + offset = $%04x", offset, nextPC + offset);
+                } else {
+                    assert(cpuOp.size == 3);
+                    auto offset = static_cast<int16_t>(
+                        CombineToU16(instruction.operands[0], instruction.operands[1]));
+                    disasmInstruction = FormattedString<>("%s $%04x", cpuOp.name, offset);
+                    comment =
+                        FormattedString<>("(%d), PC + offset = $%04x", offset, nextPC + offset);
+                }
+            } break;
+
+            case AddressingMode::Illegal: {
+            case AddressingMode::Variant:
+                assert(false);
+            } break;
             }
-        } break;
-
-        case AddressingMode::Extended: {
-            auto msb = instruction.operands[0];
-            auto lsb = instruction.operands[1];
-            uint16_t EA = CombineToU16(msb, lsb);
-            uint8_t value = memoryBus.Read(EA);
-            disasmInstruction = FormattedString<>("%s $%04x", cpuOp.name, EA);
-            comment = FormattedString<>("$%02x (%d)", value, value);
-        } break;
-
-        case AddressingMode::Direct: {
-            uint16_t EA = CombineToU16(cpuRegisters.DP, instruction.operands[0]);
-            uint8_t value = memoryBus.Read(EA);
-            disasmInstruction = FormattedString<>("%s $%02x", cpuOp.name, instruction.operands[0]);
-            comment = FormattedString<>("DP:(PC) = $%02x = $%02x (%d)", EA, value, value);
-        } break;
-
-        case AddressingMode::Indexed: {
-            DisassembleIndexedInstruction(instruction, cpuRegisters, memoryBus, disasmInstruction,
-                                          comment);
-        } break;
-
-        case AddressingMode::Relative: {
-            // Branch instruction with 8 or 16 bit signed relative offset
-            auto nextPC = cpuRegisters.PC + cpuOp.size;
-            if (cpuOp.size == 2) {
-                auto offset = static_cast<int8_t>(instruction.operands[0]);
-                disasmInstruction = FormattedString<>("%s $%02x", cpuOp.name, U16(offset) & 0x00FF);
-                comment = FormattedString<>("(%d), PC + offset = $%04x", offset, nextPC + offset);
-            } else {
-                assert(cpuOp.size == 3);
-                auto offset = static_cast<int16_t>(
-                    CombineToU16(instruction.operands[0], instruction.operands[1]));
-                disasmInstruction = FormattedString<>("%s $%04x", cpuOp.name, offset);
-                comment = FormattedString<>("(%d), PC + offset = $%04x", offset, nextPC + offset);
-            }
-        } break;
-
-        case AddressingMode::Illegal: {
-        case AddressingMode::Variant:
-            assert(false);
-        } break;
         }
 
         std::string result =
