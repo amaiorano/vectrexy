@@ -43,6 +43,13 @@ public:
         return value;
     }
 
+    void Push8(uint16_t& stackPointer, uint8_t value) { m_memoryBus->Write(--stackPointer, value); }
+
+    uint8_t Pop8(uint16_t& stackPointer) {
+        auto value = m_memoryBus->Read(stackPointer++);
+        return value;
+    }
+
     void Push16(uint16_t& stackPointer, uint16_t value) {
         m_memoryBus->Write(--stackPointer, U8(value & 0xFF)); // Low
         m_memoryBus->Write(--stackPointer, U8(value >> 8));   // High
@@ -383,6 +390,54 @@ public:
     void OpJMP() {
         uint16_t EA = ReadEA16<LookupCpuOp(page, opCode).addrMode>();
         PC = EA;
+    }
+
+    template <int page, uint8_t opCode>
+    void OpPSH(uint16_t& stackReg) {
+        assert(&stackReg == &S || &stackReg == &U);
+        const uint8_t value = ReadOperandValue8<LookupCpuOp(page, opCode).addrMode>();
+        if (value & BITS(7))
+            Push16(stackReg, PC);
+        if (value & BITS(6)) {
+            auto otherStackReg = &stackReg == &S ? U : S;
+            Push16(stackReg, otherStackReg);
+        }
+        if (value & BITS(5))
+            Push16(stackReg, Y);
+        if (value & BITS(4))
+            Push16(stackReg, X);
+        if (value & BITS(3))
+            Push8(stackReg, DP);
+        if (value & BITS(2))
+            Push8(stackReg, B);
+        if (value & BITS(1))
+            Push8(stackReg, A);
+        if (value & BITS(0))
+            Push8(stackReg, CC.Value);
+    }
+
+    template <int page, uint8_t opCode>
+    void OpPUL(uint16_t& stackReg) {
+        assert(&stackReg == &S || &stackReg == &U);
+        const uint8_t value = ReadOperandValue8<LookupCpuOp(page, opCode).addrMode>();
+        if (value & BITS(0))
+            CC.Value = Pop8(stackReg);
+        if (value & BITS(1))
+            A = Pop8(stackReg);
+        if (value & BITS(2))
+            B = Pop8(stackReg);
+        if (value & BITS(3))
+            DP = Pop8(stackReg);
+        if (value & BITS(4))
+            X = Pop16(stackReg);
+        if (value & BITS(5))
+            Y = Pop16(stackReg);
+        if (value & BITS(6)) {
+            auto& otherStackReg = &stackReg == &S ? U : S;
+            otherStackReg = Pop16(stackReg);
+        }
+        if (value & BITS(7))
+            PC = Pop16(stackReg);
     }
 
     // Helper for conditional branch ops. Always reads relative offset, and if condition is true,
@@ -738,6 +793,20 @@ public:
                 break;
             case 0x7E:
                 OpJMP<0, 0x7E>();
+                break;
+
+            // PSH/PUL
+            case 0x34: // PSHS
+                OpPSH<0, 0x34>(S);
+                break;
+            case 0x35: // PULS
+                OpPUL<0, 0x35>(S);
+                break;
+            case 0x36: // PSHU
+                OpPSH<0, 0x36>(U);
+                break;
+            case 0x37: // PULU
+                OpPUL<0, 0x37>(U);
                 break;
 
             default:

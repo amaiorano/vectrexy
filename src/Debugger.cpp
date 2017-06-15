@@ -111,6 +111,18 @@ namespace {
         return result;
     }
 
+    template <typename StringContainer>
+    std::string Join(const std::string& between, const StringContainer& values) {
+        std::string result;
+        for (auto iter = begin(values); iter != end(values); ++iter) {
+            if (std::distance(iter, end(values)) > 1)
+                result += *iter + between;
+            else
+                result += *iter;
+        }
+        return result;
+    }
+
     const char* GetRegisterName(const CpuRegisters& cpuRegisters, const uint8_t& r) {
         ptrdiff_t offset =
             reinterpret_cast<const uint8_t*>(&r) - reinterpret_cast<const uint8_t*>(&cpuRegisters);
@@ -380,7 +392,32 @@ namespace {
         } break;
 
         case AddressingMode::Immediate: {
-            if (cpuOp.size == 2) {
+            if (cpuOp.opCode >= 0x34 && cpuOp.opCode <= 0x37) { // PSHS, PULS, PSHU, PULU
+                auto value = instruction.operands[0];
+                std::vector<std::string> registers;
+                if (value & BITS(0))
+                    registers.push_back("CC");
+                if (value & BITS(1))
+                    registers.push_back("A");
+                if (value & BITS(2))
+                    registers.push_back("B");
+                if (value & BITS(3))
+                    registers.push_back("DP");
+                if (value & BITS(4))
+                    registers.push_back("X");
+                if (value & BITS(5))
+                    registers.push_back("Y");
+                if (value & BITS(6)) {
+                    registers.push_back(cpuOp.opCode < 0x36 ? "U" : "S");
+                }
+                if (value & BITS(7))
+                    registers.push_back("PC");
+
+                disasmInstruction =
+                    FormattedString<>("%s %s", cpuOp.name, Join(",", registers).c_str());
+                comment = FormattedString<>("#$%02x (%d)", value, value);
+
+            } else if (cpuOp.size == 2) {
                 auto value = instruction.operands[0];
                 disasmInstruction = FormattedString<>("%s #$%02x", cpuOp.name, value);
                 comment = FormattedString<>("(%d)", value);
