@@ -4,6 +4,7 @@
 #include "CpuOpCodes.h"
 #include "MemoryBus.h"
 #include "Platform.h"
+#include "StringHelpers.h"
 #include <array>
 #include <iomanip>
 #include <iostream>
@@ -93,35 +94,7 @@ namespace {
         return value;
     }
 
-    std::vector<std::string> Tokenize(const std::string& s) {
-        std::vector<std::string> result;
-        const char* whitespace = " \t";
-        size_t startIndex = 0;
-        while ((startIndex = s.find_first_not_of(whitespace, startIndex)) != std::string::npos) {
-            size_t endIndex = s.find_first_of(whitespace, startIndex + 1);
-
-            if (endIndex == std::string::npos) {
-                result.emplace_back(s.substr(startIndex));
-                break;
-            } else {
-                result.emplace_back(s.substr(startIndex, endIndex - startIndex));
-                startIndex = endIndex;
-            }
-        }
-        return result;
-    }
-
-    template <typename StringContainer>
-    std::string Join(const std::string& between, const StringContainer& values) {
-        std::string result;
-        for (auto iter = begin(values); iter != end(values); ++iter) {
-            if (std::distance(iter, end(values)) > 1)
-                result += *iter + between;
-            else
-                result += *iter;
-        }
-        return result;
-    }
+    std::vector<std::string> Tokenize(const std::string& s) { return Split(s, " \t"); }
 
     const char* GetRegisterName(const CpuRegisters& cpuRegisters, const uint8_t& r) {
         ptrdiff_t offset =
@@ -414,7 +387,7 @@ namespace {
                     registers.push_back("PC");
 
                 disasmInstruction =
-                    FormattedString<>("%s %s", cpuOp.name, Join(",", registers).c_str());
+                    FormattedString<>("%s %s", cpuOp.name, Join(registers, ",").c_str());
                 comment = FormattedString<>("#$%02x (%d)", value, value);
 
             } else if (cpuOp.size == 2) {
