@@ -440,6 +440,18 @@ public:
             PC = Pop16(stackReg);
     }
 
+    template <int page, uint8_t opCode>
+    void OpTST(const uint8_t& value) {
+        CC.Negative = (value & BITS(7)) != 0;
+        CC.Zero = value == 0;
+        CC.Overflow = 0;
+    }
+
+    template <int page, uint8_t opCode>
+    void OpTST() {
+        OpTST<page, opCode>(ReadOperandValue8<LookupCpuOp(page, opCode).addrMode>());
+    }
+
     // Helper for conditional branch ops. Always reads relative offset, and if condition is true,
     // applies it to PC.
     template <typename CondFunc>
@@ -807,6 +819,23 @@ public:
                 break;
             case 0x37: // PULU
                 OpPUL<0, 0x37>(U);
+                break;
+
+            // TST
+            case 0x0D:
+                OpTST<0, 0x0D>();
+                break;
+            case 0x4D:
+                OpTST<0, 0x4D>(A);
+                break;
+            case 0x5D:
+                OpTST<0, 0x5D>(B);
+                break;
+            case 0x6D:
+                OpTST<0, 0x6D>();
+                break;
+            case 0x7D:
+                OpTST<0, 0x7D>();
                 break;
 
             default:
