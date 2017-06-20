@@ -298,42 +298,19 @@ public:
         CC.Carry = 0;
     }
 
-    // SUBA, SUBB
-    template <int page, uint8_t opCode>
-    void OpSUB(uint8_t& reg) {
-        const uint8_t value = ReadOperandValue8<LookupCpuOp(page, opCode).addrMode>();
-
-        // Instead of subtracting, we add the 2's complement of the value
-        uint16_t a = U16(reg);
-        uint16_t b = ~U16(value); // 1's complement (we add one next to make it 2's complement)
-        uint16_t r = a + b + 1;
-
-        CC.Carry = (r & 0xFF00) != 0;
-        CC.Carry = !CC.Carry; // For subtraction, C is the complement of the resulting carry since
-                              // it represents a borrow
-
-        // If we look at sign bits of a, b, r, then overflow is set if 0 0 1 or 1 1 0
-        CC.Overflow = ((a ^ r) & (a ^ b) & BITS(7)) != 0;
-
-        CC.Zero = (r == 0);
-        CC.Negative = (r & BITS(7)) != 0;
-
-        reg = U8(r);
-    }
-
-    // SUBD
-    template <int page, uint8_t opCode>
-    void OpSUB(uint16_t& reg) {
-        const uint16_t value = ReadOperandValue16<LookupCpuOp(page, opCode).addrMode>();
-
+    // Implement two's complement subtract
+    template <typename T>
+    static T Subtract(T reg, T value, ConditionCode& CC) {
         // Instead of subtracting, we add the 2's complement of the value
         uint32_t a = U32(reg);
         uint32_t b = ~U32(value); // 1's complement (we add one next to make it 2's complement)
         uint32_t r = a + b + 1;
 
         CC.Carry = (r & 0xFFFF'0000) != 0;
-        CC.Carry = !CC.Carry; // For subtraction, C is the complement of the resulting carry since
-                              // it represents a borrow
+
+        //@TODO: I think this isn't right...
+        // For subtraction, C is the complement of the resulting carry since it represents a borrow
+        // CC.Carry = !CC.Carry;
 
         // If we look at sign bits of a, b, r, then overflow is set if 0 0 1 or 1 1 0
         CC.Overflow = ((a ^ r) & (a ^ b) & BITS(15)) != 0;
@@ -341,7 +318,21 @@ public:
         CC.Zero = (r == 0);
         CC.Negative = (r & BITS(15)) != 0;
 
-        reg = U16(r);
+        return static_cast<T>(r);
+    }
+
+    // SUBA, SUBB
+    template <int page, uint8_t opCode>
+    void OpSUB(uint8_t& reg) {
+        const uint8_t value = ReadOperandValue8<LookupCpuOp(page, opCode).addrMode>();
+        reg = Subtract(reg, value, CC);
+    }
+
+    // SUBD
+    template <int page, uint8_t opCode>
+    void OpSUB(uint16_t& reg) {
+        const uint16_t value = ReadOperandValue16<LookupCpuOp(page, opCode).addrMode>();
+        reg = Subtract(reg, value, CC);
     }
 
     // INCA, INCB
@@ -462,6 +453,18 @@ public:
             CC.Zero = value == 0;
             CC.Overflow = 0;
         }
+    }
+
+    template <int page, uint8_t opCode>
+    void OpCMP(const uint8_t& reg) {
+        uint8_t value = ReadOperandValue8<LookupCpuOp(page, opCode).addrMode>();
+        Subtract(reg, value, CC);
+    }
+
+    template <int page, uint8_t opCode>
+    void OpCMP(const uint16_t& reg) {
+        uint16_t value = ReadOperandValue16<LookupCpuOp(page, opCode).addrMode>();
+        Subtract(reg, value, CC);
     }
 
     // Helper for conditional branch ops. Always reads relative offset, and if condition is true,
@@ -879,6 +882,44 @@ public:
                 OpOR<0, 0x1A>(CC.Value);
                 break;
 
+            // CMP
+            case 0x81:
+                OpCMP<0, 0x81>(A);
+                break;
+            case 0x8C:
+                OpCMP<0, 0x8C>(X);
+                break;
+            case 0x91:
+                OpCMP<0, 0x91>(A);
+                break;
+            case 0x9C:
+                OpCMP<0, 0x9C>(X);
+                break;
+            case 0xA1:
+                OpCMP<0, 0xA1>(A);
+                break;
+            case 0xAC:
+                OpCMP<0, 0xAC>(X);
+                break;
+            case 0xB1:
+                OpCMP<0, 0xB1>(A);
+                break;
+            case 0xBC:
+                OpCMP<0, 0xBC>(X);
+                break;
+            case 0xC1:
+                OpCMP<0, 0xC1>(B);
+                break;
+            case 0xD1:
+                OpCMP<0, 0xD1>(B);
+                break;
+            case 0xE1:
+                OpCMP<0, 0xE1>(B);
+                break;
+            case 0xF1:
+                OpCMP<0, 0xF1>(B);
+                break;
+
             default:
                 UnhandledOp(cpuOp);
             }
@@ -932,6 +973,32 @@ public:
                 OpST<1, 0xFF>(S);
                 break;
 
+            // CMP
+            case 0x83:
+                OpCMP<1, 0x83>(D);
+                break;
+            case 0x8C:
+                OpCMP<1, 0x8C>(Y);
+                break;
+            case 0x93:
+                OpCMP<1, 0x93>(D);
+                break;
+            case 0x9C:
+                OpCMP<1, 0x9C>(Y);
+                break;
+            case 0xA3:
+                OpCMP<1, 0xA3>(D);
+                break;
+            case 0xAC:
+                OpCMP<1, 0xAC>(Y);
+                break;
+            case 0xB3:
+                OpCMP<1, 0xB3>(D);
+                break;
+            case 0xBC:
+                OpCMP<1, 0xBC>(Y);
+                break;
+
             default:
                 UnhandledOp(cpuOp);
             }
@@ -942,6 +1009,33 @@ public:
             case 0x00:
                 UnhandledOp(cpuOp);
                 break;
+
+            // CMP
+            case 0x83:
+                OpCMP<2, 0x83>(U);
+                break;
+            case 0x8C:
+                OpCMP<2, 0x8C>(S);
+                break;
+            case 0x93:
+                OpCMP<2, 0x93>(U);
+                break;
+            case 0x9C:
+                OpCMP<2, 0x9C>(S);
+                break;
+            case 0xA3:
+                OpCMP<2, 0xA3>(U);
+                break;
+            case 0xAC:
+                OpCMP<2, 0xAC>(S);
+                break;
+            case 0xB3:
+                OpCMP<2, 0xB3>(U);
+                break;
+            case 0xBC:
+                OpCMP<2, 0xBC>(S);
+                break;
+
             default:
                 UnhandledOp(cpuOp);
             }
