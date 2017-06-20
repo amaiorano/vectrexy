@@ -452,6 +452,18 @@ public:
         OpTST<page, opCode>(ReadOperandValue8<LookupCpuOp(page, opCode).addrMode>());
     }
 
+    template <int page, uint8_t opCode>
+    void OpOR(uint8_t& reg) {
+        uint8_t value = ReadOperandValue8<LookupCpuOp(page, opCode).addrMode>();
+        reg = reg | value;
+        // For ORCC, we don't update CC. @TODO: separate function?
+        if (&reg != &CC.Value) {
+            CC.Negative = (value & BITS(7)) != 0;
+            CC.Zero = value == 0;
+            CC.Overflow = 0;
+        }
+    }
+
     // Helper for conditional branch ops. Always reads relative offset, and if condition is true,
     // applies it to PC.
     template <typename CondFunc>
@@ -836,6 +848,35 @@ public:
                 break;
             case 0x7D:
                 OpTST<0, 0x7D>();
+                break;
+
+            // ORA/ORB
+            case 0x8A:
+                OpOR<0, 0x8A>(A);
+                break;
+            case 0x9A:
+                OpOR<0, 0x9A>(A);
+                break;
+            case 0xAA:
+                OpOR<0, 0xAA>(A);
+                break;
+            case 0xBA:
+                OpOR<0, 0xBA>(A);
+                break;
+            case 0xCA:
+                OpOR<0, 0xCA>(B);
+                break;
+            case 0xDA:
+                OpOR<0, 0xDA>(B);
+                break;
+            case 0xEA:
+                OpOR<0, 0xEA>(B);
+                break;
+            case 0xFA:
+                OpOR<0, 0xFA>(B);
+                break;
+            case 0x1A:
+                OpOR<0, 0x1A>(CC.Value);
                 break;
 
             default:
