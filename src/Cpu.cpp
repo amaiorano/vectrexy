@@ -466,6 +466,15 @@ public:
         Subtract(reg, value, CC);
     }
 
+    template <int page, uint8_t opCode>
+    void OpBIT(const uint8_t& reg) {
+        uint8_t value = ReadOperandValue8<LookupCpuOp(page, opCode).addrMode>();
+        uint8_t result = reg & value;
+        CC.Negative = (result & BITS(7)) != 0;
+        CC.Zero = result == 0;
+        CC.Overflow = 0;
+    }
+
     // Helper for conditional branch ops. Always reads relative offset, and if condition is true,
     // applies it to PC.
     template <typename CondFunc>
@@ -917,6 +926,32 @@ public:
                 break;
             case 0xF1:
                 OpCMP<0, 0xF1>(B);
+                break;
+
+            // BIT
+            case 0x85:
+                OpBIT<0, 0x85>(A);
+                break;
+            case 0x95:
+                OpBIT<0, 0x95>(A);
+                break;
+            case 0xA5:
+                OpBIT<0, 0xA5>(A);
+                break;
+            case 0xB5:
+                OpBIT<0, 0xB5>(A);
+                break;
+            case 0xC5:
+                OpBIT<0, 0xC5>(B);
+                break;
+            case 0xD5:
+                OpBIT<0, 0xD5>(B);
+                break;
+            case 0xE5:
+                OpBIT<0, 0xE5>(B);
+                break;
+            case 0xF5:
+                OpBIT<0, 0xF5>(B);
                 break;
 
             default:
