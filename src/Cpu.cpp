@@ -308,9 +308,8 @@ public:
 
         CC.Carry = (r & 0xFFFF'0000) != 0;
 
-        //@TODO: I think this isn't right...
         // For subtraction, C is the complement of the resulting carry since it represents a borrow
-        // CC.Carry = !CC.Carry;
+        CC.Carry = !CC.Carry;
 
         // If we look at sign bits of a, b, r, then overflow is set if 0 0 1 or 1 1 0
         CC.Overflow = ((a ^ r) & (a ^ b) & BITS(15)) != 0;
@@ -651,13 +650,13 @@ public:
                 BranchIf([this] { return (CC.Zero | (CC.Negative ^ CC.Overflow)) == 0; });
                 break;
             case 0x22: // BHI (branch if higher)
-                BranchIf([this] { return (CC.Carry | CC.Overflow) == 0; });
+                BranchIf([this] { return (CC.Carry | CC.Zero) == 0; });
                 break;
             case 0x2F: // BLE (branch if less or equal)
                 BranchIf([this] { return (CC.Zero | (CC.Negative ^ CC.Overflow)) != 0; });
                 break;
             case 0x23: // BLS (banch if lower or same)
-                BranchIf([this] { return (CC.Carry | CC.Overflow) != 0; });
+                BranchIf([this] { return (CC.Carry | CC.Zero) != 0; });
                 break;
             case 0x2D: // BLT (branch if less than)
                 BranchIf([this] { return (CC.Negative ^ CC.Overflow) != 0; });
