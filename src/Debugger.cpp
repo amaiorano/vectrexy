@@ -4,8 +4,10 @@
 #include "CpuOpCodes.h"
 #include "MemoryBus.h"
 #include "Platform.h"
+#include "RegexHelpers.h"
 #include "StringHelpers.h"
 #include <array>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <optional>
@@ -386,7 +388,8 @@ namespace {
         comment += FormattedString<>(", EA = $%04x = $%02x (%d)", EA, value, value);
     }
 
-    std::string DisassembleOp(const CpuRegisters& cpuRegisters, const MemoryBus& memoryBus) {
+    std::string DisassembleOp(const CpuRegisters& cpuRegisters, const MemoryBus& memoryBus,
+                              const Debugger::SymbolTable& symbolTable) {
         uint16_t opAddr = cpuRegisters.PC;
         auto instruction = ReadInstruction(opAddr, memoryBus);
         const auto& cpuOp = instruction.cpuOp;
@@ -485,15 +488,39 @@ namespace {
             }
         }
 
+        // Appends symbol names to known addresses
+        auto AppendSymbols = [&symbolTable](const std::string& s) {
+            if (!symbolTable.empty()) {
+                auto AppendSymbol = [&symbolTable](const std::smatch& m) -> std::string {
+                    std::string result = m.str(0);
+                    uint16_t address = HexStringToIntegral<uint16_t>(m.str(0).substr(1).c_str());
+                    auto iter = symbolTable.find(address);
+                    if (iter != symbolTable.end()) {
+                        result += "{" + iter->second + "}";
+                    }
+                    return result;
+                };
+
+                std::regex re("\\$[A-Fa-f0-9][A-Fa-f0-9][A-Fa-f0-9][A-Fa-f0-9]");
+                return RegexReplace(s, re, AppendSymbol);
+            }
+            return s;
+        };
+
+        disasmInstruction = AppendSymbols(disasmInstruction);
+        comment = AppendSymbols(comment);
+
         std::string result =
-            FormattedString<>("%-10s %-14s %s", hexInstruction.c_str(), disasmInstruction.c_str(),
+            FormattedString<>("%-10s %-32s %s", hexInstruction.c_str(), disasmInstruction.c_str(),
                               comment.size() > 0 ? ("; " + comment).c_str() : "")
                 .Value();
+
         return result;
     };
 
-    void PrintOp(const CpuRegisters& cpuRegisters, const MemoryBus& memoryBus) {
-        std::string op = DisassembleOp(cpuRegisters, memoryBus);
+    void PrintOp(const CpuRegisters& cpuRegisters, const MemoryBus& memoryBus,
+                 const Debugger::SymbolTable& symbolTable) {
+        std::string op = DisassembleOp(cpuRegisters, memoryBus, symbolTable);
         std::cout << FormattedString<>("[$%x] %s", cpuRegisters.PC, op.c_str()) << std::endl;
     }
 
@@ -526,9 +553,26 @@ namespace {
                      "delete <index>        delete breakpoint at index\n"
                      "disable <index>       disable breakpoint at index\n"
                      "enable <index>        enable breakpoint at index\n"
+                     "loadsymbols <file>    load file with symbol/address definitions\n"
                      "q[uit]                quit\n"
                      "h[help]               display this help text\n"
                   << std::flush;
+    }
+
+    bool LoadUserSymbolsFile(const char* file, Debugger::SymbolTable& symbolTable) {
+        std::ifstream fin(file);
+        if (!fin)
+            return false;
+
+        std::string line;
+        while (std::getline(fin, line)) {
+            auto tokens = Tokenize(line);
+            if (tokens.size() >= 3 && tokens[1] == ".EQU") {
+                auto address = HexStringToIntegral<uint16_t>(tokens[2].c_str());
+                symbolTable[address] = tokens[0];
+            }
+        }
+        return true;
     }
 
 } // namespace
@@ -595,7 +639,7 @@ void Debugger::Run() {
 
             } else if (tokens[0] == "step" || tokens[0] == "s") {
                 // "Step into"
-                PrintOp(m_cpu->Registers(), *m_memoryBus);
+                PrintOp(m_cpu->Registers(), *m_memoryBus, m_symbolTable);
                 m_cpu->ExecuteInstruction();
 
             } else if (tokens[0] == "until" || tokens[0] == "u") {
@@ -689,6 +733,14 @@ void Debugger::Run() {
                     validCommand = false;
                 }
 
+            } else if (tokens[0] == "loadsymbols") {
+                if (tokens.size() > 1 && LoadUserSymbolsFile(tokens[1].c_str(), m_symbolTable)) {
+                    std::cout << FormattedString<>("Loaded symbols from %s", tokens[1].c_str())
+                              << std::endl;
+                } else {
+                    validCommand = false;
+                }
+
             } else {
                 validCommand = false;
             }
@@ -702,7 +754,7 @@ void Debugger::Run() {
         } else { // Not broken into debugger (running)
 
             if (m_traceEnabled)
-                PrintOp(m_cpu->Registers(), *m_memoryBus);
+                PrintOp(m_cpu->Registers(), *m_memoryBus, m_symbolTable);
 
             m_cpu->ExecuteInstruction();
 
