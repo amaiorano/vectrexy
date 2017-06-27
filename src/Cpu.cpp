@@ -5,9 +5,23 @@
 #include <array>
 #include <type_traits>
 
+namespace {
+    template <typename T>
+    size_t NumBitsSet(T value) {
+        size_t count = 0;
+        while (value) {
+            if ((value & 0x1) != 0)
+                ++count;
+            value >>= 1;
+        }
+        return count;
+    }
+} // namespace
+
 class CpuImpl : public CpuRegisters {
 public:
     MemoryBus* m_memoryBus = nullptr;
+    size_t m_cycles = 0;
 
     void Init(MemoryBus& memoryBus) {
         m_memoryBus = &memoryBus;
@@ -89,6 +103,7 @@ public:
         uint16_t EA = 0;
         uint8_t postbyte = ReadPC8();
         bool supportsIndirect = true;
+        int extraCycles = 0;
 
         if ((postbyte & BITS(7)) == 0) // (+/- 4 bit offset),R
         {
@@ -99,6 +114,7 @@ public:
                 offset |= 0b1110'0000;
             EA = RegisterSelect(postbyte) + S16(offset);
             supportsIndirect = false;
+            extraCycles = 1;
         } else {
             switch (postbyte & 0b1111) {
             case 0b0000: { // ,R+
@@ -106,31 +122,37 @@ public:
                 EA = reg;
                 reg += 1;
                 supportsIndirect = false;
+                extraCycles = 2;
             } break;
             case 0b0001: { // ,R++
                 auto& reg = RegisterSelect(postbyte);
                 EA = reg;
                 reg += 2;
+                extraCycles = 3;
             } break;
             case 0b0010: { // ,-R
                 auto& reg = RegisterSelect(postbyte);
                 reg -= 1;
                 EA = reg;
                 supportsIndirect = false;
+                extraCycles = 2;
             } break;
             case 0b0011: { // ,--R
                 auto& reg = RegisterSelect(postbyte);
                 reg -= 2;
                 EA = reg;
+                extraCycles = 3;
             } break;
             case 0b0100: // ,R
                 EA = RegisterSelect(postbyte);
                 break;
             case 0b0101: // (+/- B),R
                 EA = RegisterSelect(postbyte) + S16(B);
+                extraCycles = 1;
                 break;
             case 0b0110: // (+/- A),R
                 EA = RegisterSelect(postbyte) + S16(A);
+                extraCycles = 1;
                 break;
             case 0b0111:
                 FAIL("Illegal");
@@ -138,26 +160,31 @@ public:
             case 0b1000: { // (+/- 7 bit offset),R
                 uint8_t postbyte2 = ReadPC8();
                 EA = RegisterSelect(postbyte) + S16(postbyte2);
+                extraCycles = 1;
             } break;
             case 0b1001: { // (+/- 15 bit offset),R
                 uint8_t postbyte2 = ReadPC8();
                 uint8_t postbyte3 = ReadPC8();
                 EA = RegisterSelect(postbyte) + CombineToS16(postbyte2, postbyte3);
+                extraCycles = 4;
             } break;
             case 0b1010:
                 FAIL("Illegal");
                 break;
             case 0b1011: // (+/- D),R
                 EA = RegisterSelect(postbyte) + S16(D);
+                extraCycles = 4;
                 break;
             case 0b1100: { // (+/- 7 bit offset),PC
                 uint8_t postbyte2 = ReadPC8();
                 EA = PC + S16(postbyte2);
+                extraCycles = 1;
             } break;
             case 0b1101: { // (+/- 15 bit offset),PC
                 uint8_t postbyte2 = ReadPC8();
                 uint8_t postbyte3 = ReadPC8();
                 EA = PC + CombineToS16(postbyte2, postbyte3);
+                extraCycles = 5;
             } break;
             case 0b1110:
                 FAIL("Illegal");
@@ -166,6 +193,7 @@ public:
                 uint8_t postbyte2 = ReadPC8();
                 uint8_t postbyte3 = ReadPC8();
                 EA = CombineToS16(postbyte2, postbyte3);
+                extraCycles = 5;
             } break;
             default:
                 FAIL("Illegal");
@@ -177,7 +205,10 @@ public:
             uint8_t msb = m_memoryBus->Read(EA);
             uint8_t lsb = m_memoryBus->Read(EA + 1);
             EA = CombineToU16(lsb, msb);
+            extraCycles += 3;
         }
+
+        m_cycles += extraCycles;
 
         return EA;
     }
@@ -404,6 +435,8 @@ public:
             Push8(stackReg, A);
         if (value & BITS(0))
             Push8(stackReg, CC.Value);
+
+        m_cycles += NumBitsSet(value); // 1 cycle per value that's pushed
     }
 
     template <int page, uint8_t opCode>
@@ -428,6 +461,8 @@ public:
         }
         if (value & BITS(7))
             PC = Pop16(stackReg);
+
+        m_cycles += NumBitsSet(value); // 1 cycle per value that's pulled
     }
 
     template <int page, uint8_t opCode>
@@ -480,8 +515,10 @@ public:
     template <typename CondFunc>
     void BranchIf(CondFunc condFunc) {
         int8_t offset = ReadRelativeOffset8();
-        if (condFunc())
+        if (condFunc()) {
             PC += offset;
+            m_cycles += 1; // Extra cycle if branch is taken
+        }
     }
 
     void ExecuteInstruction() {
@@ -501,6 +538,10 @@ public:
         }
 
         const CpuOp& cpuOp = LookupCpuOpRuntime(cpuOpPage, opCodeByte);
+
+        assert(cpuOp.cycles > 0 && "TODO: look at how to handle cycles for this instruction");
+        //@TODO: Handle cycle counting for interrupts (SWI[2/3], [F]IRQ, NMI) and RTI
+        m_cycles += cpuOp.cycles; // Base cycles for this instruction
 
         assert(cpuOp.addrMode != AddressingMode::Illegal && "Illegal instruction!");
         assert(cpuOp.addrMode != AddressingMode::Variant &&
