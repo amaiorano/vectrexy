@@ -388,8 +388,14 @@ namespace {
         comment += FormattedString<>(", EA = $%04x = $%02x (%d)", EA, value, value);
     }
 
-    std::string DisassembleOp(const CpuRegisters& cpuRegisters, const MemoryBus& memoryBus,
-                              const Debugger::SymbolTable& symbolTable) {
+    struct DisassembledOp {
+        std::string hexInstruction;
+        std::string disasmInstruction;
+        std::string comment;
+    };
+
+    DisassembledOp DisassembleOp(const CpuRegisters& cpuRegisters, const MemoryBus& memoryBus,
+                                 const Debugger::SymbolTable& symbolTable) {
         uint16_t opAddr = cpuRegisters.PC;
         auto instruction = ReadInstruction(opAddr, memoryBus);
         const auto& cpuOp = instruction.cpuOp;
@@ -510,18 +516,23 @@ namespace {
         disasmInstruction = AppendSymbols(disasmInstruction);
         comment = AppendSymbols(comment);
 
-        std::string result =
-            FormattedString<>("%-10s %-32s %s", hexInstruction.c_str(), disasmInstruction.c_str(),
-                              comment.size() > 0 ? ("; " + comment).c_str() : "")
-                .Value();
-
-        return result;
+        return {hexInstruction, disasmInstruction, comment};
     };
 
     void PrintOp(const CpuRegisters& cpuRegisters, const MemoryBus& memoryBus,
                  const Debugger::SymbolTable& symbolTable) {
-        std::string op = DisassembleOp(cpuRegisters, memoryBus, symbolTable);
-        std::cout << FormattedString<>("[$%x] %s", cpuRegisters.PC, op.c_str()) << std::endl;
+        auto op = DisassembleOp(cpuRegisters, memoryBus, symbolTable);
+
+        using namespace Platform;
+        ScopedConsoleColor scc;
+        std::cout << FormattedString<>("[$%x] ", cpuRegisters.PC);
+        SetConsoleColor(ConsoleColor::LightYellow);
+        std::cout << FormattedString<>("%-10s ", op.hexInstruction.c_str());
+        SetConsoleColor(ConsoleColor::LightAqua);
+        std::cout << FormattedString<>("%-32s ", op.disasmInstruction.c_str());
+        SetConsoleColor(ConsoleColor::LightGreen);
+        std::cout << FormattedString<>("%s", op.comment.c_str());
+        std::cout << std::endl;
     }
 
     void PrintRegisters(const CpuRegisters& cpuRegisters) {
@@ -598,6 +609,10 @@ void Debugger::Run() {
 
     Breakpoints breakpoints;
 
+    // Set default console colors
+    Platform::ScopedConsoleColor defaultColor(Platform::ConsoleColor::White,
+                                              Platform::ConsoleColor::Black);
+
     while (true) {
         if (m_breakIntoDebugger) {
             std::cout << FormattedString<>("$%04x (%s)>", m_cpu->Registers().PC,
@@ -606,6 +621,8 @@ void Debugger::Run() {
 
             std::string input;
             const auto& stream = std::getline(std::cin, input);
+
+            Platform::ScopedConsoleColor defaultOutputColor(Platform::ConsoleColor::LightAqua);
 
             if (!stream) {
                 // getline will fail under certain conditions, like when Ctrl+C is pressed, in which
@@ -712,8 +729,11 @@ void Debugger::Run() {
                     PrintRegisters(m_cpu->Registers());
                 } else if (tokens.size() > 1 && (tokens[1] == "break")) {
                     std::cout << "Breakpoints:\n";
+                    Platform::ScopedConsoleColor scc;
                     for (size_t i = 0; i < breakpoints.Num(); ++i) {
                         auto bp = breakpoints.GetAtIndex(i);
+                        Platform::SetConsoleColor(bp->enabled ? Platform::ConsoleColor::LightGreen
+                                                              : Platform::ConsoleColor::LightRed);
                         std::cout << FormattedString<>("%3d: $%04x\t%s\n", i, bp->address,
                                                        bp->enabled ? "Enabled" : "Disabled");
                     }
