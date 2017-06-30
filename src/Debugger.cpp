@@ -7,6 +7,7 @@
 #include "RegexHelpers.h"
 #include "StringHelpers.h"
 #include <array>
+#include <chrono>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -612,8 +613,16 @@ void Debugger::Run() {
     // Set default console colors
     Platform::ScopedConsoleColor defaultColor(Platform::ConsoleColor::White,
                                               Platform::ConsoleColor::Black);
+											  
+    auto lastTime = std::chrono::high_resolution_clock::now();
 
     while (true) {
+
+        const auto currTime = std::chrono::high_resolution_clock::now();
+        const std::chrono::duration<double> diff = currTime - lastTime;
+        const double deltaTime = diff.count();
+        lastTime = currTime;
+
         if (m_breakIntoDebugger) {
             std::cout << FormattedString<>("$%04x (%s)>", m_cpu->Registers().PC,
                                            m_lastCommand.c_str())
@@ -653,6 +662,9 @@ void Debugger::Run() {
 
             } else if (tokens[0] == "continue" || tokens[0] == "c") {
                 m_breakIntoDebugger = false;
+                // When resuming, make sure to reset frame timer. We don't want the resumed frame to
+                // have a huge delta time because we were stopped in the debugger.
+                lastTime = std::chrono::high_resolution_clock::now();
 
             } else if (tokens[0] == "step" || tokens[0] == "s") {
                 // "Step into"
@@ -773,11 +785,17 @@ void Debugger::Run() {
 
         } else { // Not broken into debugger (running)
 
-            if (m_traceEnabled)
-                PrintOp(m_cpu->Registers(), *m_memoryBus, m_symbolTable);
+            //@TODO: How do we trace when CPU executes multiple instructions? Pass a function to
+            // Cpu::Execute to call before each instruction is executed?
+            // if (m_traceEnabled)
+            //    PrintOp(m_cpu->Registers(), *m_memoryBus, m_symbolTable);
 
-            m_cpu->ExecuteInstruction();
+            const double cpuHz = 6'000'000.0 / 4.0; // Frequency of the CPU (cycles/second)
+            const cycles_t cpuCycles = cpuHz * deltaTime;
+            m_cpu->Execute(cpuCycles);
 
+            //@TODO: How we make sure to break on a given instruction now that we execute multiple
+            // instructions in Cpu::Execute?
             if (auto bp = breakpoints.Get(m_cpu->Registers().PC)) {
                 if (bp->autoDelete) {
                     breakpoints.Remove(m_cpu->Registers().PC);

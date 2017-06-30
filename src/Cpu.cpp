@@ -21,7 +21,8 @@ namespace {
 class CpuImpl : public CpuRegisters {
 public:
     MemoryBus* m_memoryBus = nullptr;
-    size_t m_cycles = 0;
+    cycles_t m_totalCycles = 0;
+    cycles_t m_cyclesLeft = 0;
 
     void Init(MemoryBus& memoryBus) {
         m_memoryBus = &memoryBus;
@@ -208,7 +209,7 @@ public:
             extraCycles += 3;
         }
 
-        m_cycles += extraCycles;
+        m_totalCycles += extraCycles;
 
         return EA;
     }
@@ -436,7 +437,7 @@ public:
         if (value & BITS(0))
             Push8(stackReg, CC.Value);
 
-        m_cycles += NumBitsSet(value); // 1 cycle per value that's pushed
+        m_totalCycles += NumBitsSet(value); // 1 cycle per value that's pushed
     }
 
     template <int page, uint8_t opCode>
@@ -462,7 +463,7 @@ public:
         if (value & BITS(7))
             PC = Pop16(stackReg);
 
-        m_cycles += NumBitsSet(value); // 1 cycle per value that's pulled
+        m_totalCycles += NumBitsSet(value); // 1 cycle per value that's pulled
     }
 
     template <int page, uint8_t opCode>
@@ -517,11 +518,13 @@ public:
         int8_t offset = ReadRelativeOffset8();
         if (condFunc()) {
             PC += offset;
-            m_cycles += 1; // Extra cycle if branch is taken
+            m_totalCycles += 1; // Extra cycle if branch is taken
         }
     }
 
-    void ExecuteInstruction() {
+    cycles_t ExecuteInstruction() {
+        const auto startCycles = m_totalCycles;
+
         auto UnhandledOp = [this](const CpuOp& cpuOp) {
             (void)cpuOp;
             FAIL("Unhandled Op: %s", cpuOp.name);
@@ -541,7 +544,7 @@ public:
 
         assert(cpuOp.cycles > 0 && "TODO: look at how to handle cycles for this instruction");
         //@TODO: Handle cycle counting for interrupts (SWI[2/3], [F]IRQ, NMI) and RTI
-        m_cycles += cpuOp.cycles; // Base cycles for this instruction
+        m_totalCycles += cpuOp.cycles; // Base cycles for this instruction
 
         assert(cpuOp.addrMode != AddressingMode::Illegal && "Illegal instruction!");
         assert(cpuOp.addrMode != AddressingMode::Variant &&
@@ -1116,6 +1119,23 @@ public:
             }
             break;
         }
+
+        const auto elapsedCycles = m_totalCycles - startCycles;
+        return elapsedCycles;
+    }
+
+    cycles_t Execute(cycles_t cycles) {
+        m_cyclesLeft += cycles;
+
+        cycles_t totalCycles = 0;
+        while (m_cyclesLeft > 0) {
+            const auto elapsedCycles = ExecuteInstruction();
+            totalCycles += elapsedCycles;
+            m_cyclesLeft -= elapsedCycles;
+        }
+
+        assert(m_cyclesLeft <= 0);
+        return totalCycles;
     }
 };
 
@@ -1132,8 +1152,12 @@ void Cpu::Reset(uint16_t initialPC) {
     m_impl->Reset(initialPC);
 }
 
-void Cpu::ExecuteInstruction() {
-    m_impl->ExecuteInstruction();
+cycles_t Cpu::ExecuteInstruction() {
+    return m_impl->ExecuteInstruction();
+}
+
+cycles_t Cpu::Execute(cycles_t cycles) {
+    return m_impl->Execute(cycles);
 }
 
 const CpuRegisters& Cpu::Registers() {
