@@ -59,7 +59,6 @@ public:
     void Init(MemoryBus& memoryBus);
     void Reset(uint16_t initialPC);
     cycles_t ExecuteInstruction();
-    cycles_t Execute(cycles_t cycles);
 
     const CpuRegisters& Registers();
 

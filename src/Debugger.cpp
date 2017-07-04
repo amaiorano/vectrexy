@@ -542,6 +542,9 @@ void Debugger::Run() {
 
     auto lastTime = std::chrono::high_resolution_clock::now();
 
+    cycles_t cpuCyclesTotal = 0;
+    cycles_t cpuCyclesLeft = 0;
+
     while (true) {
 
         const auto currTime = std::chrono::high_resolution_clock::now();
@@ -711,26 +714,31 @@ void Debugger::Run() {
 
         } else { // Not broken into debugger (running)
 
-            //@TODO: How do we trace when CPU executes multiple instructions? Pass a function to
-            // Cpu::Execute to call before each instruction is executed?
-            // if (m_traceEnabled)
-            //    PrintOp(m_cpu->Registers(), *m_memoryBus, m_symbolTable);
-
             const double cpuHz = 6'000'000.0 / 4.0; // Frequency of the CPU (cycles/second)
-            const cycles_t cpuCycles = cpuHz * deltaTime;
-            m_cpu->Execute(cpuCycles);
+            const cycles_t cpuCyclesThisFrame = cpuHz * deltaTime;
 
-            //@TODO: How we make sure to break on a given instruction now that we execute multiple
-            // instructions in Cpu::Execute?
-            if (auto bp = m_breakpoints.Get(m_cpu->Registers().PC)) {
-                if (bp->autoDelete) {
-                    m_breakpoints.Remove(m_cpu->Registers().PC);
-                    m_breakIntoDebugger = true;
-                } else if (bp->enabled) {
-                    std::cout << FormattedString<>("Breakpoint hit at %04x", bp->address)
-                              << std::endl;
-                    m_breakIntoDebugger = true;
+            cpuCyclesLeft += cpuCyclesThisFrame;
+            while (cpuCyclesLeft > 0) {
+                if (m_traceEnabled)
+                    PrintOp(m_cpu->Registers(), *m_memoryBus, m_symbolTable);
+
+                if (auto bp = m_breakpoints.Get(m_cpu->Registers().PC)) {
+                    if (bp->autoDelete) {
+                        m_breakpoints.Remove(m_cpu->Registers().PC);
+                        m_breakIntoDebugger = true;
+                    } else if (bp->enabled) {
+                        std::cout << FormattedString<>("Breakpoint hit at %04x", bp->address)
+                                  << std::endl;
+                        m_breakIntoDebugger = true;
+                    }
                 }
+
+                if (m_breakIntoDebugger)
+                    break;
+
+                const auto elapsedCycles = m_cpu->ExecuteInstruction();
+                cpuCyclesTotal += elapsedCycles;
+                cpuCyclesLeft -= elapsedCycles;
             }
         }
     }
