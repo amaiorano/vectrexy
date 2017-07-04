@@ -11,83 +11,11 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
-#include <optional>
 #include <sstream>
 #include <string>
 #include <vector>
 
 namespace {
-    struct Breakpoint {
-        uint16_t address = 0;
-        bool enabled = true;
-        bool autoDelete = false;
-    };
-
-    class Breakpoints {
-    public:
-        Breakpoint* Add(uint16_t address) {
-            auto& bp = m_breakpoints[address];
-            bp.address = address;
-            return &bp;
-        }
-
-        std::optional<Breakpoint> Remove(uint16_t address) {
-            auto iter = m_breakpoints.find(address);
-            if (iter != m_breakpoints.end()) {
-                auto bp = iter->second;
-                m_breakpoints.erase(iter);
-                return bp;
-            }
-            return {};
-        }
-
-        std::optional<Breakpoint> RemoveAtIndex(size_t index) {
-            auto iter = GetBreakpointIterAtIndex(index);
-            if (iter != m_breakpoints.end()) {
-                auto bp = iter->second;
-                m_breakpoints.erase(iter);
-                return bp;
-            }
-            return {};
-        }
-
-        Breakpoint* Get(uint16_t address) {
-            auto iter = m_breakpoints.find(address);
-            if (iter != m_breakpoints.end()) {
-                return &iter->second;
-            }
-            return nullptr;
-        }
-
-        Breakpoint* GetAtIndex(size_t index) {
-            auto iter = GetBreakpointIterAtIndex(index);
-            if (iter != m_breakpoints.end()) {
-                return &iter->second;
-            }
-            return nullptr;
-        }
-
-        std::optional<size_t> GetIndex(uint16_t address) {
-            auto iter = m_breakpoints.find(address);
-            if (iter != m_breakpoints.end()) {
-                return std::distance(m_breakpoints.begin(), iter);
-            }
-            return {};
-        }
-
-        size_t Num() const { return m_breakpoints.size(); }
-
-    private:
-        std::map<uint16_t, Breakpoint> m_breakpoints;
-
-        using IterType = decltype(m_breakpoints.begin());
-        IterType GetBreakpointIterAtIndex(size_t index) {
-            auto iter = m_breakpoints.begin();
-            if (iter != m_breakpoints.end())
-                std::advance(iter, index);
-            return iter;
-        }
-    };
 
     template <typename T>
     T HexStringToIntegral(const char* s) {
@@ -608,12 +536,10 @@ void Debugger::Run() {
     // Enable trace when running normally
     m_traceEnabled = true;
 
-    Breakpoints breakpoints;
-
     // Set default console colors
     Platform::ScopedConsoleColor defaultColor(Platform::ConsoleColor::White,
                                               Platform::ConsoleColor::Black);
-											  
+
     auto lastTime = std::chrono::high_resolution_clock::now();
 
     while (true) {
@@ -674,7 +600,7 @@ void Debugger::Run() {
             } else if (tokens[0] == "until" || tokens[0] == "u") {
                 if (tokens.size() > 1 && tokens[1][0] == '$') {
                     uint16_t address = HexStringToIntegral<uint16_t>(tokens[1].substr(1).c_str());
-                    auto bp = breakpoints.Add(address);
+                    auto bp = m_breakpoints.Add(address);
                     bp->autoDelete = true;
                     m_breakIntoDebugger = false;
                 } else {
@@ -685,7 +611,7 @@ void Debugger::Run() {
                 validCommand = false;
                 if (tokens.size() > 1 && tokens[1][0] == '$') {
                     uint16_t address = HexStringToIntegral<uint16_t>(tokens[1].substr(1).c_str());
-                    if (auto bp = breakpoints.Add(address)) {
+                    if (auto bp = m_breakpoints.Add(address)) {
                         std::cout << FormattedString<>("Added breakpoint at $%04x", address)
                                   << std::endl;
                         validCommand = true;
@@ -696,7 +622,7 @@ void Debugger::Run() {
                 validCommand = false;
                 if (tokens.size() > 1) {
                     int breakpointIndex = std::stoi(tokens[1]);
-                    if (auto bp = breakpoints.RemoveAtIndex(breakpointIndex)) {
+                    if (auto bp = m_breakpoints.RemoveAtIndex(breakpointIndex)) {
                         std::cout << FormattedString<>("Deleted breakpoint %d at $%04x",
                                                        breakpointIndex, bp->address)
                                   << std::endl;
@@ -710,7 +636,7 @@ void Debugger::Run() {
                 validCommand = false;
                 if (tokens.size() > 1) {
                     size_t breakpointIndex = std::stoi(tokens[1]);
-                    if (auto bp = breakpoints.GetAtIndex(breakpointIndex)) {
+                    if (auto bp = m_breakpoints.GetAtIndex(breakpointIndex)) {
                         bp->enabled = true;
                         std::cout << FormattedString<>("Enabled breakpoint %d at $%04x",
                                                        breakpointIndex, bp->address)
@@ -725,7 +651,7 @@ void Debugger::Run() {
                 validCommand = false;
                 if (tokens.size() > 1) {
                     size_t breakpointIndex = std::stoi(tokens[1]);
-                    if (auto bp = breakpoints.GetAtIndex(breakpointIndex)) {
+                    if (auto bp = m_breakpoints.GetAtIndex(breakpointIndex)) {
                         bp->enabled = false;
                         std::cout << FormattedString<>("Disabled breakpoint %d at $%04x",
                                                        breakpointIndex, bp->address)
@@ -740,10 +666,10 @@ void Debugger::Run() {
                 if (tokens.size() > 1 && (tokens[1] == "registers" || tokens[1] == "reg")) {
                     PrintRegisters(m_cpu->Registers());
                 } else if (tokens.size() > 1 && (tokens[1] == "break")) {
-                    std::cout << "Breakpoints:\n";
+                    std::cout << "m_breakpoints:\n";
                     Platform::ScopedConsoleColor scc;
-                    for (size_t i = 0; i < breakpoints.Num(); ++i) {
-                        auto bp = breakpoints.GetAtIndex(i);
+                    for (size_t i = 0; i < m_breakpoints.Num(); ++i) {
+                        auto bp = m_breakpoints.GetAtIndex(i);
                         Platform::SetConsoleColor(bp->enabled ? Platform::ConsoleColor::LightGreen
                                                               : Platform::ConsoleColor::LightRed);
                         std::cout << FormattedString<>("%3d: $%04x\t%s\n", i, bp->address,
@@ -796,9 +722,9 @@ void Debugger::Run() {
 
             //@TODO: How we make sure to break on a given instruction now that we execute multiple
             // instructions in Cpu::Execute?
-            if (auto bp = breakpoints.Get(m_cpu->Registers().PC)) {
+            if (auto bp = m_breakpoints.Get(m_cpu->Registers().PC)) {
                 if (bp->autoDelete) {
-                    breakpoints.Remove(m_cpu->Registers().PC);
+                    m_breakpoints.Remove(m_cpu->Registers().PC);
                     m_breakIntoDebugger = true;
                 } else if (bp->enabled) {
                     std::cout << FormattedString<>("Breakpoint hit at %04x", bp->address)

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Breakpoints.h"
 #include <map>
 #include <string>
 
@@ -19,5 +20,6 @@ private:
     bool m_breakIntoDebugger = false;
     bool m_traceEnabled = false;
     std::string m_lastCommand;
+    Breakpoints m_breakpoints;
     SymbolTable m_symbolTable; // Address to symbol name
 };
