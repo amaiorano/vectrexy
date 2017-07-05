@@ -11,6 +11,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <numeric>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -20,9 +21,31 @@ namespace {
     template <typename T>
     T HexStringToIntegral(const char* s) {
         std::stringstream converter(s);
-        T value;
+        int64_t value;
         converter >> std::hex >> value;
-        return value;
+        return static_cast<T>(value);
+    }
+
+    template <typename T>
+    T HexStringToIntegral(const std::string& s) {
+        return HexStringToIntegral<T>(s.c_str());
+    }
+
+    template <typename T>
+    T StringToIntegral(std::string s) {
+        if (s.length() == 0)
+            return 0;
+
+        if (s[0] == '$') { // '$' Hex value
+            return HexStringToIntegral<T>(s.substr(1));
+        } else if (s[0] == '0' && s[1] == 'x' || s[1] == 'X') { // '0x' Hex value
+            return HexStringToIntegral<T>(s);
+        } else { // Integral value
+            int64_t value;
+            std::stringstream converter(s);
+            converter >> value;
+            return static_cast<T>(value);
+        }
     }
 
     std::vector<std::string> Tokenize(const std::string& s) { return Split(s, " \t"); }
@@ -428,7 +451,7 @@ namespace {
             if (!symbolTable.empty()) {
                 auto AppendSymbol = [&symbolTable](const std::smatch& m) -> std::string {
                     std::string result = m.str(0);
-                    uint16_t address = HexStringToIntegral<uint16_t>(m.str(0).substr(1).c_str());
+                    uint16_t address = StringToIntegral<uint16_t>(m.str(0));
                     auto iter = symbolTable.find(address);
                     if (iter != symbolTable.end()) {
                         result += "{" + iter->second + "}";
@@ -483,19 +506,20 @@ namespace {
     }
 
     void PrintHelp() {
-        std::cout << "s[tep]                step instruction\n"
-                     "c[ontinue]            continue running\n"
-                     "u[ntil] <address>     run until address is reached\n"
-                     "info reg[isters]      display register values\n"
-                     "p[rint] <address>     display value add address\n"
-                     "info break            display breakpoints\n"
-                     "b[reak] <address>     set breakpoint at address\n"
-                     "delete <index>        delete breakpoint at index\n"
-                     "disable <index>       disable breakpoint at index\n"
-                     "enable <index>        enable breakpoint at index\n"
-                     "loadsymbols <file>    load file with symbol/address definitions\n"
-                     "q[uit]                quit\n"
-                     "h[help]               display this help text\n"
+        std::cout << "s[tep]                  step instruction\n"
+                     "c[ontinue]              continue running\n"
+                     "u[ntil] <address>       run until address is reached\n"
+                     "info reg[isters]        display register values\n"
+                     "p[rint] <address>       display value add address\n"
+                     "set <address>=<value>   set value at address\n"
+                     "info break              display breakpoints\n"
+                     "b[reak] <address>       set breakpoint at address\n"
+                     "delete <index>          delete breakpoint at index\n"
+                     "disable <index>         disable breakpoint at index\n"
+                     "enable <index>          enable breakpoint at index\n"
+                     "loadsymbols <file>      load file with symbol/address definitions\n"
+                     "q[uit]                  quit\n"
+                     "h[help]                 display this help text\n"
                   << std::flush;
     }
 
@@ -508,7 +532,7 @@ namespace {
         while (std::getline(fin, line)) {
             auto tokens = Tokenize(line);
             if (tokens.size() >= 3 && tokens[1] == ".EQU") {
-                auto address = HexStringToIntegral<uint16_t>(tokens[2].c_str());
+                auto address = StringToIntegral<uint16_t>(tokens[2]);
                 symbolTable[address] = tokens[0];
             }
         }
@@ -601,8 +625,8 @@ void Debugger::Run() {
                 m_cpu->ExecuteInstruction();
 
             } else if (tokens[0] == "until" || tokens[0] == "u") {
-                if (tokens.size() > 1 && tokens[1][0] == '$') {
-                    uint16_t address = HexStringToIntegral<uint16_t>(tokens[1].substr(1).c_str());
+                if (tokens.size() > 1) {
+                    uint16_t address = StringToIntegral<uint16_t>(tokens[1]);
                     auto bp = m_breakpoints.Add(address);
                     bp->autoDelete = true;
                     m_breakIntoDebugger = false;
@@ -612,8 +636,8 @@ void Debugger::Run() {
 
             } else if (tokens[0] == "breakpoint" || tokens[0] == "b") {
                 validCommand = false;
-                if (tokens.size() > 1 && tokens[1][0] == '$') {
-                    uint16_t address = HexStringToIntegral<uint16_t>(tokens[1].substr(1).c_str());
+                if (tokens.size() > 1) {
+                    uint16_t address = StringToIntegral<uint16_t>(tokens[1]);
                     if (auto bp = m_breakpoints.Add(address)) {
                         std::cout << FormattedString<>("Added breakpoint at $%04x", address)
                                   << std::endl;
@@ -685,13 +709,29 @@ void Debugger::Run() {
                 }
 
             } else if (tokens[0] == "print" || tokens[0] == "p") {
-                if (tokens.size() > 1 && tokens[1][0] == '$') {
-                    uint16_t address = HexStringToIntegral<uint16_t>(tokens[1].substr(1).c_str());
+                if (tokens.size() > 1) {
+                    uint16_t address = StringToIntegral<uint16_t>(tokens[1]);
                     uint8_t value = m_memoryBus->Read(address);
                     std::cout << FormattedString<>("$%04x = $%02x (%d)", address, value, value)
                               << std::endl;
                 } else {
                     validCommand = false;
+                }
+
+            } else if (tokens[0] == "set") { // e.g. set $addr=value
+                validCommand = false;
+                if (tokens.size() > 1) {
+                    // Recombine the tokens after 'set' into a string so we can split it on '='. We
+                    // have to do this because the user may have put whitespace around '='.
+                    auto assignment =
+                        std::accumulate(tokens.begin() + 1, tokens.end(), std::string(""));
+                    auto args = Split(assignment, "=");
+                    if (args.size() == 2) {
+                        auto address = StringToIntegral<uint16_t>(args[0]);
+                        auto value = StringToIntegral<uint8_t>(args[1]);
+                        m_memoryBus->Write(address, value);
+                        validCommand = true;
+                    }
                 }
 
             } else if (tokens[0] == "loadsymbols") {
@@ -717,6 +757,7 @@ void Debugger::Run() {
             const double cpuHz = 6'000'000.0 / 4.0; // Frequency of the CPU (cycles/second)
             const cycles_t cpuCyclesThisFrame = cpuHz * deltaTime;
 
+            // Execute as many instructions that can fit in this time slice (plus one more at most)
             cpuCyclesLeft += cpuCyclesThisFrame;
             while (cpuCyclesLeft > 0) {
                 if (m_traceEnabled)
@@ -733,8 +774,10 @@ void Debugger::Run() {
                     }
                 }
 
-                if (m_breakIntoDebugger)
+                if (m_breakIntoDebugger) {
+                    cpuCyclesLeft = 0;
                     break;
+                }
 
                 const auto elapsedCycles = m_cpu->ExecuteInstruction();
                 cpuCyclesTotal += elapsedCycles;
