@@ -8,6 +8,7 @@ class Ram : public IMemoryBusDevice {
 public:
     void Init(MemoryBus& memoryBus) { memoryBus.ConnectDevice(*this, MemoryMap::Ram.range); }
 
+private:
     uint8_t Read(uint16_t address) const override {
         return m_data[MemoryMap::Ram.MapAddress(address)];
     }
@@ -16,6 +17,5 @@ public:
         m_data[MemoryMap::Ram.MapAddress(address)] = value;
     }
 
-private:
     std::array<uint8_t, 1024> m_data;
 };
