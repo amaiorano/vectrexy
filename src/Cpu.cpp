@@ -329,6 +329,14 @@ public:
         CC.Carry = 0;
     }
 
+    void OpCLR(uint8_t& reg) {
+        reg = 0;
+        CC.Negative = 0;
+        CC.Zero = 1;
+        CC.Overflow = 0;
+        CC.Carry = 0;
+    }
+
     // Implement two's complement subtract
     template <typename T>
     static T Subtract(T reg, T value, ConditionCode& CC) {
@@ -510,16 +518,57 @@ public:
         CC.Overflow = 0;
     }
 
-    // Helper for conditional branch ops. Always reads relative offset, and if condition is true,
-    // applies it to PC.
     template <typename CondFunc>
-    void BranchIf(CondFunc condFunc) {
+    void OpBranch(CondFunc condFunc) {
         int8_t offset = ReadRelativeOffset8();
         if (condFunc()) {
             PC += offset;
             m_cycles += 1; // Extra cycle if branch is taken
         }
     }
+
+    void OpBSR() {
+        int8_t offset = ReadRelativeOffset8();
+        Push16(S, PC);
+        PC += offset;
+    }
+
+    void OpLBSR() {
+        int16_t offset = ReadRelativeOffset16();
+        Push16(S, PC);
+        PC += offset;
+    }
+
+    void OpRTS() { PC = Pop16(S); }
+
+    void ExchangeOrTransfer(bool exchange) {
+        uint8_t postbyte = ReadPC8();
+        assert(!!(postbyte & BITS(3)) ==
+               !!(postbyte & BITS(7))); // 8-bit to 8-bit or 16-bit to 16-bit only
+
+        uint8_t src = (postbyte >> 4) & 0b111;
+        uint8_t dst = postbyte & 0b111;
+
+        if (postbyte & BITS(3)) {
+            assert(src < 4 && dst < 4); // Only first 4 are valid 8-bit register indices
+            uint8_t* const reg[]{&A, &B, &CC.Value, &DP};
+            if (exchange)
+                std::swap(*reg[dst], *reg[src]);
+            else
+                *reg[dst] = *reg[src];
+        } else {
+            assert(src < 6 && dst < 6); // Only first 6 are valid 16-bit register indices
+            uint16_t* const reg[]{&D, &X, &Y, &U, &S, &PC};
+            if (exchange)
+                std::swap(*reg[dst], *reg[src]);
+            else
+                *reg[dst] = *reg[src];
+        }
+    }
+
+    void OpEXG() { ExchangeOrTransfer(true); }
+
+    void OpTFR() { ExchangeOrTransfer(false); }
 
     cycles_t ExecuteInstruction() {
         m_cycles = 0;
@@ -673,116 +722,80 @@ public:
                 OpST<0, 0xFF>(U);
                 break;
 
-            case 0x8D: // BSR (branch to subroutine)
-            {
-                int8_t offset = ReadRelativeOffset8();
-                Push16(S, PC);
-                PC += offset;
-            } break;
-            case 0x17: // LBSR (long branch to subroutine)
-            {
-                int16_t offset = ReadRelativeOffset16();
-                Push16(S, PC);
-                PC += offset;
-            } break;
+            case 0x8D:
+                OpBSR();
+                break;
+            case 0x17:
+                OpLBSR();
+                break;
 
             case 0x24: // BCC (branch if carry clear) or BHS (branch if higher or same)
-                BranchIf([this] { return CC.Carry == 0; });
+                OpBranch([this] { return CC.Carry == 0; });
                 break;
             case 0x25: // BCS (branch if carry set) or BLO (branch if lower)
-                BranchIf([this] { return CC.Carry != 0; });
+                OpBranch([this] { return CC.Carry != 0; });
                 break;
             case 0x27: // BEQ (branch if equal)
-                BranchIf([this] { return CC.Zero != 0; });
+                OpBranch([this] { return CC.Zero != 0; });
                 break;
             case 0x2C: // BGE (branch if greater or equal)
-                BranchIf([this] { return (CC.Negative ^ CC.Overflow) == 0; });
+                OpBranch([this] { return (CC.Negative ^ CC.Overflow) == 0; });
                 break;
             case 0x2E: // BGT (branch if greater)
-                BranchIf([this] { return (CC.Zero | (CC.Negative ^ CC.Overflow)) == 0; });
+                OpBranch([this] { return (CC.Zero | (CC.Negative ^ CC.Overflow)) == 0; });
                 break;
             case 0x22: // BHI (branch if higher)
-                BranchIf([this] { return (CC.Carry | CC.Zero) == 0; });
+                OpBranch([this] { return (CC.Carry | CC.Zero) == 0; });
                 break;
             case 0x2F: // BLE (branch if less or equal)
-                BranchIf([this] { return (CC.Zero | (CC.Negative ^ CC.Overflow)) != 0; });
+                OpBranch([this] { return (CC.Zero | (CC.Negative ^ CC.Overflow)) != 0; });
                 break;
             case 0x23: // BLS (banch if lower or same)
-                BranchIf([this] { return (CC.Carry | CC.Zero) != 0; });
+                OpBranch([this] { return (CC.Carry | CC.Zero) != 0; });
                 break;
             case 0x2D: // BLT (branch if less than)
-                BranchIf([this] { return (CC.Negative ^ CC.Overflow) != 0; });
+                OpBranch([this] { return (CC.Negative ^ CC.Overflow) != 0; });
                 break;
             case 0x2B: // BMI (brach if minus)
-                BranchIf([this] { return CC.Negative != 0; });
+                OpBranch([this] { return CC.Negative != 0; });
                 break;
             case 0x26: // BNE (branch if not equal)
-                BranchIf([this] { return CC.Zero == 0; });
+                OpBranch([this] { return CC.Zero == 0; });
                 break;
             case 0x2A: // BPL (branch if plus)
-                BranchIf([this] { return CC.Negative == 0; });
+                OpBranch([this] { return CC.Negative == 0; });
                 break;
             case 0x20: // BRA (branch always)
-                BranchIf([this] { return true; });
+                OpBranch([this] { return true; });
                 break;
             case 0x21: // BRN (branch never)
-                BranchIf([this] { return false; });
+                OpBranch([this] { return false; });
                 break;
             case 0x28: // BVC (branch if overflow clear)
-                BranchIf([this] { return CC.Overflow == 0; });
+                OpBranch([this] { return CC.Overflow == 0; });
                 break;
             case 0x29: // BVS (branch if overflow set)
-                BranchIf([this] { return CC.Overflow != 0; });
+                OpBranch([this] { return CC.Overflow != 0; });
                 break;
 
             case 0x1E: // EXG (exchange/swap register values)
-            case 0x1F: // TFR (transfer register to register)
-            {
-                uint8_t postbyte = ReadPC8();
-                assert(!!(postbyte & BITS(3)) ==
-                       !!(postbyte & BITS(7))); // 8-bit to 8-bit or 16-bit to 16-bit only
+                OpEXG();
+                break;
 
-                uint8_t src = (postbyte >> 4) & 0b111;
-                uint8_t dst = postbyte & 0b111;
+            case 0x1F:
+                OpTFR();
+                break;
 
-                if (postbyte & BITS(3)) {
-                    assert(src < 4 && dst < 4); // Only first 4 are valid 8-bit register indices
-                    uint8_t* const reg[]{&A, &B, &CC.Value, &DP};
-                    if (cpuOp.opCode == 0x1E)
-                        std::swap(*reg[dst], *reg[src]);
-                    else
-                        *reg[dst] = *reg[src];
-                } else {
-                    assert(src < 6 && dst < 6); // Only first 6 are valid 16-bit register indices
-                    uint16_t* const reg[]{&D, &X, &Y, &U, &S, &PC};
-                    if (cpuOp.opCode == 0x1E)
-                        std::swap(*reg[dst], *reg[src]);
-                    else
-                        *reg[dst] = *reg[src];
-                }
-            } break;
+            case 0x39:
+                OpRTS();
+                break;
 
-            case 0x39: // RTS (return from subroutine)
-            {
-                PC = Pop16(S);
-            } break;
-
-            case 0x4F: // CLRA (clear A)
-            {
-                A = 0;
-                CC.Negative = 0;
-                CC.Zero = 1;
-                CC.Overflow = 0;
-                CC.Carry = 0;
-            } break;
-            case 0x5F: // CLRB (clear B)
-            {
-                B = 0;
-                CC.Negative = 0;
-                CC.Zero = 1;
-                CC.Overflow = 0;
-                CC.Carry = 0;
-            } break;
+            case 0x4F:
+                OpCLR(A);
+                break;
+            case 0x5F:
+                OpCLR(B);
+                break;
             case 0x0F:
                 OpCLR<0, 0x0F>();
                 break;
