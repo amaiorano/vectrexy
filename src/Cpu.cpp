@@ -397,8 +397,9 @@ public:
     // DECA, DECB
     template <int page, uint8_t opCode>
     void OpDEC(uint8_t& reg) {
+        uint8_t origReg = reg;
         --reg;
-        CC.Overflow = reg == 0;
+        CC.Overflow = origReg == 0b1000'0000; // Could also set to (reg == 0b01111'1111)
         CC.Zero = (reg == 0);
         CC.Negative = (reg & BITS(7)) != 0;
     }
@@ -408,9 +409,10 @@ public:
     void OpDEC() {
         uint16_t EA = ReadEA16<LookupCpuOp(page, opCode).addrMode>();
         uint8_t value = m_memoryBus->Read(EA);
+        uint8_t origValue = value;
         --value;
         m_memoryBus->Write(EA, value);
-        CC.Overflow = value == 0;
+        CC.Overflow = origValue == 0b1000'0000;
         CC.Zero = (value == 0);
         CC.Negative = (value & BITS(7)) != 0;
     }
