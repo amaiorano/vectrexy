@@ -439,6 +439,59 @@ public:
     }
 
     template <int page, uint8_t opCode>
+    void OpASR(uint8_t& value) {
+        auto origValue = value;
+        value = (origValue & 0b1000'0000) | (value >> 1);
+        CC.Zero = (value == 0);
+        CC.Negative = (value & BITS(7)) != 0;
+        CC.Carry = origValue & 0b0000'0001;
+    }
+
+    template <int page, uint8_t opCode>
+    void OpASR() {
+        uint16_t EA = ReadEA16<LookupCpuOp(page, opCode).addrMode>();
+        uint8_t value = m_memoryBus->Read(EA);
+        OpASR<page, opCode>(value);
+        m_memoryBus->Write(EA, value);
+    }
+
+    template <int page, uint8_t opCode>
+    void OpLSR(uint8_t& value) {
+        auto origValue = value;
+        value = (value >> 1);
+        CC.Zero = (value == 0);
+        CC.Negative = 0; // Bit 7 always shifted out
+        CC.Carry = origValue & 0b0000'0001;
+    }
+
+    template <int page, uint8_t opCode>
+    void OpLSR() {
+        uint16_t EA = ReadEA16<LookupCpuOp(page, opCode).addrMode>();
+        uint8_t value = m_memoryBus->Read(EA);
+        OpLSR<page, opCode>(value);
+        m_memoryBus->Write(EA, value);
+    }
+
+    template <int page, uint8_t opCode>
+    void OpASL(uint8_t& value) {
+        auto origValue = value;
+        value = (value << 1);
+        CC.Zero = (value == 0);
+        CC.Negative = (value & BITS(7)) != 0;
+        CC.Carry = origValue & 0b1000'0000;
+        // Overflow (sign change) happens if bit 7 or 6 was set, but not both
+        CC.Overflow = (origValue >> 7) ^ (origValue >> 6);
+    }
+
+    template <int page, uint8_t opCode>
+    void OpASL() {
+        uint16_t EA = ReadEA16<LookupCpuOp(page, opCode).addrMode>();
+        uint8_t value = m_memoryBus->Read(EA);
+        OpASL<page, opCode>(value);
+        m_memoryBus->Write(EA, value);
+    }
+
+    template <int page, uint8_t opCode>
     void OpJMP() {
         uint16_t EA = ReadEA16<LookupCpuOp(page, opCode).addrMode>();
         PC = EA;
@@ -914,6 +967,57 @@ public:
                 break;
             case 0x7A:
                 OpDEC<0, 0x7A>();
+                break;
+
+            // ASR
+            case 0x07:
+                OpASR<0, 0x07>();
+                break;
+            case 0x47:
+                OpASR<0, 0x47>(A);
+                break;
+            case 0x57:
+                OpASR<0, 0x57>(B);
+                break;
+            case 0x67:
+                OpASR<0, 0x67>();
+                break;
+            case 0x77:
+                OpASR<0, 0x77>();
+                break;
+
+            // LSL/ASL
+            case 0x08:
+                OpASL<0, 0x08>();
+                break;
+            case 0x48:
+                OpASL<0, 0x48>(A);
+                break;
+            case 0x58:
+                OpASL<0, 0x58>(B);
+                break;
+            case 0x68:
+                OpASL<0, 0x68>();
+                break;
+            case 0x78:
+                OpASL<0, 0x78>();
+                break;
+
+            // LSR
+            case 0x04:
+                OpLSR<0, 0x04>();
+                break;
+            case 0x44:
+                OpLSR<0, 0x44>(A);
+                break;
+            case 0x54:
+                OpLSR<0, 0x54>(B);
+                break;
+            case 0x64:
+                OpLSR<0, 0x64>();
+                break;
+            case 0x74:
+                OpLSR<0, 0x74>();
                 break;
 
             // JMP
