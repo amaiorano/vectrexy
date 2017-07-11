@@ -373,6 +373,26 @@ public:
         reg = Subtract(reg, value, CC);
     }
 
+    // NEGA, NEGB
+    template <int page, uint8_t opCode>
+    void OpNEG(uint8_t& value) {
+        auto origValue = value;
+        value = -value;
+        CC.Overflow = origValue == 0b1000'0000;
+        CC.Zero = value == 0;
+        CC.Negative = (value & BITS(7)) != 0;
+        CC.Carry = origValue != 0; //@TODO: double check this
+    }
+
+    // NEG <address>
+    template <int page, uint8_t opCode>
+    void OpNEG() {
+        uint16_t EA = ReadEA16<LookupCpuOp(page, opCode).addrMode>();
+        uint8_t value = m_memoryBus->Read(EA);
+        OpNEG<page, opCode>(value);
+        m_memoryBus->Write(EA, value);
+    }
+
     // INCA, INCB
     template <int page, uint8_t opCode>
     void OpINC(uint8_t& reg) {
@@ -385,6 +405,7 @@ public:
     // INC <address>
     template <int page, uint8_t opCode>
     void OpINC() {
+        //@TODO: refactor in terms of OpINC(uint8_t&) like OpNEG
         uint16_t EA = ReadEA16<LookupCpuOp(page, opCode).addrMode>();
         uint8_t value = m_memoryBus->Read(EA);
         ++value;
@@ -845,6 +866,23 @@ public:
                 OpSUB<0, 0xF0>(B);
                 break;
 
+            // NEG
+            case 0x00:
+                OpNEG<0, 0x00>();
+                break;
+            case 0x40:
+                OpNEG<0, 0x40>(A);
+                break;
+            case 0x50:
+                OpNEG<0, 0x50>(B);
+                break;
+            case 0x60:
+                OpNEG<0, 0x60>();
+                break;
+            case 0x70:
+                OpNEG<0, 0x70>();
+                break;
+
             // INC
             case 0x0C:
                 OpINC<0, 0x0C>();
@@ -870,6 +908,7 @@ public:
                 break;
             case 0x5A:
                 OpDEC<0, 0x5A>(B);
+                break;
             case 0x6A:
                 OpDEC<0, 0x6A>();
                 break;
