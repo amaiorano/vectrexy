@@ -313,6 +313,16 @@ public:
     }
 
     template <int page, uint8_t opCode>
+    void OpLEA(uint16_t& reg) {
+        uint16_t EA = ReadEA16<LookupCpuOp(page, opCode).addrMode>();
+        reg = EA;
+        // Zero flag not affected by LEAU/LEAS
+        if (&reg == &X || &reg == &Y) {
+            CC.Zero = (reg == 0);
+        }
+    }
+
+    template <int page, uint8_t opCode>
     void OpJSR() {
         uint16_t EA = ReadEA16<LookupCpuOp(page, opCode).addrMode>();
         Push16(S, PC);
@@ -808,6 +818,19 @@ public:
                 break;
             case 0xFF:
                 OpST<0, 0xFF>(U);
+                break;
+
+            case 0x30:
+                OpLEA<0, 0x30>(X);
+                break;
+            case 0x31:
+                OpLEA<0, 0x31>(Y);
+                break;
+            case 0x32:
+                OpLEA<0, 0x32>(S);
+                break;
+            case 0x33:
+                OpLEA<0, 0x33>(U);
                 break;
 
             case 0x8D:
