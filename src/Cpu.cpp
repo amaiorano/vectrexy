@@ -574,6 +574,18 @@ public:
     }
 
     template <int page, uint8_t opCode>
+    void OpAND(uint8_t& reg) {
+        uint8_t value = ReadOperandValue8<LookupCpuOp(page, opCode).addrMode>();
+        reg = reg & value;
+        // For ANDCC, we don't update CC. @TODO: separate function?
+        if (&reg != &CC.Value) {
+            CC.Negative = (value & BITS(7)) != 0;
+            CC.Zero = value == 0;
+            CC.Overflow = 0;
+        }
+    }
+
+    template <int page, uint8_t opCode>
     void OpCMP(const uint8_t& reg) {
         uint8_t value = ReadOperandValue8<LookupCpuOp(page, opCode).addrMode>();
         Subtract(reg, value, CC);
@@ -1089,6 +1101,35 @@ public:
                 break;
             case 0x1A:
                 OpOR<0, 0x1A>(CC.Value);
+                break;
+
+            // AND
+            case 0x1C:
+                OpAND<0, 0x1C>(CC.Value);
+                break;
+            case 0x84:
+                OpAND<0, 0x84>(A);
+                break;
+            case 0x94:
+                OpAND<0, 0x94>(A);
+                break;
+            case 0xA4:
+                OpAND<0, 0xA4>(A);
+                break;
+            case 0xB4:
+                OpAND<0, 0xB4>(A);
+                break;
+            case 0xC4:
+                OpAND<0, 0xC4>(A);
+                break;
+            case 0xD4:
+                OpAND<0, 0xD4>(B);
+                break;
+            case 0xE4:
+                OpAND<0, 0xE4>(B);
+                break;
+            case 0xF4:
+                OpAND<0, 0xF4>(B);
                 break;
 
             // CMP
