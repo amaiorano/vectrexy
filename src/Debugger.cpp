@@ -344,6 +344,7 @@ namespace {
         std::string hexInstruction;
         std::string disasmInstruction;
         std::string comment;
+        std::string description;
     };
 
     DisassembledOp DisassembleOp(const CpuRegisters& cpuRegisters, const MemoryBus& memoryBus,
@@ -468,7 +469,7 @@ namespace {
         disasmInstruction = AppendSymbols(disasmInstruction);
         comment = AppendSymbols(comment);
 
-        return {hexInstruction, disasmInstruction, comment};
+        return {hexInstruction, disasmInstruction, comment, cpuOp.description};
     };
 
     void PrintOp(const CpuRegisters& cpuRegisters, const MemoryBus& memoryBus,
@@ -483,7 +484,9 @@ namespace {
         SetConsoleColor(ConsoleColor::LightAqua);
         std::cout << FormattedString<>("%-32s ", op.disasmInstruction.c_str());
         SetConsoleColor(ConsoleColor::LightGreen);
-        std::cout << FormattedString<>("%s", op.comment.c_str());
+        std::cout << FormattedString<>("%-40s ", op.comment.c_str());
+        SetConsoleColor(ConsoleColor::LightPurple);
+        std::cout << FormattedString<>("%s", op.description.c_str());
         std::cout << std::endl;
     }
 
