@@ -269,7 +269,7 @@ namespace {
                 break;
             case 0b1000: { // (+/- 7 bit offset),R
                 auto& reg = RegisterSelect(postbyte);
-                uint8_t postbyte2 = instruction.operands[2];
+                uint8_t postbyte2 = instruction.operands[1];
                 auto offset = S16(postbyte2);
                 EA = reg + offset;
 
@@ -277,8 +277,8 @@ namespace {
                 comment = FormattedString<>("%d,$%04x", offset, reg);
             } break;
             case 0b1001: { // (+/- 15 bit offset),R
-                uint8_t postbyte2 = instruction.operands[2];
-                uint8_t postbyte3 = instruction.operands[3];
+                uint8_t postbyte2 = instruction.operands[1];
+                uint8_t postbyte3 = instruction.operands[2];
                 auto& reg = RegisterSelect(postbyte);
                 auto offset = CombineToS16(postbyte2, postbyte3);
                 EA = reg + offset;
@@ -298,7 +298,7 @@ namespace {
                 comment = FormattedString<>("%d,$%04x", offset, reg);
             } break;
             case 0b1100: { // (+/- 7 bit offset),PC
-                uint8_t postbyte2 = instruction.operands[2];
+                uint8_t postbyte2 = instruction.operands[1];
                 auto offset = S16(postbyte2);
                 EA = cpuRegisters.PC + offset;
 
@@ -306,8 +306,8 @@ namespace {
                 comment = FormattedString<>("%d,$%04x", offset, cpuRegisters.PC);
             } break;
             case 0b1101: { // (+/- 15 bit offset),PC
-                uint8_t postbyte2 = instruction.operands[2];
-                uint8_t postbyte3 = instruction.operands[3];
+                uint8_t postbyte2 = instruction.operands[1];
+                uint8_t postbyte3 = instruction.operands[2];
                 auto offset = CombineToS16(postbyte2, postbyte3);
                 EA = cpuRegisters.PC + offset;
 
@@ -318,8 +318,8 @@ namespace {
                 FAIL("Illegal");
                 break;
             case 0b1111: { // [address] (Indirect-only)
-                uint8_t postbyte2 = instruction.operands[2];
-                uint8_t postbyte3 = instruction.operands[3];
+                uint8_t postbyte2 = instruction.operands[1];
+                uint8_t postbyte3 = instruction.operands[2];
                 EA = CombineToS16(postbyte2, postbyte3);
             } break;
             default:
@@ -331,8 +331,8 @@ namespace {
         if (supportsIndirect && (postbyte & BITS(4))) {
             uint8_t msb = memoryBus.Read(EA);
             uint8_t lsb = memoryBus.Read(EA + 1);
-            EA = CombineToU16(lsb, msb);
-            operands = "[" + operands + "]";
+            EA = CombineToU16(msb, lsb);
+            operands = FormattedString<>("[%$04x]", EA);
         }
 
         disasmInstruction = std::string(instruction.cpuOp.name) + " " + operands;

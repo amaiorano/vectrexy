@@ -204,7 +204,7 @@ public:
         if (supportsIndirect && (postbyte & BITS(4))) {
             uint8_t msb = m_memoryBus->Read(EA);
             uint8_t lsb = m_memoryBus->Read(EA + 1);
-            EA = CombineToU16(lsb, msb);
+            EA = CombineToU16(msb, lsb);
             extraCycles += 3;
         }
 
