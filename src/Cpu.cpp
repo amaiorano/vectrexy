@@ -699,6 +699,10 @@ public:
         switch (cpuOpPage) {
         case 0:
             switch (cpuOp.opCode) {
+            case 0x12:
+                // NOP
+                break;
+
             case 0x9D:
                 OpJSR<0, 0x9D>();
                 break;
