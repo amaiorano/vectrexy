@@ -16,6 +16,37 @@ namespace {
         }
         return count;
     }
+
+    template <typename T>
+    uint8_t CalcZero(T v) {
+        return v == 0;
+    }
+
+    uint8_t CalcNegative(uint8_t v) { return (v & BITS(7)) != 0; }
+    uint8_t CalcNegative(uint16_t v) { return (v & BITS(15)) != 0; }
+
+    uint8_t CalcCarry(uint16_t r) { return (r & 0xFF00) != 0; }
+    uint8_t CalcCarry(uint32_t r) { return (r & 0xFFFF'0000) != 0; }
+    uint8_t CalcCarry(uint8_t r) = delete; // Result must be larger than 8 or 16 bits
+
+    uint8_t CalcHalfCarryFromAdd(uint8_t a, uint8_t b) {
+        return (((a & 0x0F) + (b & 0x0F)) & 0xF0) != 0;
+    }
+    uint8_t CalcHalfCarryFromAdd(uint16_t a,
+                                 uint16_t b) = delete; // Only 8-bit add computes half-carry
+
+    uint8_t CalcOverflow(uint8_t a, uint8_t b, uint16_t r) {
+        // Given r = a + b, overflow occurs if both a and b are negative and r is positive, or both
+        // a and b are positive and r is negative. Looking at sign bits of a, b, and r, overflow
+        // occurs when 0 0 1 or 1 1 0.
+        return (((uint16_t)a ^ r) & ((uint16_t)b ^ r) & BITS(7)) != 0;
+    }
+    uint8_t CalcOverflow(uint16_t a, uint16_t b, uint32_t r) {
+        return (((uint32_t)a ^ r) & ((uint32_t)b ^ r) & BITS(15)) != 0;
+    }
+    template <typename T>
+    uint8_t CalcOverflow(T a, T b, uint8_t r) = delete; // Result must be larger than 8 or 16 bits
+
 } // namespace
 
 class CpuImpl : public CpuRegisters {
@@ -347,40 +378,69 @@ public:
         CC.Carry = 0;
     }
 
-    // Implement two's complement subtract
-    template <typename T>
-    static T Subtract(T reg, T value, ConditionCode& CC) {
-        // Instead of subtracting, we add the 2's complement of the value
-        uint32_t a = U32(reg);
-        uint32_t b = ~U32(value); // 1's complement (we add one next to make it 2's complement)
-        uint32_t r = a + b + 1;
 
-        CC.Carry = (r & 0xFFFF'0000) != 0;
+    enum class UpdateHalfCarry { False, True };
 
-        // For subtraction, C is the complement of the resulting carry since it represents a borrow
-        CC.Carry = !CC.Carry;
+    static uint8_t AddImpl(uint8_t a, uint8_t b, ConditionCode& CC,
+                           UpdateHalfCarry updateHalfCarry) {
+        uint16_t r16 = a + b;
+        if (updateHalfCarry == UpdateHalfCarry::True) {
+            CC.HalfCarry =
+                CalcHalfCarryFromAdd(a, b); //@TODO: Should ONLY be computed for ADDA/ADDB
+        }
+        CC.Carry = CalcCarry(r16);
+        CC.Overflow = CalcOverflow(a, b, r16);
+        uint8_t r = static_cast<uint8_t>(r16);
+        CC.Zero = CalcZero(r);
+        CC.Negative = CalcNegative(r);
+        return r;
+    }
+    static uint16_t AddImpl(uint16_t a, uint16_t b, ConditionCode& CC,
+                            UpdateHalfCarry updateHalfCarry) {
+        (void)updateHalfCarry;
+        assert(updateHalfCarry == UpdateHalfCarry::False); // 16-bit version never updates this
 
-        // If we look at sign bits of a, b, r, then overflow is set if 0 0 1 or 1 1 0
-        CC.Overflow = ((a ^ r) & (a ^ b) & BITS(15)) != 0;
+        uint32_t r32 = a + b;
+        // CC.HalfCarry = CalcHalfCarryFromAdd(a, b);
+        CC.Carry = CalcCarry(r32);
+        CC.Overflow = CalcOverflow(a, b, r32);
+        uint16_t r = static_cast<uint16_t>(r32);
+        CC.Zero = CalcZero(r);
+        CC.Negative = CalcNegative(r);
+        return r;
+    }
 
-        CC.Zero = (r == 0);
-        CC.Negative = (r & BITS(15)) != 0;
+    static uint8_t SubtractImpl(uint8_t a, uint8_t b, ConditionCode& CC) {
+        return AddImpl(a, ~b + 1, CC, UpdateHalfCarry::False);
+    }
+    static uint16_t SubtractImpl(uint16_t a, uint16_t b, ConditionCode& CC) {
+        return AddImpl(a, ~b + 1, CC, UpdateHalfCarry::False);
+    }
 
-        return static_cast<T>(r);
+    // ADDA, ADDB
+    template <int page, uint8_t opCode>
+    void OpADD(uint8_t& reg) {
+        uint8_t b = ReadOperandValue8<LookupCpuOp(page, opCode).addrMode>();
+        reg = AddImpl(reg, b, CC, UpdateHalfCarry::True);
+    }
+
+    // ADDD
+    template <int page, uint8_t opCode>
+    void OpADD(uint16_t& reg) {
+        uint16_t b = ReadOperandValue16<LookupCpuOp(page, opCode).addrMode>();
+        reg = AddImpl(reg, b, CC, UpdateHalfCarry::False);
     }
 
     // SUBA, SUBB
     template <int page, uint8_t opCode>
     void OpSUB(uint8_t& reg) {
-        const uint8_t value = ReadOperandValue8<LookupCpuOp(page, opCode).addrMode>();
-        reg = Subtract(reg, value, CC);
+        reg = SubtractImpl(reg, ReadOperandValue8<LookupCpuOp(page, opCode).addrMode>(), CC);
     }
 
     // SUBD
     template <int page, uint8_t opCode>
     void OpSUB(uint16_t& reg) {
-        const uint16_t value = ReadOperandValue16<LookupCpuOp(page, opCode).addrMode>();
-        reg = Subtract(reg, value, CC);
+        reg = SubtractImpl(reg, ReadOperandValue16<LookupCpuOp(page, opCode).addrMode>(), CC);
     }
 
     // NEGA, NEGB
@@ -597,14 +657,17 @@ public:
 
     template <int page, uint8_t opCode>
     void OpCMP(const uint8_t& reg) {
-        uint8_t value = ReadOperandValue8<LookupCpuOp(page, opCode).addrMode>();
-        Subtract(reg, value, CC);
+        // Subtract to update CC, but discard result
+        uint8_t discard =
+            SubtractImpl(reg, ReadOperandValue8<LookupCpuOp(page, opCode).addrMode>(), CC);
+        (void)discard;
     }
 
     template <int page, uint8_t opCode>
     void OpCMP(const uint16_t& reg) {
-        uint16_t value = ReadOperandValue16<LookupCpuOp(page, opCode).addrMode>();
-        Subtract(reg, value, CC);
+        uint16_t discard =
+            SubtractImpl(reg, ReadOperandValue16<LookupCpuOp(page, opCode).addrMode>(), CC);
+        (void)discard;
     }
 
     template <int page, uint8_t opCode>
@@ -919,6 +982,43 @@ public:
                 break;
             case 0x7F:
                 OpCLR<0, 0x7F>();
+                break;
+
+            case 0x8B:
+                OpADD<0, 0x8B>(A);
+                break;
+            case 0x9B:
+                OpADD<0, 0x9B>(A);
+                break;
+            case 0xAB:
+                OpADD<0, 0xAB>(A);
+                break;
+            case 0xBB:
+                OpADD<0, 0xBB>(A);
+                break;
+            case 0xC3:
+                OpADD<0, 0xC3>(D);
+                break;
+            case 0xCB:
+                OpADD<0, 0xCB>(B);
+                break;
+            case 0xD3:
+                OpADD<0, 0xD3>(D);
+                break;
+            case 0xDB:
+                OpADD<0, 0xDB>(B);
+                break;
+            case 0xE3:
+                OpADD<0, 0xE3>(D);
+                break;
+            case 0xEB:
+                OpADD<0, 0xEB>(B);
+                break;
+            case 0xF3:
+                OpADD<0, 0xF3>(D);
+                break;
+            case 0xFB:
+                OpADD<0, 0xFB>(B);
                 break;
 
             case 0x80:
