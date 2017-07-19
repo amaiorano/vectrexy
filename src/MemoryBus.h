@@ -30,7 +30,7 @@ private:
 
     const DeviceInfo& FindDeviceInfo(uint16_t address) const {
         for (auto& entry : m_map) {
-            if (address >= entry.first.first && address < entry.first.second)
+            if (address >= entry.first.first && address <= entry.first.second)
                 return entry.second;
         }
         assert(false && "Unmapped address");
