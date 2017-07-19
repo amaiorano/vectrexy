@@ -494,10 +494,10 @@ namespace {
         const auto& cc = cpuRegisters.CC;
 
         std::string CC =
-            FormattedString<>("%c%c%c%c%c%c%c%c", cc.Carry ? 'C' : 'c', cc.Overflow ? 'V' : 'v',
-                              cc.Zero ? 'Z' : 'z', cc.Negative ? 'N' : 'n',
-                              cc.InterruptMask ? 'I' : 'i', cc.HalfCarry ? 'H' : 'h',
-                              cc.FastInterruptMask ? 'F' : 'f', cc.Entire ? 'E' : 'e')
+            FormattedString<>("%c%c%c%c%c%c%c%c", cc.Entire ? 'E' : 'e',
+                              cc.FastInterruptMask ? 'F' : 'f', cc.HalfCarry ? 'H' : 'h',
+                              cc.InterruptMask ? 'I' : 'i', cc.Negative ? 'N' : 'n',
+                              cc.Zero ? 'Z' : 'z', cc.Overflow ? 'V' : 'v', cc.Carry ? 'C' : 'c')
                 .Value();
 
         const auto& r = cpuRegisters;
