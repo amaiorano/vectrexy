@@ -446,6 +446,13 @@ public:
         reg = SubtractImpl(reg, ReadOperandValue16<LookupCpuOp(page, opCode).addrMode>(), CC);
     }
 
+    // ADCA, ADCB
+    template <int page, uint8_t opCode>
+    void OpADC(uint8_t& reg) {
+        uint8_t b = ReadOperandValue8<LookupCpuOp(page, opCode).addrMode>();
+        reg = AddImpl(reg, b, CC.Carry, CC, UpdateHalfCarry::True);
+    }
+
     // NEGA, NEGB
     template <int page, uint8_t opCode>
     void OpNEG(uint8_t& value) {
@@ -1059,6 +1066,31 @@ public:
                 break;
             case 0xF0:
                 OpSUB<0, 0xF0>(B);
+                break;
+
+            case 0x89:
+                OpADC<0, 0x89>(A);
+                break;
+            case 0x99:
+                OpADC<0, 0x99>(A);
+                break;
+            case 0xA9:
+                OpADC<0, 0xA9>(A);
+                break;
+            case 0xB9:
+                OpADC<0, 0xB9>(A);
+                break;
+            case 0xC9:
+                OpADC<0, 0xC9>(B);
+                break;
+            case 0xD9:
+                OpADC<0, 0xD9>(B);
+                break;
+            case 0xE9:
+                OpADC<0, 0xE9>(B);
+                break;
+            case 0xF9:
+                OpADC<0, 0xF9>(B);
                 break;
 
             // NEG
