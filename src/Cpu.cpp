@@ -378,12 +378,11 @@ public:
         CC.Carry = 0;
     }
 
-
     enum class UpdateHalfCarry { False, True };
 
-    static uint8_t AddImpl(uint8_t a, uint8_t b, ConditionCode& CC,
+    static uint8_t AddImpl(uint8_t a, uint8_t b, uint8_t carry, ConditionCode& CC,
                            UpdateHalfCarry updateHalfCarry) {
-        uint16_t r16 = a + b;
+        uint16_t r16 = a + b + carry;
         if (updateHalfCarry == UpdateHalfCarry::True) {
             CC.HalfCarry =
                 CalcHalfCarryFromAdd(a, b); //@TODO: Should ONLY be computed for ADDA/ADDB
@@ -395,12 +394,12 @@ public:
         CC.Negative = CalcNegative(r);
         return r;
     }
-    static uint16_t AddImpl(uint16_t a, uint16_t b, ConditionCode& CC,
+    static uint16_t AddImpl(uint16_t a, uint16_t b, uint16_t carry, ConditionCode& CC,
                             UpdateHalfCarry updateHalfCarry) {
         (void)updateHalfCarry;
         assert(updateHalfCarry == UpdateHalfCarry::False); // 16-bit version never updates this
 
-        uint32_t r32 = a + b;
+        uint32_t r32 = a + b + carry;
         // CC.HalfCarry = CalcHalfCarryFromAdd(a, b);
         CC.Carry = CalcCarry(r32);
         CC.Overflow = CalcOverflow(a, b, r32);
@@ -411,24 +410,28 @@ public:
     }
 
     static uint8_t SubtractImpl(uint8_t a, uint8_t b, ConditionCode& CC) {
-        return AddImpl(a, ~b + 1, CC, UpdateHalfCarry::False);
+        auto result = AddImpl(a, ~b, 1, CC, UpdateHalfCarry::False);
+        CC.Carry = !CC.Carry; // Carry is set if no borrow occurs
+        return result;
     }
     static uint16_t SubtractImpl(uint16_t a, uint16_t b, ConditionCode& CC) {
-        return AddImpl(a, ~b + 1, CC, UpdateHalfCarry::False);
+        auto result = AddImpl(a, ~b, 1, CC, UpdateHalfCarry::False);
+        CC.Carry = !CC.Carry; // Carry is set if no borrow occurs
+        return result;
     }
 
     // ADDA, ADDB
     template <int page, uint8_t opCode>
     void OpADD(uint8_t& reg) {
         uint8_t b = ReadOperandValue8<LookupCpuOp(page, opCode).addrMode>();
-        reg = AddImpl(reg, b, CC, UpdateHalfCarry::True);
+        reg = AddImpl(reg, b, 0, CC, UpdateHalfCarry::True);
     }
 
     // ADDD
     template <int page, uint8_t opCode>
     void OpADD(uint16_t& reg) {
         uint16_t b = ReadOperandValue16<LookupCpuOp(page, opCode).addrMode>();
-        reg = AddImpl(reg, b, CC, UpdateHalfCarry::False);
+        reg = AddImpl(reg, b, 0, CC, UpdateHalfCarry::False);
     }
 
     // SUBA, SUBB
