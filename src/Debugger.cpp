@@ -521,6 +521,7 @@ namespace {
                      "disable <index>         disable breakpoint at index\n"
                      "enable <index>          enable breakpoint at index\n"
                      "loadsymbols <file>      load file with symbol/address definitions\n"
+                     "trace                   toggle disassembly trace\n"
                      "q[uit]                  quit\n"
                      "h[help]                 display this help text\n"
                   << std::flush;
@@ -555,6 +556,11 @@ void Debugger::Init(MemoryBus& memoryBus, Cpu& cpu) {
 }
 
 void Debugger::Run() {
+    auto PrintOp = [&] {
+        if (m_traceEnabled)
+            ::PrintOp(m_cpu->Registers(), *m_memoryBus, m_symbolTable);
+    };
+
     m_lastCommand = "step"; // Reasonable default
 
     // Break on start
@@ -617,6 +623,11 @@ void Debugger::Run() {
                 PrintHelp();
 
             } else if (tokens[0] == "continue" || tokens[0] == "c") {
+                // First 'step' current instruction, otherwise if we have a breakpoint on it we will
+                // end up breaking immediately on it again (we won't actually continue)
+                PrintOp();
+                m_cpu->ExecuteInstruction();
+
                 m_breakIntoDebugger = false;
                 // When resuming, make sure to reset frame timer. We don't want the resumed frame to
                 // have a huge delta time because we were stopped in the debugger.
@@ -624,7 +635,7 @@ void Debugger::Run() {
 
             } else if (tokens[0] == "step" || tokens[0] == "s") {
                 // "Step into"
-                PrintOp(m_cpu->Registers(), *m_memoryBus, m_symbolTable);
+                PrintOp();
                 m_cpu->ExecuteInstruction();
 
             } else if (tokens[0] == "until" || tokens[0] == "u") {
@@ -696,7 +707,7 @@ void Debugger::Run() {
                 if (tokens.size() > 1 && (tokens[1] == "registers" || tokens[1] == "reg")) {
                     PrintRegisters(m_cpu->Registers());
                 } else if (tokens.size() > 1 && (tokens[1] == "break")) {
-                    std::cout << "m_breakpoints:\n";
+                    std::cout << "Breakpoints:\n";
                     Platform::ScopedConsoleColor scc;
                     for (size_t i = 0; i < m_breakpoints.Num(); ++i) {
                         auto bp = m_breakpoints.GetAtIndex(i);
@@ -745,6 +756,11 @@ void Debugger::Run() {
                     validCommand = false;
                 }
 
+            } else if (tokens[0] == "trace") {
+                m_traceEnabled = !m_traceEnabled;
+                std::cout << FormattedString<>("Trace %s", m_traceEnabled ? "enabled" : "disabled")
+                          << std::endl;
+
             } else {
                 validCommand = false;
             }
@@ -763,9 +779,6 @@ void Debugger::Run() {
             // Execute as many instructions that can fit in this time slice (plus one more at most)
             cpuCyclesLeft += cpuCyclesThisFrame;
             while (cpuCyclesLeft > 0) {
-                if (m_traceEnabled)
-                    PrintOp(m_cpu->Registers(), *m_memoryBus, m_symbolTable);
-
                 if (auto bp = m_breakpoints.Get(m_cpu->Registers().PC)) {
                     if (bp->autoDelete) {
                         m_breakpoints.Remove(m_cpu->Registers().PC);
@@ -781,6 +794,8 @@ void Debugger::Run() {
                     cpuCyclesLeft = 0;
                     break;
                 }
+
+                PrintOp();
 
                 const auto elapsedCycles = m_cpu->ExecuteInstruction();
                 cpuCyclesTotal += elapsedCycles;
