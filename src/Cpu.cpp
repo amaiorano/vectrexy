@@ -1282,7 +1282,7 @@ public:
                 OpAND<0, 0xB4>(A);
                 break;
             case 0xC4:
-                OpAND<0, 0xC4>(A);
+                OpAND<0, 0xC4>(B);
                 break;
             case 0xD4:
                 OpAND<0, 0xD4>(B);
