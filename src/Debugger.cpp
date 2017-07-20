@@ -477,7 +477,7 @@ namespace {
         auto op = DisassembleOp(cpuRegisters, memoryBus, symbolTable);
 
         using namespace Platform;
-        ScopedConsoleColor scc;
+        ScopedConsoleColor scc(ConsoleColor::Gray);
         std::cout << FormattedString<>("[$%x] ", cpuRegisters.PC);
         SetConsoleColor(ConsoleColor::LightYellow);
         std::cout << FormattedString<>("%-10s ", op.hexInstruction.c_str());
