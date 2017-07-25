@@ -770,6 +770,14 @@ public:
         int8_t offset = ReadRelativeOffset8();
         if (condFunc()) {
             PC += offset;
+        }
+    }
+
+    template <typename CondFunc>
+    void OpLongBranch(CondFunc condFunc) {
+        int16_t offset = ReadRelativeOffset16();
+        if (condFunc()) {
+            PC += offset;
             m_cycles += 1; // Extra cycle if branch is taken
         }
     }
@@ -1597,6 +1605,55 @@ public:
                 break;
             case 0xBC:
                 OpCMP<1, 0xBC>(Y);
+                break;
+
+            case 0x20: // BRA (branch always)
+                OpLongBranch([this] { return true; });
+                break;
+            case 0x21: // BRN (branch never)
+                OpLongBranch([this] { return false; });
+                break;
+            case 0x22: // BHI (branch if higher)
+                OpLongBranch([this] { return (CC.Carry | CC.Zero) == 0; });
+                break;
+            case 0x23: // BLS (banch if lower or same)
+                OpLongBranch([this] { return (CC.Carry | CC.Zero) != 0; });
+                break;
+            case 0x24: // BCC (branch if carry clear) or BHS (branch if higher or same)
+                OpLongBranch([this] { return CC.Carry == 0; });
+                break;
+            case 0x25: // BCS (branch if carry set) or BLO (branch if lower)
+                OpLongBranch([this] { return CC.Carry != 0; });
+                break;
+            case 0x26: // BNE (branch if not equal)
+                OpLongBranch([this] { return CC.Zero == 0; });
+                break;
+            case 0x27: // BEQ (branch if equal)
+                OpLongBranch([this] { return CC.Zero != 0; });
+                break;
+            case 0x28: // BVC (branch if overflow clear)
+                OpLongBranch([this] { return CC.Overflow == 0; });
+                break;
+            case 0x29: // BVS (branch if overflow set)
+                OpLongBranch([this] { return CC.Overflow != 0; });
+                break;
+            case 0x2A: // BPL (branch if plus)
+                OpLongBranch([this] { return CC.Negative == 0; });
+                break;
+            case 0x2B: // BMI (brach if minus)
+                OpLongBranch([this] { return CC.Negative != 0; });
+                break;
+            case 0x2C: // BGE (branch if greater or equal)
+                OpLongBranch([this] { return (CC.Negative ^ CC.Overflow) == 0; });
+                break;
+            case 0x2D: // BLT (branch if less than)
+                OpLongBranch([this] { return (CC.Negative ^ CC.Overflow) != 0; });
+                break;
+            case 0x2E: // BGT (branch if greater)
+                OpLongBranch([this] { return (CC.Zero | (CC.Negative ^ CC.Overflow)) == 0; });
+                break;
+            case 0x2F: // BLE (branch if less or equal)
+                OpLongBranch([this] { return (CC.Zero | (CC.Negative ^ CC.Overflow)) != 0; });
                 break;
 
             default:
