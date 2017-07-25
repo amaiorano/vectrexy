@@ -453,6 +453,22 @@ public:
         reg = AddImpl(reg, b, CC.Carry, CC, UpdateHalfCarry::True);
     }
 
+    // MUL
+    template <int page, uint8_t opCode>
+    void OpMUL() {
+        uint16_t result = A * B;
+        CC.Zero = CalcZero(result);
+        CC.Carry = (result & BITS(7)) != 0;
+        D = result;
+    }
+
+    template <int page, uint8_t opCode>
+    void OpSEX() {
+        A = ((B & BITS(7)) != 0) ? 0xFF : 0;
+        CC.Negative = CalcNegative(D);
+        CC.Zero = CalcZero(D);
+    }
+
     // NEGA, NEGB
     template <int page, uint8_t opCode>
     void OpNEG(uint8_t& value) {
@@ -1108,6 +1124,14 @@ public:
                 break;
             case 0xF9:
                 OpADC<0, 0xF9>(B);
+                break;
+
+            case 0x3D:
+                OpMUL<0, 0x3D>();
+                break;
+
+            case 0x1D:
+                OpSEX<0, 0x1D>();
                 break;
 
             // NEG
