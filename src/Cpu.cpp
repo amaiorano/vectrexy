@@ -553,6 +553,23 @@ public:
     }
 
     template <int page, uint8_t opCode>
+    void OpCOM(uint8_t& value) {
+        value = ~value;
+        CC.Negative = CalcNegative(value);
+        CC.Zero = CalcZero(value);
+        CC.Overflow = 0;
+        CC.Carry = 1;
+    }
+
+    template <int page, uint8_t opCode>
+    void OpCOM() {
+        uint16_t EA = ReadEA16<LookupCpuOp(page, opCode).addrMode>();
+        uint8_t value = m_memoryBus->Read(EA);
+        OpCOM<page, opCode>(value);
+        m_memoryBus->Write(EA, value);
+    }
+
+    template <int page, uint8_t opCode>
     void OpASL(uint8_t& value) {
         auto origValue = value;
         value = (value << 1);
@@ -1119,6 +1136,7 @@ public:
                 break;
             case 0x5C:
                 OpINC<0, 0x5C>(B);
+                break;
             case 0x6C:
                 OpINC<0, 0x6C>();
                 break;
@@ -1192,6 +1210,23 @@ public:
                 break;
             case 0x74:
                 OpLSR<0, 0x74>();
+                break;
+
+            // COM
+            case 0x03:
+                OpCOM<0, 0x03>();
+                break;
+            case 0x43:
+                OpCOM<0, 0x43>(A);
+                break;
+            case 0x53:
+                OpCOM<0, 0x53>(B);
+                break;
+            case 0x63:
+                OpCOM<0, 0x63>();
+                break;
+            case 0x73:
+                OpCOM<0, 0x73>();
                 break;
 
             // JMP
