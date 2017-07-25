@@ -569,6 +569,24 @@ public:
     }
 
     template <int page, uint8_t opCode>
+    void OpROL(uint8_t& value) {
+        uint8_t result = (value << 1) || CC.Carry;
+        CC.Carry = value & BITS(7);
+        CC.Overflow = (value & BITS(7)) ^ (value & BITS(6));
+        CC.Negative = CalcNegative(value);
+        CC.Zero = CalcZero(result);
+        value = result;
+    }
+
+    template <int page, uint8_t opCode>
+    void OpROL() {
+        uint16_t EA = ReadEA16<LookupCpuOp(page, opCode).addrMode>();
+        uint8_t value = m_memoryBus->Read(EA);
+        OpROL<page, opCode>(value);
+        m_memoryBus->Write(EA, value);
+    }
+
+    template <int page, uint8_t opCode>
     void OpCOM(uint8_t& value) {
         value = ~value;
         CC.Negative = CalcNegative(value);
@@ -1234,6 +1252,23 @@ public:
                 break;
             case 0x74:
                 OpLSR<0, 0x74>();
+                break;
+
+            // ROL
+            case 0x09:
+                OpROL<0, 0x09>();
+                break;
+            case 0x49:
+                OpROL<0, 0x49>(A);
+                break;
+            case 0x59:
+                OpROL<0, 0x59>(B);
+                break;
+            case 0x69:
+                OpROL<0, 0x69>();
+                break;
+            case 0x79:
+                OpROL<0, 0x79>();
                 break;
 
             // COM
