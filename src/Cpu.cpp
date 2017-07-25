@@ -570,7 +570,7 @@ public:
 
     template <int page, uint8_t opCode>
     void OpROL(uint8_t& value) {
-        uint8_t result = (value << 1) || CC.Carry;
+        uint8_t result = (value << 1) | CC.Carry;
         CC.Carry = value & BITS(7);
         CC.Overflow = (value & BITS(7)) ^ (value & BITS(6));
         CC.Negative = CalcNegative(value);
@@ -583,6 +583,22 @@ public:
         uint16_t EA = ReadEA16<LookupCpuOp(page, opCode).addrMode>();
         uint8_t value = m_memoryBus->Read(EA);
         OpROL<page, opCode>(value);
+        m_memoryBus->Write(EA, value);
+    }
+
+    template <int page, uint8_t opCode>
+    void OpROR(uint8_t& value) {
+        uint8_t result = (CC.Carry << 7) | (value >> 1);
+        CC.Carry = value & BITS(0);
+        CC.Negative = CalcNegative(result);
+        CC.Zero = CalcZero(result);
+    }
+
+    template <int page, uint8_t opCode>
+    void OpROR() {
+        uint16_t EA = ReadEA16<LookupCpuOp(page, opCode).addrMode>();
+        uint8_t value = m_memoryBus->Read(EA);
+        OpROR<page, opCode>(value);
         m_memoryBus->Write(EA, value);
     }
 
@@ -714,6 +730,15 @@ public:
             CC.Zero = value == 0;
             CC.Overflow = 0;
         }
+    }
+
+    template <int page, uint8_t opCode>
+    void OpEOR(uint8_t& reg) {
+        uint8_t value = ReadOperandValue8<LookupCpuOp(page, opCode).addrMode>();
+        reg ^= value;
+        CC.Negative = CalcNegative(reg);
+        CC.Zero = CalcZero(reg);
+        CC.Overflow = 0;
     }
 
     template <int page, uint8_t opCode>
@@ -1271,6 +1296,23 @@ public:
                 OpROL<0, 0x79>();
                 break;
 
+            // ROR
+            case 0x06:
+                OpROR<0, 0x06>();
+                break;
+            case 0x46:
+                OpROR<0, 0x46>(A);
+                break;
+            case 0x56:
+                OpROR<0, 0x56>(B);
+                break;
+            case 0x66:
+                OpROR<0, 0x66>();
+                break;
+            case 0x76:
+                OpROR<0, 0x76>();
+                break;
+
             // COM
             case 0x03:
                 OpCOM<0, 0x03>();
@@ -1386,6 +1428,32 @@ public:
                 break;
             case 0xF4:
                 OpAND<0, 0xF4>(B);
+                break;
+
+            // EOR
+            case 0x88:
+                OpEOR<0, 0x88>(A);
+                break;
+            case 0x98:
+                OpEOR<0, 0x98>(A);
+                break;
+            case 0xA8:
+                OpEOR<0, 0xA8>(A);
+                break;
+            case 0xB8:
+                OpEOR<0, 0xB8>(A);
+                break;
+            case 0xC8:
+                OpEOR<0, 0xC8>(B);
+                break;
+            case 0xD8:
+                OpEOR<0, 0xD8>(B);
+                break;
+            case 0xE8:
+                OpEOR<0, 0xE8>(B);
+                break;
+            case 0xF8:
+                OpEOR<0, 0xF8>(B);
                 break;
 
             // CMP
