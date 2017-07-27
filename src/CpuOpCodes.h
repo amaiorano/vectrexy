@@ -53,7 +53,7 @@ constexpr CpuOp CpuOpsPage0[] = {
     { 0x16, "LBRA",      AddressingMode::Relative ,  5, 3, "Long Branch Always" },
     { 0x17, "LBSR",      AddressingMode::Relative ,  9, 3, "Long Branch Subroutine" },
     { 0x18, "Illegal",   AddressingMode::Illegal  ,  1, 1, "Illegal" },
-    { 0x19, "DAA",       AddressingMode::Inherent ,  2, 1, "Decimal Adjust Acc." },
+    { 0x19, "DAA",       AddressingMode::Inherent ,  2, 1, "Decimal Addition Adjust" },
     { 0x1A, "ORCC",      AddressingMode::Immediate,  3, 2, "Inclusive OR CCR" },
     { 0x1B, "Illegal",   AddressingMode::Illegal  ,  1, 1, "Illegal" },
     { 0x1C, "ANDCC",     AddressingMode::Immediate,  3, 2, "Logical AND with CCR" },

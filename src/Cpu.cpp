@@ -382,14 +382,14 @@ public:
 
     static uint8_t AddImpl(uint8_t a, uint8_t b, uint8_t carry, ConditionCode& CC,
                            UpdateHalfCarry updateHalfCarry) {
-        uint16_t r16 = a + b + carry;
+        uint16_t r16 = U16(a) + U16(b) + U16(carry);
         if (updateHalfCarry == UpdateHalfCarry::True) {
             CC.HalfCarry =
                 CalcHalfCarryFromAdd(a, b); //@TODO: Should ONLY be computed for ADDA/ADDB
         }
         CC.Carry = CalcCarry(r16);
         CC.Overflow = CalcOverflow(a, b, r16);
-        uint8_t r = static_cast<uint8_t>(r16);
+        uint8_t r = U8(r16);
         CC.Zero = CalcZero(r);
         CC.Negative = CalcNegative(r);
         return r;
@@ -399,11 +399,11 @@ public:
         (void)updateHalfCarry;
         assert(updateHalfCarry == UpdateHalfCarry::False); // 16-bit version never updates this
 
-        uint32_t r32 = a + b + carry;
+        uint32_t r32 = U16(a) + U16(b) + U16(carry);
         // CC.HalfCarry = CalcHalfCarryFromAdd(a, b);
         CC.Carry = CalcCarry(r32);
         CC.Overflow = CalcOverflow(a, b, r32);
-        uint16_t r = static_cast<uint16_t>(r32);
+        uint16_t r = U16(r32);
         CC.Zero = CalcZero(r);
         CC.Negative = CalcNegative(r);
         return r;
@@ -826,6 +826,23 @@ public:
     void OpTFR() { ExchangeOrTransfer(false); }
 
     void OpABX() { X += B; }
+
+    void OpDAA() {
+        // Extract least and most siginifant nibbles
+        uint8_t lsn = A & 0b0000'1111;
+        uint8_t msn = (A & 0b1111'0000) >> 4;
+
+        // Compute correction factors
+        uint8_t cfLsn = ((CC.HalfCarry == 1) || (lsn > 9)) ? 6 : 0;
+        uint8_t cfMsn = ((CC.Carry == 1) || (msn > 9) || (msn > 8 && lsn > 9)) ? 6 : 0;
+        uint8_t adjust = (cfMsn << 4) | cfLsn;
+        uint16_t r16 = U16(A) + U16(adjust);
+        A = U8(r16);
+        CC.Negative = CalcNegative(A);
+        CC.Zero = CalcZero(A);
+        CC.Carry = (CC.Carry == 1) || CalcCarry(r16);
+    }
+
     cycles_t ExecuteInstruction() {
         m_cycles = 0;
 
@@ -1000,6 +1017,10 @@ public:
                 break;
             case 0x17:
                 OpLBSR();
+                break;
+
+            case 0x19:
+                OpDAA();
                 break;
 
             case 0x20: // BRA (branch always)
