@@ -431,7 +431,8 @@ namespace {
                     comment =
                         FormattedString<>("(%d), PC + offset = $%04x", offset, nextPC + offset);
                 } else {
-                    assert(cpuOp.size == 3);
+                    // Could be a long branch from page 0 (3 bytes) or page 1 (4 bytes)
+                    assert(cpuOp.size >= 3);
                     auto offset = static_cast<int16_t>(
                         CombineToU16(instruction.operands[0], instruction.operands[1]));
                     disasmInstruction = FormattedString<>("%s $%04x", cpuOp.name, offset);
