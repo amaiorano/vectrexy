@@ -825,6 +825,7 @@ public:
 
     void OpTFR() { ExchangeOrTransfer(false); }
 
+    void OpABX() { X += B; }
     cycles_t ExecuteInstruction() {
         m_cycles = 0;
 
@@ -1056,6 +1057,10 @@ public:
 
             case 0x1F:
                 OpTFR();
+                break;
+
+            case 0x3A:
+                OpABX();
                 break;
 
             case 0x39:
