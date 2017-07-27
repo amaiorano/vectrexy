@@ -19,6 +19,7 @@ private:
     Cpu* m_cpu = nullptr;
     bool m_breakIntoDebugger = false;
     bool m_traceEnabled = false;
+    uint64_t m_instructionCount = 0;
     std::string m_lastCommand;
     Breakpoints m_breakpoints;
     SymbolTable m_symbolTable; // Address to symbol name

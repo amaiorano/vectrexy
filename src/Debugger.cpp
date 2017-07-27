@@ -562,6 +562,11 @@ void Debugger::Run() {
             ::PrintOp(m_cpu->Registers(), *m_memoryBus, m_symbolTable);
     };
 
+    auto ExecuteInstruction = [&] {
+        ++m_instructionCount;
+        return m_cpu->ExecuteInstruction();
+    };
+
     m_lastCommand = "step"; // Reasonable default
 
     // Break on start
@@ -627,7 +632,7 @@ void Debugger::Run() {
                 // First 'step' current instruction, otherwise if we have a breakpoint on it we will
                 // end up breaking immediately on it again (we won't actually continue)
                 PrintOp();
-                m_cpu->ExecuteInstruction();
+                ExecuteInstruction();
 
                 m_breakIntoDebugger = false;
                 // When resuming, make sure to reset frame timer. We don't want the resumed frame to
@@ -637,7 +642,7 @@ void Debugger::Run() {
             } else if (tokens[0] == "step" || tokens[0] == "s") {
                 // "Step into"
                 PrintOp();
-                m_cpu->ExecuteInstruction();
+                ExecuteInstruction();
 
             } else if (tokens[0] == "until" || tokens[0] == "u") {
                 if (tokens.size() > 1) {
@@ -798,7 +803,7 @@ void Debugger::Run() {
 
                 PrintOp();
 
-                const auto elapsedCycles = m_cpu->ExecuteInstruction();
+                const auto elapsedCycles = ExecuteInstruction();
                 cpuCyclesTotal += elapsedCycles;
                 cpuCyclesLeft -= elapsedCycles;
             }
