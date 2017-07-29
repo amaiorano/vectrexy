@@ -5,6 +5,8 @@
 
 namespace Platform {
 
+    void SetConsoleTitle(const char* title);
+
     enum class ConsoleColor {
         Black,
         Blue,

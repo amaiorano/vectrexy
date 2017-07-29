@@ -5,6 +5,9 @@
 #include <cassert>
 #include <windows.h>
 
+// Undef the macro from windows.h so we can use the same name
+#undef SetConsoleTitle
+
 namespace {
     std::function<bool()> g_consoleCtrlHandler;
     BOOL WINAPI Win32ConsoleCtrlHandler(DWORD /*dwCtrlType*/) {
@@ -15,6 +18,7 @@ namespace {
 } // namespace
 
 namespace Platform {
+    void SetConsoleTitle(const char* title) { ::SetConsoleTitleA(title); }
 
     void SetConsoleCtrlHandler(std::function<bool()> handler) {
         g_consoleCtrlHandler = std::move(handler);
