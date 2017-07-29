@@ -565,6 +565,14 @@ void Debugger::Init(MemoryBus& memoryBus, Cpu& cpu) {
     });
 
     SetColorEnabled(m_colorEnabled);
+
+    m_lastCommand = "step"; // Reasonable default
+
+    // Break on start
+    m_breakIntoDebugger = true;
+
+    // Enable trace when running normally
+    m_traceEnabled = true;
 }
 
 void Debugger::Run() {
@@ -577,14 +585,6 @@ void Debugger::Run() {
         ++m_instructionCount;
         return m_cpu->ExecuteInstruction();
     };
-
-    m_lastCommand = "step"; // Reasonable default
-
-    // Break on start
-    m_breakIntoDebugger = true;
-
-    // Enable trace when running normally
-    m_traceEnabled = true;
 
     // Set default console colors
     Platform::ScopedConsoleColor defaultColor(Platform::ConsoleColor::White,
