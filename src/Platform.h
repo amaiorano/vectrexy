@@ -7,6 +7,13 @@ namespace Platform {
 
     void SetConsoleTitle(const char* title);
 
+    // Set handler for Ctrl+C. Handler must return true if handled, or false to allow default system
+    // handler. Pass in nullptr to unset handler.
+    void SetConsoleCtrlHandler(std::function<bool()> handler);
+
+    void SetConsoleColoringEnabled(bool enabled);
+    bool IsConsoleColoringEnabled();
+
     enum class ConsoleColor {
         Black,
         Blue,
@@ -25,10 +32,6 @@ namespace Platform {
         LightYellow,
         BrightWhite,
     };
-
-    // Set handler for Ctrl+C. Handler must return true if handled, or false to allow default system
-    // handler. Pass in nullptr to unset handler.
-    void SetConsoleCtrlHandler(std::function<bool()> handler);
 
     void SetConsoleColor(ConsoleColor foreground, ConsoleColor background = ConsoleColor::Black);
     std::tuple<ConsoleColor, ConsoleColor> GetConsoleColor();

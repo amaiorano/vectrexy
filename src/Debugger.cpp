@@ -522,6 +522,7 @@ namespace {
                "enable <index>          enable breakpoint at index\n"
                "loadsymbols <file>      load file with symbol/address definitions\n"
                "trace                   toggle disassembly trace\n"
+               "color                   toggle colored output (slow)\n"
                "q[uit]                  quit\n"
                "h[help]                 display this help text\n");
     }
@@ -542,6 +543,16 @@ namespace {
         return true;
     }
 
+    void SetColorEnabled(bool enabled) {
+        Platform::SetConsoleColoringEnabled(enabled);
+        if (enabled) {
+            // For colored trace, we must disable buffering for it to work (slow)
+            setvbuf(stdout, NULL, _IONBF, 0);
+        } else {
+            // With color disabled, we can now buffer output in large chunks
+            setvbuf(stdout, NULL, _IOFBF, 100 * 1024);
+        }
+    }
 } // namespace
 
 void Debugger::Init(MemoryBus& memoryBus, Cpu& cpu) {
@@ -552,6 +563,8 @@ void Debugger::Init(MemoryBus& memoryBus, Cpu& cpu) {
         m_breakIntoDebugger = true;
         return true;
     });
+
+    SetColorEnabled(m_colorEnabled);
 }
 
 void Debugger::Run() {
@@ -750,6 +763,11 @@ void Debugger::Run() {
             } else if (tokens[0] == "trace") {
                 m_traceEnabled = !m_traceEnabled;
                 printf("Trace %s\n", m_traceEnabled ? "enabled" : "disabled");
+
+            } else if (tokens[0] == "color") {
+                m_colorEnabled = !m_colorEnabled;
+                SetColorEnabled(m_colorEnabled);
+                printf("Color %s\n", m_colorEnabled ? "enabled" : "disabled");
 
             } else {
                 validCommand = false;

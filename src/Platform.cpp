@@ -28,7 +28,20 @@ namespace Platform {
         assert(succeeded);
     }
 
+    static bool g_consoleColorEnabled = true;
+
+    void SetConsoleColoringEnabled(bool enabled) {
+        if (!enabled) {
+            SetConsoleColor(ConsoleColor::White, ConsoleColor::Black);
+        }
+        g_consoleColorEnabled = enabled;
+    }
+
+    bool IsConsoleColoringEnabled() { return g_consoleColorEnabled; }
+
     void SetConsoleColor(ConsoleColor foreground, ConsoleColor background) {
+        if (!g_consoleColorEnabled)
+            return;
         HANDLE hConsole = ::GetStdHandle(STD_OUTPUT_HANDLE);
         WORD colorAttribute = static_cast<WORD>(foreground) + static_cast<WORD>(background) * 16;
         ::SetConsoleTextAttribute(hConsole, colorAttribute);
