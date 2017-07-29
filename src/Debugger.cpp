@@ -8,6 +8,7 @@
 #include "StringHelpers.h"
 #include <array>
 #include <chrono>
+#include <cstdio>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -479,16 +480,16 @@ namespace {
 
         using namespace Platform;
         ScopedConsoleColor scc(ConsoleColor::Gray);
-        std::cout << FormattedString<>("[$%x] ", cpuRegisters.PC);
+        printf("[$%x] ", cpuRegisters.PC);
         SetConsoleColor(ConsoleColor::LightYellow);
-        std::cout << FormattedString<>("%-10s ", op.hexInstruction.c_str());
+        printf("%-10s ", op.hexInstruction.c_str());
         SetConsoleColor(ConsoleColor::LightAqua);
-        std::cout << FormattedString<>("%-32s ", op.disasmInstruction.c_str());
+        printf("%-32s ", op.disasmInstruction.c_str());
         SetConsoleColor(ConsoleColor::LightGreen);
-        std::cout << FormattedString<>("%-40s ", op.comment.c_str());
+        printf("%-40s ", op.comment.c_str());
         SetConsoleColor(ConsoleColor::LightPurple);
-        std::cout << FormattedString<>("%s", op.description.c_str());
-        std::cout << std::endl;
+        printf("%s", op.description.c_str());
+        printf("\n");
     }
 
     void PrintRegisters(const CpuRegisters& cpuRegisters) {
@@ -502,30 +503,27 @@ namespace {
                 .Value();
 
         const auto& r = cpuRegisters;
-        std::cout << FormattedString<>("A=$%02x (%d) B=$%02x (%d) D=$%04x (%d) X=$%04x (%d) "
-                                       "Y=$%04x (%d) U=$%04x S=$%04x DP=$%02x PC=$%04x CC=%s",
-                                       r.A, r.A, r.B, r.B, r.D, r.D, r.X, r.X, r.Y, r.Y, r.U, r.S,
-                                       r.DP, r.PC, CC.c_str())
-                  << std::endl;
+        printf("A=$%02x (%d) B=$%02x (%d) D=$%04x (%d) X=$%04x (%d) "
+               "Y=$%04x (%d) U=$%04x S=$%04x DP=$%02x PC=$%04x CC=%s\n",
+               r.A, r.A, r.B, r.B, r.D, r.D, r.X, r.X, r.Y, r.Y, r.U, r.S, r.DP, r.PC, CC.c_str());
     }
 
     void PrintHelp() {
-        std::cout << "s[tep]                  step instruction\n"
-                     "c[ontinue]              continue running\n"
-                     "u[ntil] <address>       run until address is reached\n"
-                     "info reg[isters]        display register values\n"
-                     "p[rint] <address>       display value add address\n"
-                     "set <address>=<value>   set value at address\n"
-                     "info break              display breakpoints\n"
-                     "b[reak] <address>       set breakpoint at address\n"
-                     "delete <index>          delete breakpoint at index\n"
-                     "disable <index>         disable breakpoint at index\n"
-                     "enable <index>          enable breakpoint at index\n"
-                     "loadsymbols <file>      load file with symbol/address definitions\n"
-                     "trace                   toggle disassembly trace\n"
-                     "q[uit]                  quit\n"
-                     "h[help]                 display this help text\n"
-                  << std::flush;
+        printf("s[tep]                  step instruction\n"
+               "c[ontinue]              continue running\n"
+               "u[ntil] <address>       run until address is reached\n"
+               "info reg[isters]        display register values\n"
+               "p[rint] <address>       display value add address\n"
+               "set <address>=<value>   set value at address\n"
+               "info break              display breakpoints\n"
+               "b[reak] <address>       set breakpoint at address\n"
+               "delete <index>          delete breakpoint at index\n"
+               "disable <index>         disable breakpoint at index\n"
+               "enable <index>          enable breakpoint at index\n"
+               "loadsymbols <file>      load file with symbol/address definitions\n"
+               "trace                   toggle disassembly trace\n"
+               "q[uit]                  quit\n"
+               "h[help]                 display this help text\n");
     }
 
     bool LoadUserSymbolsFile(const char* file, Debugger::SymbolTable& symbolTable) {
@@ -592,9 +590,7 @@ void Debugger::Run() {
         lastTime = currTime;
 
         if (m_breakIntoDebugger) {
-            std::cout << FormattedString<>("$%04x (%s)>", m_cpu->Registers().PC,
-                                           m_lastCommand.c_str())
-                      << std::flush;
+            printf("$%04x (%s)>", m_cpu->Registers().PC, m_lastCommand.c_str());
 
             std::string input;
             const auto& stream = std::getline(std::cin, input);
@@ -659,8 +655,7 @@ void Debugger::Run() {
                 if (tokens.size() > 1) {
                     uint16_t address = StringToIntegral<uint16_t>(tokens[1]);
                     if (auto bp = m_breakpoints.Add(address)) {
-                        std::cout << FormattedString<>("Added breakpoint at $%04x", address)
-                                  << std::endl;
+                        printf("Added breakpoint at $%04x\n", address);
                         validCommand = true;
                     }
                 }
@@ -670,12 +665,10 @@ void Debugger::Run() {
                 if (tokens.size() > 1) {
                     int breakpointIndex = std::stoi(tokens[1]);
                     if (auto bp = m_breakpoints.RemoveAtIndex(breakpointIndex)) {
-                        std::cout << FormattedString<>("Deleted breakpoint %d at $%04x",
-                                                       breakpointIndex, bp->address)
-                                  << std::endl;
+                        printf("Deleted breakpoint %d at $%04x\n", breakpointIndex, bp->address);
                         validCommand = true;
                     } else {
-                        std::cout << "Invalid breakpoint specified" << std::endl;
+                        printf("Invalid breakpoint specified\n");
                     }
                 }
 
@@ -685,12 +678,10 @@ void Debugger::Run() {
                     size_t breakpointIndex = std::stoi(tokens[1]);
                     if (auto bp = m_breakpoints.GetAtIndex(breakpointIndex)) {
                         bp->enabled = true;
-                        std::cout << FormattedString<>("Enabled breakpoint %d at $%04x",
-                                                       breakpointIndex, bp->address)
-                                  << std::endl;
+                        printf("Enabled breakpoint %d at $%04x\n", breakpointIndex, bp->address);
                         validCommand = true;
                     } else {
-                        std::cout << "Invalid breakpoint specified" << std::endl;
+                        printf("Invalid breakpoint specified\n");
                     }
                 }
 
@@ -700,12 +691,10 @@ void Debugger::Run() {
                     size_t breakpointIndex = std::stoi(tokens[1]);
                     if (auto bp = m_breakpoints.GetAtIndex(breakpointIndex)) {
                         bp->enabled = false;
-                        std::cout << FormattedString<>("Disabled breakpoint %d at $%04x",
-                                                       breakpointIndex, bp->address)
-                                  << std::endl;
+                        printf("Disabled breakpoint %d at $%04x\n", breakpointIndex, bp->address);
                         validCommand = true;
                     } else {
-                        std::cout << "Invalid breakpoint specified" << std::endl;
+                        printf("Invalid breakpoint specified\n");
                     }
                 }
 
@@ -713,17 +702,15 @@ void Debugger::Run() {
                 if (tokens.size() > 1 && (tokens[1] == "registers" || tokens[1] == "reg")) {
                     PrintRegisters(m_cpu->Registers());
                 } else if (tokens.size() > 1 && (tokens[1] == "break")) {
-                    std::cout << "Breakpoints:\n";
+                    printf("Breakpoints:\n");
                     Platform::ScopedConsoleColor scc;
                     for (size_t i = 0; i < m_breakpoints.Num(); ++i) {
                         auto bp = m_breakpoints.GetAtIndex(i);
                         Platform::SetConsoleColor(bp->enabled ? Platform::ConsoleColor::LightGreen
                                                               : Platform::ConsoleColor::LightRed);
-                        std::cout << FormattedString<>("%3d: $%04x\t%s\n", i, bp->address,
-                                                       bp->enabled ? "Enabled" : "Disabled");
+                        printf("%3d: $%04x\t%s\n", i, bp->address,
+                               bp->enabled ? "Enabled" : "Disabled");
                     }
-                    std::cout << std::flush;
-
                 } else {
                     validCommand = false;
                 }
@@ -732,8 +719,7 @@ void Debugger::Run() {
                 if (tokens.size() > 1) {
                     uint16_t address = StringToIntegral<uint16_t>(tokens[1]);
                     uint8_t value = m_memoryBus->Read(address);
-                    std::cout << FormattedString<>("$%04x = $%02x (%d)", address, value, value)
-                              << std::endl;
+                    printf("$%04x = $%02x (%d)\n", address, value, value);
                 } else {
                     validCommand = false;
                 }
@@ -756,16 +742,14 @@ void Debugger::Run() {
 
             } else if (tokens[0] == "loadsymbols") {
                 if (tokens.size() > 1 && LoadUserSymbolsFile(tokens[1].c_str(), m_symbolTable)) {
-                    std::cout << FormattedString<>("Loaded symbols from %s", tokens[1].c_str())
-                              << std::endl;
+                    printf("Loaded symbols from %s\n", tokens[1].c_str());
                 } else {
                     validCommand = false;
                 }
 
             } else if (tokens[0] == "trace") {
                 m_traceEnabled = !m_traceEnabled;
-                std::cout << FormattedString<>("Trace %s", m_traceEnabled ? "enabled" : "disabled")
-                          << std::endl;
+                printf("Trace %s\n", m_traceEnabled ? "enabled" : "disabled");
 
             } else {
                 validCommand = false;
@@ -774,7 +758,7 @@ void Debugger::Run() {
             if (validCommand) {
                 m_lastCommand = input;
             } else {
-                std::cout << "Invalid command: " << input << std::endl;
+                printf("Invalid command: %s\n", input.c_str());
             }
 
         } else { // Not broken into debugger (running)
@@ -790,8 +774,7 @@ void Debugger::Run() {
                         m_breakpoints.Remove(m_cpu->Registers().PC);
                         m_breakIntoDebugger = true;
                     } else if (bp->enabled) {
-                        std::cout << FormattedString<>("Breakpoint hit at %04x", bp->address)
-                                  << std::endl;
+                        printf("Breakpoint hit at %04x\n", bp->address);
                         m_breakIntoDebugger = true;
                     }
                 }
