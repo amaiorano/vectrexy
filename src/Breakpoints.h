@@ -5,6 +5,27 @@
 #include <optional>
 
 struct Breakpoint {
+    enum class Type {
+        Instruction,
+        Read,
+        Write,
+        ReadWrite,
+    };
+    static const char* TypeToString(Type type) {
+        switch (type) {
+        case Type::Instruction:
+            return "Instruction";
+        case Type::Read:
+            return "Read";
+        case Type::Write:
+            return "Write";
+        case Type::ReadWrite:
+            return "ReadWrite";
+        }
+        return "INVALID";
+    }
+
+    Type type = Type::Instruction;
     uint16_t address = 0;
     bool enabled = true;
     bool autoDelete = false;
@@ -12,8 +33,9 @@ struct Breakpoint {
 
 class Breakpoints {
 public:
-    Breakpoint* Add(uint16_t address) {
+    Breakpoint* Add(Breakpoint::Type type, uint16_t address) {
         auto& bp = m_breakpoints[address];
+        bp.type = type;
         bp.address = address;
         return &bp;
     }

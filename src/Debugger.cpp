@@ -582,12 +582,35 @@ void Debugger::Init(MemoryBus& memoryBus, Cpu& cpu) {
 
     // Enable trace when running normally
     m_traceEnabled = true;
+
+    m_memoryBus->RegisterCallbacks(
+        [&](uint16_t address) {
+            if (auto bp = m_breakpoints.Get(address)) {
+                if (bp->enabled && (bp->type == Breakpoint::Type::Read ||
+                                    bp->type == Breakpoint::Type::ReadWrite)) {
+                    m_breakIntoDebugger = true;
+                    printf("Watchpoint hit at $%04x (read)\n", address);
+                }
+            }
+        },
+        [&](uint16_t address, uint8_t value) {
+            if (auto bp = m_breakpoints.Get(address)) {
+                if (bp->enabled && (bp->type == Breakpoint::Type::Write ||
+                                    bp->type == Breakpoint::Type::ReadWrite)) {
+                    m_breakIntoDebugger = true;
+                    printf("Watchpoint hit at $%04x (write value $%02x)\n", address, value);
+                }
+            }
+        });
 }
 
 void Debugger::Run() {
     auto PrintOp = [&] {
-        if (m_traceEnabled)
+        if (m_traceEnabled) {
+            m_memoryBus->SetCallbacksEnabled(false); // Don't stop on watchpoints when disassembling
             ::PrintOp(m_cpu->Registers(), *m_memoryBus, m_symbolTable);
+            m_memoryBus->SetCallbacksEnabled(true);
+        }
     };
 
     auto ExecuteInstruction = [&] {
@@ -676,19 +699,35 @@ void Debugger::Run() {
             } else if (tokens[0] == "until" || tokens[0] == "u") {
                 if (tokens.size() > 1) {
                     uint16_t address = StringToIntegral<uint16_t>(tokens[1]);
-                    auto bp = m_breakpoints.Add(address);
+                    auto bp = m_breakpoints.Add(Breakpoint::Type::Instruction, address);
                     bp->autoDelete = true;
                     ContinueExecution();
                 } else {
                     validCommand = false;
                 }
 
-            } else if (tokens[0] == "breakpoint" || tokens[0] == "b") {
+            } else if (tokens[0] == "break" || tokens[0] == "b") {
                 validCommand = false;
                 if (tokens.size() > 1) {
                     uint16_t address = StringToIntegral<uint16_t>(tokens[1]);
-                    if (auto bp = m_breakpoints.Add(address)) {
+                    if (auto bp = m_breakpoints.Add(Breakpoint::Type::Instruction, address)) {
                         printf("Added breakpoint at $%04x\n", address);
+                        validCommand = true;
+                    }
+                }
+
+            } else if (tokens[0] == "watch" || tokens[0] == "rwatch" || tokens[0] == "awatch") {
+                validCommand = false;
+                if (tokens.size() > 1) {
+                    uint16_t address = StringToIntegral<uint16_t>(tokens[1]);
+
+                    auto type = tokens[0][0] == 'w'
+                                    ? Breakpoint::Type::Write
+                                    : tokens[0][0] == 'r' ? Breakpoint::Type::Read
+                                                          : Breakpoint::Type::ReadWrite;
+
+                    if (auto bp = m_breakpoints.Add(type, address)) {
+                        printf("Added watchpoint at $%04x\n", address);
                         validCommand = true;
                     }
                 }
@@ -741,7 +780,8 @@ void Debugger::Run() {
                         auto bp = m_breakpoints.GetAtIndex(i);
                         Platform::SetConsoleColor(bp->enabled ? Platform::ConsoleColor::LightGreen
                                                               : Platform::ConsoleColor::LightRed);
-                        printf("%3d: $%04x\t%s\n", i, bp->address,
+                        printf("%3d: $%04x\t%-20s%s\n", i, bp->address,
+                               Breakpoint::TypeToString(bp->type),
                                bp->enabled ? "Enabled" : "Disabled");
                     }
                 } else {
@@ -808,12 +848,14 @@ void Debugger::Run() {
             cpuCyclesLeft += cpuCyclesThisFrame;
             while (cpuCyclesLeft > 0) {
                 if (auto bp = m_breakpoints.Get(m_cpu->Registers().PC)) {
-                    if (bp->autoDelete) {
-                        m_breakpoints.Remove(m_cpu->Registers().PC);
-                        m_breakIntoDebugger = true;
-                    } else if (bp->enabled) {
-                        printf("Breakpoint hit at %04x\n", bp->address);
-                        m_breakIntoDebugger = true;
+                    if (bp->type == Breakpoint::Type::Instruction) {
+                        if (bp->autoDelete) {
+                            m_breakpoints.Remove(m_cpu->Registers().PC);
+                            m_breakIntoDebugger = true;
+                        } else if (bp->enabled) {
+                            printf("Breakpoint hit at %04x\n", bp->address);
+                            m_breakIntoDebugger = true;
+                        }
                     }
                 }
 

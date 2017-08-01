@@ -2,6 +2,7 @@
 
 #include "Base.h"
 #include <algorithm>
+#include <functional>
 #include <vector>
 
 using MemoryRange = std::pair<uint16_t, uint16_t>;
@@ -22,9 +23,27 @@ public:
                   });
     }
 
-    uint8_t Read(uint16_t address) const { return FindDeviceInfo(address).device->Read(address); }
+    //@TODO: Move this callback stuff out of here, perhaps in some DebuggerMemoryBus class.
+    using OnReadCallback = std::function<void(uint16_t)>;
+    using OnWriteCallback = std::function<void(uint16_t, uint8_t)>;
+    void RegisterCallbacks(OnReadCallback onReadCallback, OnWriteCallback onWriteCallback) {
+        m_onReadCallback = onReadCallback;
+        m_onWriteCallback = onWriteCallback;
+    }
+
+    void SetCallbacksEnabled(bool enabled) { m_callbacksEnabled = enabled; }
+
+    uint8_t Read(uint16_t address) const {
+        if (m_callbacksEnabled && m_onReadCallback)
+            m_onReadCallback(address);
+
+        return FindDeviceInfo(address).device->Read(address);
+    }
 
     void Write(uint16_t address, uint8_t value) {
+        if (m_callbacksEnabled && m_onWriteCallback)
+            m_onWriteCallback(address, value);
+
         FindDeviceInfo(address).device->Write(address, value);
     }
 
@@ -52,4 +71,8 @@ private:
 
     // Sorted by first address in range
     std::vector<DeviceInfo> m_devices;
+
+    bool m_callbacksEnabled = true;
+    OnReadCallback m_onReadCallback;
+    OnWriteCallback m_onWriteCallback;
 };
