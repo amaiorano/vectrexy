@@ -11,10 +11,7 @@
 #include <memory>
 
 int main(int argc, char** argv) {
-    if (argc != 2) {
-        printf("Usage: vectrexy <rom>\n");
-        return 1;
-    }
+    std::string rom = argc == 2 ? argv[1] : "";
 
     auto memoryBus = std::make_unique<MemoryBus>();
     auto cpu = std::make_unique<Cpu>();
@@ -32,7 +29,9 @@ int main(int argc, char** argv) {
     debugger->Init(*memoryBus, *cpu);
 
     biosRom->LoadBiosRom("bios_rom.bin");
-    cartridge->LoadRom(argv[1]);
+
+    if (!rom.empty())
+        cartridge->LoadRom(rom.c_str());
 
     // Start executing at the first instruction of the BIOS routines (at 0xF000)
     const uint16_t BiosRoutines = MemoryMap::Bios.range.first + 0x1000;
