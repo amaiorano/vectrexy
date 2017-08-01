@@ -59,7 +59,7 @@ void Cartridge::LoadRom(const char* file) {
 }
 
 uint8_t Cartridge::Read(uint16_t address) const {
-    return m_data[MemoryMap::Cartridge.MapAddress(address)];
+    return m_data.at(MemoryMap::Cartridge.MapAddress(address));
 }
 
 void Cartridge::Write(uint16_t /*address*/, uint8_t /*value*/) {

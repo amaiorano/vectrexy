@@ -51,6 +51,15 @@ namespace {
 
     std::vector<std::string> Tokenize(const std::string& s) { return Split(s, " \t"); }
 
+    std::string TryMemoryBusRead(const MemoryBus& memoryBus, uint16_t address) {
+        try {
+            uint8_t value = memoryBus.Read(address);
+            return FormattedString<>("$%02x (%d)", value, value).Value();
+        } catch (...) {
+            return "INVALID_READ";
+        }
+    }
+
     const char* GetRegisterName(const CpuRegisters& cpuRegisters, const uint8_t& r) {
         ptrdiff_t offset =
             reinterpret_cast<const uint8_t*>(&r) - reinterpret_cast<const uint8_t*>(&cpuRegisters);
@@ -337,8 +346,8 @@ namespace {
         }
 
         disasmInstruction = std::string(instruction.cpuOp.name) + " " + operands;
-        uint8_t value = memoryBus.Read(EA);
-        comment += FormattedString<>(", EA = $%04x = $%02x (%d)", EA, value, value);
+        comment +=
+            FormattedString<>(", EA = $%04x = %s", EA, TryMemoryBusRead(memoryBus, EA).c_str());
     }
 
     struct DisassembledOp {
