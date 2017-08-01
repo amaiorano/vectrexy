@@ -2,6 +2,7 @@
 
 #include "Breakpoints.h"
 #include <map>
+#include <optional>
 #include <string>
 
 class MemoryBus;
@@ -23,5 +24,6 @@ private:
     uint64_t m_instructionCount = 0;
     std::string m_lastCommand;
     Breakpoints m_breakpoints;
+    std::optional<int64_t> m_numInstructionsToExecute = {};
     SymbolTable m_symbolTable; // Address to symbol name
 };

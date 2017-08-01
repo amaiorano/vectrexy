@@ -518,7 +518,7 @@ namespace {
     }
 
     void PrintHelp() {
-        printf("s[tep]                  step instruction\n"
+        printf("s[tep] [count]          step instruction [count times]\n"
                "c[ontinue]              continue running\n"
                "u[ntil] <address>       run until address is reached\n"
                "info reg[isters]        display register values\n"
@@ -612,6 +612,13 @@ void Debugger::Run() {
         lastTime = currTime;
 
         if (m_breakIntoDebugger) {
+            auto ContinueExecution = [&] {
+                m_breakIntoDebugger = false;
+                // When resuming, make sure to reset frame timer. We don't want the resumed frame to
+                // have a huge delta time because we were stopped in the debugger.
+                lastTime = std::chrono::high_resolution_clock::now();
+            };
+
             printf("$%04x (%s)>", m_cpu->Registers().PC, m_lastCommand.c_str());
 
             std::string input;
@@ -651,23 +658,27 @@ void Debugger::Run() {
                 // end up breaking immediately on it again (we won't actually continue)
                 PrintOp();
                 ExecuteInstruction();
-
-                m_breakIntoDebugger = false;
-                // When resuming, make sure to reset frame timer. We don't want the resumed frame to
-                // have a huge delta time because we were stopped in the debugger.
-                lastTime = std::chrono::high_resolution_clock::now();
+                ContinueExecution();
 
             } else if (tokens[0] == "step" || tokens[0] == "s") {
                 // "Step into"
                 PrintOp();
                 ExecuteInstruction();
 
+                // Handle optional number of steps parameter
+                if (tokens.size() > 1) {
+                    m_numInstructionsToExecute = StringToIntegral<int64_t>(tokens[1]) - 1;
+                    if (m_numInstructionsToExecute.value() > 0) {
+                        ContinueExecution();
+                    }
+                }
+
             } else if (tokens[0] == "until" || tokens[0] == "u") {
                 if (tokens.size() > 1) {
                     uint16_t address = StringToIntegral<uint16_t>(tokens[1]);
                     auto bp = m_breakpoints.Add(address);
                     bp->autoDelete = true;
-                    m_breakIntoDebugger = false;
+                    ContinueExecution();
                 } else {
                     validCommand = false;
                 }
@@ -816,6 +827,16 @@ void Debugger::Run() {
                 const auto elapsedCycles = ExecuteInstruction();
                 cpuCyclesTotal += elapsedCycles;
                 cpuCyclesLeft -= elapsedCycles;
+
+                if (m_numInstructionsToExecute && (--m_numInstructionsToExecute.value() == 0)) {
+                    m_numInstructionsToExecute = {};
+                    m_breakIntoDebugger = true;
+                }
+
+                if (m_breakIntoDebugger) {
+                    cpuCyclesLeft = 0;
+                    break;
+                }
             }
         }
     }
