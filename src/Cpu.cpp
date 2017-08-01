@@ -851,6 +851,10 @@ public:
             FAIL("Unhandled Op: %s", cpuOp.name);
         };
 
+        // Just for debugging, keep a copy in case we assert
+        auto currInstructionPC = PC;
+        (void)currInstructionPC;
+
         int cpuOpPage = 0;
         uint8_t opCodeByte = ReadPC8();
         if (IsOpCodePage1(opCodeByte)) {
