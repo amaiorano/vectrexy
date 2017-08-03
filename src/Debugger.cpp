@@ -616,7 +616,13 @@ void Debugger::Run() {
 
     auto ExecuteInstruction = [&] {
         ++m_instructionCount;
-        return m_cpu->ExecuteInstruction();
+        try {
+            return m_cpu->ExecuteInstruction();
+        } catch (...) {
+            printf("Exception caught\n");
+            m_breakIntoDebugger = true;
+            return static_cast<cycles_t>(0);
+        }
     };
 
     // Set default console colors
