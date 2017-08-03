@@ -25,6 +25,8 @@ namespace {
 
 void Cartridge::Init(MemoryBus& memoryBus) {
     memoryBus.ConnectDevice(*this, MemoryMap::Cartridge.range);
+    // Need to allocate 1 byte at address 0 so that BIOS can check that no cartridge is loaded.
+    m_data.push_back(0);
 }
 
 void Cartridge::LoadRom(const char* file) {
