@@ -464,9 +464,14 @@ namespace {
                 auto AppendSymbol = [&symbolTable](const std::smatch& m) -> std::string {
                     std::string result = m.str(0);
                     uint16_t address = StringToIntegral<uint16_t>(m.str(0));
-                    auto iter = symbolTable.find(address);
-                    if (iter != symbolTable.end()) {
-                        result += "{" + iter->second + "}";
+
+                    auto range = symbolTable.equal_range(address);
+                    if (range.first != range.second) {
+                        std::vector<std::string> symbols;
+                        std::transform(range.first, range.second, std::back_inserter(symbols),
+                                       [](auto& kvp) { return kvp.second; });
+
+                        result += "{" + Join(symbols, "|") + "}";
                     }
                     return result;
                 };
@@ -545,9 +550,9 @@ namespace {
         std::string line;
         while (std::getline(fin, line)) {
             auto tokens = Tokenize(line);
-            if (tokens.size() >= 3 && tokens[1] == ".EQU") {
+            if (tokens.size() >= 3 && (tokens[1].find("EQU") != -1)) {
                 auto address = StringToIntegral<uint16_t>(tokens[2]);
-                symbolTable[address] = tokens[0];
+                symbolTable.insert({address, tokens[0]});
             }
         }
         return true;

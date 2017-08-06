@@ -13,7 +13,7 @@ public:
     void Init(MemoryBus& memoryBus, Cpu& cpu);
     void Run();
 
-    using SymbolTable = std::map<uint16_t, std::string>;
+    using SymbolTable = std::multimap<uint16_t, std::string>;
 
 private:
     MemoryBus* m_memoryBus = nullptr;
