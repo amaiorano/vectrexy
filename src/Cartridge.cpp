@@ -42,19 +42,22 @@ void Cartridge::LoadRom(const char* file) {
     uint16_t musicLocation;
     fs.ReadValue(musicLocation);
 
-    uint8_t height, width, relY, relX;
-    fs.ReadValue(height);
-    fs.ReadValue(width);
-    fs.ReadValue(relY);
-    fs.ReadValue(relX);
+    // Title of game is a multiline string of position, string, 0x80 as newline marker.
+    std::string title;
+    while (true) {
+        uint8_t height, width, relY, relX;
+        fs.ReadValue(height);
+        // If first byte is 0, we're done
+        if (height == 0)
+            break;
+        fs.ReadValue(width);
+        fs.ReadValue(relY);
+        fs.ReadValue(relX);
 
-    auto titleBytes = ReadStreamUntil(fs, 0x80);
-    std::string title(titleBytes.begin(), titleBytes.end());
-
-    uint8_t headerEnd;
-    fs.ReadValue(headerEnd);
-    if (headerEnd != 0)
-        FAIL("Invalid ROM");
+        auto titleBytes = ReadStreamUntil(fs, 0x80);
+        title += {titleBytes.begin(), titleBytes.end()};
+        title += " ";
+    }
 
     m_data = ReadStreamUntilEnd(fs);
 }
