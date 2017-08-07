@@ -21,6 +21,46 @@ namespace {
             result.push_back(value);
         return result;
     }
+
+    void ValidateRom(const char* file) {
+        FileStream fs(file, "rb");
+
+        std::string requiredCopyright = "g GCE";
+        auto copyright = ReadStreamUntil(fs, 0x80);
+        if (copyright.size() < requiredCopyright.size() ||
+            memcmp(copyright.data(), requiredCopyright.data(), sizeof(requiredCopyright) != 0)) {
+            FAIL("Invalid rom");
+        }
+
+        // Location of music from ROM
+        //@TODO: Byte-swap on little endian
+        uint16_t musicLocation;
+        fs.ReadValue(musicLocation);
+
+        // Title of game is a multiline string of position, string, 0x80 as newline marker.
+        const int MAX_LINES = 5; // Some reasonable max to look for
+        bool valid = false;
+        std::string title;
+        for (int line = 0; line < MAX_LINES; ++line) {
+            uint8_t height, width, relY, relX;
+            fs.ReadValue(height);
+            // If first byte is 0, we're done
+            if (height == 0) {
+                valid = true;
+                break;
+            }
+            fs.ReadValue(width);
+            fs.ReadValue(relY);
+            fs.ReadValue(relX);
+
+            auto titleBytes = ReadStreamUntil(fs, 0x80);
+            title += {titleBytes.begin(), titleBytes.end()};
+            title += " ";
+        }
+
+        if (!valid)
+            FAIL("Invalid rom");
+    }
 } // namespace
 
 void Cartridge::Init(MemoryBus& memoryBus) {
@@ -29,36 +69,8 @@ void Cartridge::Init(MemoryBus& memoryBus) {
 }
 
 void Cartridge::LoadRom(const char* file) {
+    ValidateRom(file);
     FileStream fs(file, "rb");
-
-    std::string requiredCopyright = "g GCE";
-    auto copyright = ReadStreamUntil(fs, 0x80);
-    if (copyright.size() < requiredCopyright.size() ||
-        memcmp(copyright.data(), requiredCopyright.data(), sizeof(requiredCopyright) != 0))
-        FAIL("Invalid ROM");
-
-    // Location of music from ROM
-    //@TODO: Byte-swap on little endian!
-    uint16_t musicLocation;
-    fs.ReadValue(musicLocation);
-
-    // Title of game is a multiline string of position, string, 0x80 as newline marker.
-    std::string title;
-    while (true) {
-        uint8_t height, width, relY, relX;
-        fs.ReadValue(height);
-        // If first byte is 0, we're done
-        if (height == 0)
-            break;
-        fs.ReadValue(width);
-        fs.ReadValue(relY);
-        fs.ReadValue(relX);
-
-        auto titleBytes = ReadStreamUntil(fs, 0x80);
-        title += {titleBytes.begin(), titleBytes.end()};
-        title += " ";
-    }
-
     m_data = ReadStreamUntilEnd(fs);
 }
 
