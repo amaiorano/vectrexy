@@ -3,6 +3,7 @@
 
 void Via::Init(MemoryBus& memoryBus) {
     memoryBus.ConnectDevice(*this, MemoryMap::Via.range);
+    std::fill(m_data.begin(), m_data.end(), static_cast<uint8_t>(0));
 }
 
 uint8_t Via::Read(uint16_t address) const {
