@@ -33,9 +33,7 @@ int main(int argc, char** argv) {
     if (!rom.empty())
         cartridge->LoadRom(rom.c_str());
 
-    // Start executing at the first instruction of the BIOS routines (at 0xF000)
-    const uint16_t BiosRoutines = MemoryMap::Bios.range.first + 0x1000;
-    cpu->Reset(BiosRoutines);
+    cpu->Reset();
 
     // For now (and maybe forever), we always run via the debugger
     debugger->Run();

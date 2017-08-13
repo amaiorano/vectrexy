@@ -57,7 +57,7 @@ public:
     ~Cpu();
 
     void Init(MemoryBus& memoryBus);
-    void Reset(uint16_t initialPC);
+    void Reset();
     cycles_t ExecuteInstruction();
 
     const CpuRegisters& Registers();

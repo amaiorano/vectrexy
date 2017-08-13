@@ -54,22 +54,21 @@ public:
     MemoryBus* m_memoryBus = nullptr;
     cycles_t m_cycles = 0;
 
-    void Init(MemoryBus& memoryBus) {
-        m_memoryBus = &memoryBus;
-        Reset(0);
-    }
+    void Init(MemoryBus& memoryBus) { m_memoryBus = &memoryBus; }
 
-    void Reset(uint16_t initialPC) {
+    void Reset() {
         X = 0;
         Y = 0;
         U = 0;
         S = 0; // BIOS will init this to 0xCBEA, which is the last byte of programmer-usable RAM
-        PC = initialPC;
         DP = 0;
 
         CC.Value = 0;
         CC.InterruptMask = true;
         CC.FastInterruptMask = true;
+
+        // Read initial location from last 2 bytes of address-space (is 0xF000 on Vectrex)
+        PC = Read16(0xFFFE);
     }
 
     uint8_t Read8(uint16_t address) { return m_memoryBus->Read(address); }
@@ -1742,8 +1741,8 @@ void Cpu::Init(MemoryBus& memoryBus) {
     m_impl->Init(memoryBus);
 }
 
-void Cpu::Reset(uint16_t initialPC) {
-    m_impl->Reset(initialPC);
+void Cpu::Reset() {
+    m_impl->Reset();
 }
 
 cycles_t Cpu::ExecuteInstruction() {
