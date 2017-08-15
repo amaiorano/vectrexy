@@ -139,10 +139,10 @@ public:
         {
             // postbyte is a 5 bit two's complement number we convert to 8 bit.
             // So if bit 4 is set (sign bit), we extend the sign bit by turning on bits 6,7,8;
-            uint8_t offset = postbyte & 0b0000'1111;
+            int8_t offset = postbyte & 0b0001'1111;
             if (postbyte & BITS(4))
                 offset |= 0b1110'0000;
-            EA = RegisterSelect(postbyte) + S16(offset);
+            EA = RegisterSelect(postbyte) + offset;
             supportsIndirect = false;
             extraCycles = 1;
         } else {
