@@ -7,6 +7,7 @@
 #include "MemoryMap.h"
 #include "Platform.h"
 #include "Ram.h"
+#include "UnmappedMemoryDevice.h"
 #include "Via.h"
 #include <memory>
 
@@ -18,6 +19,7 @@ int main(int argc, char** argv) {
     auto via = std::make_unique<Via>();
     auto ram = std::make_unique<Ram>();
     auto biosRom = std::make_unique<BiosRom>();
+    auto unmapped = std::make_unique<UnmappedMemoryDevice>();
     auto cartridge = std::make_unique<Cartridge>();
     auto debugger = std::make_unique<Debugger>();
 
@@ -25,6 +27,7 @@ int main(int argc, char** argv) {
     via->Init(*memoryBus);
     ram->Init(*memoryBus);
     biosRom->Init(*memoryBus);
+    unmapped->Init(*memoryBus);
     cartridge->Init(*memoryBus);
     debugger->Init(*memoryBus, *cpu);
 
