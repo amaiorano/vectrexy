@@ -22,7 +22,7 @@ struct CpuOp {
     const char* name;
     AddressingMode addrMode;
     int cycles;
-    int size;
+    uint8_t size;
     const char* description;
 };
 

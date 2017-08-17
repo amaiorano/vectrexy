@@ -342,7 +342,7 @@ namespace {
             uint8_t msb = memoryBus.Read(EA);
             uint8_t lsb = memoryBus.Read(EA + 1);
             EA = CombineToU16(msb, lsb);
-            operands = FormattedString<>("[%$04x]", EA);
+            operands = FormattedString<>("[$%04x]", EA);
         }
 
         disasmInstruction = std::string(instruction.cpuOp.name) + " " + operands;
@@ -433,7 +433,7 @@ namespace {
 
             case AddressingMode::Relative: {
                 // Branch instruction with 8 or 16 bit signed relative offset
-                auto nextPC = cpuRegisters.PC + cpuOp.size;
+                uint16_t nextPC = cpuRegisters.PC + cpuOp.size;
                 if (cpuOp.size == 2) {
                     auto offset = static_cast<int8_t>(instruction.operands[0]);
                     disasmInstruction =
@@ -494,7 +494,7 @@ namespace {
 
         using namespace Platform;
         ScopedConsoleColor scc(ConsoleColor::Gray);
-        printf("[$%x] ", cpuRegisters.PC);
+        printf("[$%04x] ", cpuRegisters.PC);
         SetConsoleColor(ConsoleColor::LightYellow);
         printf("%-10s ", op.hexInstruction.c_str());
         SetConsoleColor(ConsoleColor::LightAqua);
