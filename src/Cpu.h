@@ -14,6 +14,16 @@ public:
     struct ConditionCode {
         union {
             struct {
+#if BITFIELDS_MSB_TO_LSB
+                uint8_t Entire : 1;
+                uint8_t FastInterruptMask : 1; // FIRQ
+                uint8_t HalfCarry : 1;
+                uint8_t InterruptMask : 1; // IRQ
+                uint8_t Negative : 1;
+                uint8_t Zero : 1;
+                uint8_t Overflow : 1; // V
+                uint8_t Carry : 1;
+#else
                 uint8_t Carry : 1;
                 uint8_t Overflow : 1; // V
                 uint8_t Zero : 1;
@@ -22,6 +32,7 @@ public:
                 uint8_t HalfCarry : 1;
                 uint8_t FastInterruptMask : 1; // FIRQ
                 uint8_t Entire : 1;
+#endif
             };
             uint8_t Value; // Use only to reset to 0 or serialize
         };

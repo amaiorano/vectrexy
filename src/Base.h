@@ -19,7 +19,13 @@
 
 //@TODO: Find standard way to detect endianness
 #define ENDIANESS_LITTLE 1
-#define ENDIANESS_BIG 0
+#define ENDIANESS_BIG (!ENDIANESS_LITTLE)
+
+// If BITFIELDS_MSB_TO_LSB is 1, then 1-bit bitfields will be laid out in msb to lsb order.
+// This is implementation-defined, and in fact is probably not a good idea to rely upon.
+#ifdef _MSC_VER
+#define BITFIELDS_MSB_TO_LSB 0
+#endif
 
 // Build config defines
 #if defined(_DEBUG)
