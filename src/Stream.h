@@ -56,7 +56,7 @@ public:
     FileStream(const char* name, const char* mode)
         : m_file(nullptr) {
         if (!Open(name, mode))
-            FAIL("Failed to open file: %s", name);
+            FAIL_MSG("Failed to open file: %s", name);
     }
 
     virtual ~FileStream() { CloseImpl(); }

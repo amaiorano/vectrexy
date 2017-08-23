@@ -185,7 +185,7 @@ public:
                 extraCycles = 1;
                 break;
             case 0b0111:
-                FAIL("Illegal");
+                FAIL_MSG("Illegal");
                 break;
             case 0b1000: { // (+/- 7 bit offset),R
                 uint8_t postbyte2 = ReadPC8();
@@ -199,7 +199,7 @@ public:
                 extraCycles = 4;
             } break;
             case 0b1010:
-                FAIL("Illegal");
+                FAIL_MSG("Illegal");
                 break;
             case 0b1011: // (+/- D),R
                 EA = RegisterSelect(postbyte) + S16(D);
@@ -217,7 +217,7 @@ public:
                 extraCycles = 5;
             } break;
             case 0b1110:
-                FAIL("Illegal");
+                FAIL_MSG("Illegal");
                 break;
             case 0b1111: { // [address] (Indirect-only)
                 uint8_t postbyte2 = ReadPC8();
@@ -226,7 +226,7 @@ public:
                 extraCycles = 5;
             } break;
             default:
-                FAIL("Illegal");
+                FAIL_MSG("Illegal");
                 break;
             }
         }
@@ -262,7 +262,7 @@ public:
     // Read 16-bit effective address based on addressing mode
     template <AddressingMode addressingMode>
     uint16_t ReadEA16() {
-        FAIL("Not implemented for addressing mode");
+        FAIL_MSG("Not implemented for addressing mode");
         return 0xFFFF;
     }
     template <>
@@ -847,7 +847,7 @@ public:
 
         auto UnhandledOp = [this](const CpuOp& cpuOp) {
             (void)cpuOp;
-            FAIL("Unhandled Op: %s", cpuOp.name);
+            FAIL_MSG("Unhandled Op: %s", cpuOp.name);
         };
 
         // Just for debugging, keep a copy in case we assert

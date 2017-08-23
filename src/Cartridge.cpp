@@ -10,7 +10,7 @@ namespace {
         while (fs.ReadValue(value) && value != delim)
             result.push_back(value);
         if (value != delim)
-            FAIL("Failed to find delim");
+            FAIL_MSG("Failed to find delim");
         return result;
     }
 
@@ -29,7 +29,7 @@ namespace {
         auto copyright = ReadStreamUntil(fs, 0x80);
         if (copyright.size() < requiredCopyright.size() ||
             memcmp(copyright.data(), requiredCopyright.data(), sizeof(requiredCopyright) != 0)) {
-            FAIL("Invalid rom");
+            FAIL_MSG("Invalid rom");
         }
 
         // Location of music from ROM
@@ -59,7 +59,7 @@ namespace {
         }
 
         if (!valid)
-            FAIL("Invalid rom");
+            FAIL_MSG("Invalid rom");
     }
 } // namespace
 
@@ -79,5 +79,5 @@ uint8_t Cartridge::Read(uint16_t address) const {
 }
 
 void Cartridge::Write(uint16_t /*address*/, uint8_t /*value*/) {
-    FAIL("Writes to ROM not allowed");
+    FAIL_MSG("Writes to ROM not allowed");
 }

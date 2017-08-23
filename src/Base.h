@@ -97,12 +97,7 @@ struct FormattedString {
     char buffer[MaxLength];
 };
 
-// FAIL macro
-
-inline void FailHandler(const char* msg) {
-    throw std::logic_error(msg);
-}
-
+// ASSERT macro
 inline void AssertHandler(const char* file, int line, const char* condition, const char* msg) {
     throw std::logic_error(
         FormattedString<>("Assertion Failed!\n Condition: %s\n File: %s(%d)\n Message: %s\n",
@@ -110,17 +105,16 @@ inline void AssertHandler(const char* file, int line, const char* condition, con
 }
 
 // NOTE: Need this helper for clang/gcc so we can pass a single arg to FAIL
-#define FAIL_HELPER(msg, ...) FailHandler(FormattedString<>(msg, __VA_ARGS__))
-//@TODO: FAIL_MSG and FAIL
-#define FAIL(...) FAIL_HELPER(__VA_ARGS__, "")
-
-// ASSERT macro
 #define ASSERT_HELPER(file, line, condition, msg, ...)                                             \
-    AssertHandler(file, line, condition, FormattedString<>(msg, __VA_ARGS__))
+    AssertHandler(file, line, condition, msg ? FormattedString<>(msg, __VA_ARGS__) : nullptr)
 
 #define ASSERT(condition)                                                                          \
-    (void)((!!(condition)) || (AssertHandler(__FILE__, __LINE__, #condition, nullptr), false))
+    (void)((!!(condition)) || (ASSERT_HELPER(__FILE__, (int)__LINE__, #condition, nullptr), false))
 
 #define ASSERT_MSG(condition, msg, ...)                                                            \
     (void)((!!(condition)) ||                                                                      \
            (ASSERT_HELPER(__FILE__, (int)__LINE__, #condition, msg, __VA_ARGS__), false))
+
+// FAIL macro
+#define FAIL() ASSERT(false)
+#define FAIL_MSG(msg, ...) ASSERT_MSG(false, msg, __VA_ARGS__)

@@ -73,7 +73,7 @@ namespace {
         case offsetof(CpuRegisters, CC):
             return "CC";
         default:
-            FAIL("");
+            FAIL();
             return "INVALID";
         }
     };
@@ -95,7 +95,7 @@ namespace {
         case offsetof(CpuRegisters, D):
             return "D";
         default:
-            FAIL("");
+            FAIL();
             return "INVALID";
         }
     };
@@ -275,7 +275,7 @@ namespace {
                 comment = FormattedString<>("%d,$%04x", offset, reg);
             } break;
             case 0b0111:
-                FAIL("Illegal");
+                FAIL_MSG("Illegal");
                 break;
             case 0b1000: { // (+/- 7 bit offset),R
                 auto& reg = RegisterSelect(postbyte);
@@ -297,7 +297,7 @@ namespace {
                 comment = FormattedString<>("%d,$%04x", offset, reg);
             } break;
             case 0b1010:
-                FAIL("Illegal");
+                FAIL_MSG("Illegal");
                 break;
             case 0b1011: { // (+/- D),R
                 auto& reg = RegisterSelect(postbyte);
@@ -325,7 +325,7 @@ namespace {
                 comment = FormattedString<>("%d,$%04x", offset, cpuRegisters.PC);
             } break;
             case 0b1110:
-                FAIL("Illegal");
+                FAIL_MSG("Illegal");
                 break;
             case 0b1111: { // [address] (Indirect-only)
                 uint8_t postbyte2 = instruction.operands[1];
@@ -333,7 +333,7 @@ namespace {
                 EA = CombineToS16(postbyte2, postbyte3);
             } break;
             default:
-                FAIL("Illegal");
+                FAIL_MSG("Illegal");
                 break;
             }
         }
@@ -453,7 +453,7 @@ namespace {
 
             case AddressingMode::Illegal: {
             case AddressingMode::Variant:
-                FAIL("Unexpected addressing mode");
+                FAIL_MSG("Unexpected addressing mode");
             } break;
             }
         }

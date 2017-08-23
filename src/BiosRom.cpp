@@ -16,5 +16,5 @@ uint8_t BiosRom::Read(uint16_t address) const {
 }
 
 void BiosRom::Write(uint16_t /*address*/, uint8_t /*value*/) {
-    FAIL("Writes to ROM not allowed");
+    FAIL_MSG("Writes to ROM not allowed");
 }

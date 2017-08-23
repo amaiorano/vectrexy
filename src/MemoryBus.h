@@ -64,7 +64,7 @@ private:
             }
         }
 
-        FAIL("Unmapped address");
+        FAIL_MSG("Unmapped address");
         static DeviceInfo nullDeviceInfo{};
         return nullDeviceInfo;
     }
