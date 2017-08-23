@@ -856,7 +856,12 @@ void Debugger::Run() {
 
         } else { // Not broken into debugger (running)
 
+#define FORCE_FAST_FORWARD 1
+#if FORCE_FAST_FORWARD
+            const double cpuHz = std::numeric_limits<float>::max();
+#else
             const double cpuHz = 6'000'000.0 / 4.0; // Frequency of the CPU (cycles/second)
+#endif
             const cycles_t cpuCyclesThisFrame = cpuHz * deltaTime;
 
             // Execute as many instructions that can fit in this time slice (plus one more at most)
