@@ -262,7 +262,7 @@ public:
     // Read 16-bit effective address based on addressing mode
     template <AddressingMode addressingMode>
     uint16_t ReadEA16() {
-        assert(false && "Not implemented for addressing mode");
+        FAIL("Not implemented for addressing mode");
         return 0xFFFF;
     }
     template <>
@@ -396,7 +396,7 @@ public:
     static uint16_t AddImpl(uint16_t a, uint16_t b, uint16_t carry, ConditionCode& CC,
                             UpdateHalfCarry updateHalfCarry) {
         (void)updateHalfCarry;
-        assert(updateHalfCarry == UpdateHalfCarry::False); // 16-bit version never updates this
+        ASSERT(updateHalfCarry == UpdateHalfCarry::False); // 16-bit version never updates this
 
         uint32_t r32 = U16(a) + U16(b) + U16(carry);
         // CC.HalfCarry = CalcHalfCarryFromAdd(a, b);
@@ -645,7 +645,7 @@ public:
 
     template <int page, uint8_t opCode>
     void OpPSH(uint16_t& stackReg) {
-        assert(&stackReg == &S || &stackReg == &U);
+        ASSERT(&stackReg == &S || &stackReg == &U);
         const uint8_t value = ReadOperandValue8<LookupCpuOp(page, opCode).addrMode>();
         if (value & BITS(7))
             Push16(stackReg, PC);
@@ -671,7 +671,7 @@ public:
 
     template <int page, uint8_t opCode>
     void OpPUL(uint16_t& stackReg) {
-        assert(&stackReg == &S || &stackReg == &U);
+        ASSERT(&stackReg == &S || &stackReg == &U);
         const uint8_t value = ReadOperandValue8<LookupCpuOp(page, opCode).addrMode>();
         if (value & BITS(0))
             CC.Value = Pop8(stackReg);
@@ -797,21 +797,21 @@ public:
 
     void ExchangeOrTransfer(bool exchange) {
         uint8_t postbyte = ReadPC8();
-        assert(!!(postbyte & BITS(3)) ==
+        ASSERT(!!(postbyte & BITS(3)) ==
                !!(postbyte & BITS(7))); // 8-bit to 8-bit or 16-bit to 16-bit only
 
         uint8_t src = (postbyte >> 4) & 0b111;
         uint8_t dst = postbyte & 0b111;
 
         if (postbyte & BITS(3)) {
-            assert(src < 4 && dst < 4); // Only first 4 are valid 8-bit register indices
+            ASSERT(src < 4 && dst < 4); // Only first 4 are valid 8-bit register indices
             uint8_t* const reg[]{&A, &B, &CC.Value, &DP};
             if (exchange)
                 std::swap(*reg[dst], *reg[src]);
             else
                 *reg[dst] = *reg[src];
         } else {
-            assert(src < 6 && dst < 6); // Only first 6 are valid 16-bit register indices
+            ASSERT(src < 6 && dst < 6); // Only first 6 are valid 16-bit register indices
             uint16_t* const reg[]{&D, &X, &Y, &U, &S, &PC};
             if (exchange)
                 std::swap(*reg[dst], *reg[src]);
@@ -866,12 +866,12 @@ public:
 
         const CpuOp& cpuOp = LookupCpuOpRuntime(cpuOpPage, opCodeByte);
 
-        assert(cpuOp.cycles > 0 && "TODO: look at how to handle cycles for this instruction");
+        ASSERT_MSG(cpuOp.cycles > 0, "TODO: look at how to handle cycles for this instruction");
         //@TODO: Handle cycle counting for interrupts (SWI[2/3], [F]IRQ, NMI) and RTI
         m_cycles += cpuOp.cycles; // Base cycles for this instruction
 
-        assert(cpuOp.addrMode != AddressingMode::Illegal && "Illegal instruction!");
-        assert(cpuOp.addrMode != AddressingMode::Variant &&
+        ASSERT_MSG(cpuOp.addrMode != AddressingMode::Illegal, "Illegal instruction!");
+        ASSERT(cpuOp.addrMode != AddressingMode::Variant &&
                "Page 1/2 instruction, should have read next byte by now");
 
         switch (cpuOpPage) {

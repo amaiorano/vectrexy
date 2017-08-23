@@ -73,7 +73,7 @@ namespace {
         case offsetof(CpuRegisters, CC):
             return "CC";
         default:
-            assert(false);
+            FAIL("");
             return "INVALID";
         }
     };
@@ -95,7 +95,7 @@ namespace {
         case offsetof(CpuRegisters, D):
             return "D";
         default:
-            assert(false);
+            FAIL("");
             return "INVALID";
         }
     };
@@ -138,7 +138,7 @@ namespace {
         (void)comment;
 
         const auto& cpuOp = instruction.cpuOp;
-        assert(cpuOp.addrMode == AddressingMode::Inherent);
+        ASSERT(cpuOp.addrMode == AddressingMode::Inherent);
         uint8_t postbyte = instruction.operands[0];
         uint8_t src = (postbyte >> 4) & 0b111;
         uint8_t dst = postbyte & 0b111;
@@ -160,7 +160,7 @@ namespace {
         (void)memoryBus;
 
         const auto& cpuOp = instruction.cpuOp;
-        assert(cpuOp.addrMode == AddressingMode::Immediate);
+        ASSERT(cpuOp.addrMode == AddressingMode::Immediate);
         auto value = instruction.operands[0];
         std::vector<std::string> registers;
         if (value & BITS(0))
@@ -442,7 +442,7 @@ namespace {
                         FormattedString<>("(%d), PC + offset = $%04x", offset, nextPC + offset);
                 } else {
                     // Could be a long branch from page 0 (3 bytes) or page 1 (4 bytes)
-                    assert(cpuOp.size >= 3);
+                    ASSERT(cpuOp.size >= 3);
                     auto offset = static_cast<int16_t>(
                         CombineToU16(instruction.operands[0], instruction.operands[1]));
                     disasmInstruction = FormattedString<>("%s $%04x", cpuOp.name, offset);
@@ -453,7 +453,7 @@ namespace {
 
             case AddressingMode::Illegal: {
             case AddressingMode::Variant:
-                assert(false);
+                FAIL("Unexpected addressing mode");
             } break;
             }
         }
@@ -624,11 +624,13 @@ void Debugger::Run() {
         ++m_instructionCount;
         try {
             return m_cpu->ExecuteInstruction();
+        } catch (std::exception& ex) {
+            printf("Exception caught:\n%s\n", ex.what());
         } catch (...) {
-            printf("Exception caught\n");
-            m_breakIntoDebugger = true;
-            return static_cast<cycles_t>(0);
+            printf("Unknown exception caught\n");
         }
+        m_breakIntoDebugger = true;
+        return static_cast<cycles_t>(0);
     };
 
     // Set default console colors

@@ -64,7 +64,7 @@ private:
             }
         }
 
-        assert(false && "Unmapped address");
+        FAIL("Unmapped address");
         static DeviceInfo nullDeviceInfo{};
         return nullDeviceInfo;
     }
