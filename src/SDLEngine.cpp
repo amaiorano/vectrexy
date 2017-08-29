@@ -11,17 +11,21 @@
 #include <chrono>
 #include <iostream>
 
-// Display window dimensions
-//#define WINDOW_WIDTH 480
-const int WINDOW_WIDTH = 600;
-//#define WINDOW_WIDTH 768
-const int WINDOW_HEIGHT = static_cast<int>(WINDOW_WIDTH * 4.0f / 3.0f);
-
-// Vectrex screen dimensions
-const int SCREEN_WIDTH = 256;
-const int SCREEN_HEIGHT = 256;
+#include "Base.h" //@TODO: remove this?
 
 namespace {
+    // Display window dimensions
+    //#define WINDOW_WIDTH 480
+    const int WINDOW_WIDTH = 600;
+    //#define WINDOW_WIDTH 768
+    const int WINDOW_HEIGHT = static_cast<int>(WINDOW_WIDTH * 4.0f / 3.0f);
+
+    // Vectrex screen dimensions
+    const int SCREEN_WIDTH = 256;
+    const int SCREEN_HEIGHT = 256;
+
+    const char* WINDOW_TITLE = "Vectrexy";
+
     IEngineClient* g_client = nullptr;
     SDL_Window* g_window = NULL;
     SDL_GLContext g_glContext;
@@ -88,7 +92,7 @@ bool SDLEngine::Run(int argc, char** argv) {
 
     SetOpenGLVersion();
 
-    g_window = SDL_CreateWindow("Opengl", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+    g_window = SDL_CreateWindow(WINDOW_TITLE, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                                 WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
     if (g_window == NULL) {
         std::cout << "Cannot create window with error " << SDL_GetError() << std::endl;
@@ -125,8 +129,27 @@ bool SDLEngine::Run(int argc, char** argv) {
 
         const auto currTime = std::chrono::high_resolution_clock::now();
         const std::chrono::duration<double> diff = currTime - lastTime;
-        const double deltaTime = std::min(diff.count(), 1 / 100.0);
+        const double deltaTime = std::min(diff.count(), 1 / 10.0);
         lastTime = currTime;
+
+        // FPS
+        {
+            static double frames = 0;
+            static double elapsedTime = 0;
+            frames += 1;
+            elapsedTime += deltaTime;
+            if (elapsedTime >= 1) {
+                double currFps = frames / elapsedTime;
+                static double avgFps = currFps;
+                avgFps = avgFps * 0.75 + currFps * 0.25;
+
+                SDL_SetWindowTitle(g_window, FormattedString<>("%s - FPS: %.2f (avg: %.2f)",
+                                                               WINDOW_TITLE, currFps, avgFps));
+
+                frames = 0;
+                elapsedTime = elapsedTime - 1.0;
+            }
+        }
 
         if (!g_client->Update(deltaTime))
             quit = true;
