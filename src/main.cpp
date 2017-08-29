@@ -40,6 +40,11 @@ private:
         return m_debugger.Update(deltaTime);
     }
 
+    virtual void Render(Display& display) {
+        display.Clear();
+        display.DrawLine(-100.0, -100.0, 100.0, 100.0);
+    }
+
     void Shutdown() override {}
 
     MemoryBus m_memoryBus;

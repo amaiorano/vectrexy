@@ -62,19 +62,19 @@ namespace {
         return true;
     }
 
-    void Render() {
-        glLoadIdentity();
-
-        float halfWidth = SCREEN_WIDTH / 2.0f / 2.0f;
-        float halfHeight = SCREEN_HEIGHT / 2.0f / 2.0f;
-
-        glBegin(GL_TRIANGLES);
-        glVertex3f(0.0f, halfHeight, 0.0f);
-        glVertex3f(-halfWidth, -halfHeight, 0.0f);
-        glVertex3f(halfWidth, -halfHeight, 0.0f);
-        glEnd();
-    }
 } // namespace
+
+void Display::Clear() {
+    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
+
+void Display::DrawLine(float x1, float y1, float x2, float y2) {
+    glBegin(GL_LINES);
+    glVertex2f(x1, y1);
+    glVertex2f(x2, y2);
+    glEnd();
+}
 
 void SDLEngine::RegisterClient(IEngineClient& client) {
     g_client = &client;
@@ -108,6 +108,7 @@ bool SDLEngine::Run(int argc, char** argv) {
         return false;
     }
 
+    Display display;
     auto lastTime = std::chrono::high_resolution_clock::now();
 
     bool quit = false;
@@ -119,10 +120,8 @@ bool SDLEngine::Run(int argc, char** argv) {
             }
         }
 
-        glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        Render();
+        glLoadIdentity();
+        g_client->Render(display);
 
         const auto currTime = std::chrono::high_resolution_clock::now();
         const std::chrono::duration<double> diff = currTime - lastTime;
