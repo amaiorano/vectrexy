@@ -3,8 +3,6 @@
 #include "Base.h"
 #include <memory>
 
-using cycles_t = double;
-
 class MemoryBus;
 
 // Implementation of Motorola 68A09 1.5 MHz 8-Bit Microprocessor

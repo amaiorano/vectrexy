@@ -118,3 +118,6 @@ inline void AssertHandler(const char* file, int line, const char* condition, con
 // FAIL macro
 #define FAIL() ASSERT(false)
 #define FAIL_MSG(msg, ...) ASSERT_MSG(false, msg, __VA_ARGS__)
+
+// Type aliases
+using cycles_t = double;

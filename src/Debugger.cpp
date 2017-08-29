@@ -7,7 +7,6 @@
 #include "RegexHelpers.h"
 #include "StringHelpers.h"
 #include <array>
-#include <chrono>
 #include <cstdio>
 #include <fstream>
 #include <iomanip>
@@ -611,7 +610,7 @@ void Debugger::Init(MemoryBus& memoryBus, Cpu& cpu) {
         });
 }
 
-void Debugger::Run() {
+bool Debugger::Update(double deltaTime) {
     auto PrintOp = [&] {
         if (m_traceEnabled) {
             m_memoryBus->SetCallbacksEnabled(false); // Don't stop on watchpoints when disassembling
@@ -637,269 +636,249 @@ void Debugger::Run() {
     Platform::ScopedConsoleColor defaultColor(Platform::ConsoleColor::White,
                                               Platform::ConsoleColor::Black);
 
-    auto lastTime = std::chrono::high_resolution_clock::now();
+    if (m_breakIntoDebugger) {
+        auto ContinueExecution = [&] {
+            m_breakIntoDebugger = false;
+        };
 
-    cycles_t cpuCyclesTotal = 0;
-    cycles_t cpuCyclesLeft = 0;
+        printf("$%04x (%s)>", m_cpu->Registers().PC, m_lastCommand.c_str());
 
-    while (true) {
+        std::string input;
+        const auto& stream = std::getline(std::cin, input);
 
-        const auto currTime = std::chrono::high_resolution_clock::now();
-        const std::chrono::duration<double> diff = currTime - lastTime;
-        const double deltaTime = diff.count();
-        lastTime = currTime;
+        Platform::ScopedConsoleColor defaultOutputColor(Platform::ConsoleColor::LightAqua);
 
-        if (m_breakIntoDebugger) {
-            auto ContinueExecution = [&] {
-                m_breakIntoDebugger = false;
-                // When resuming, make sure to reset frame timer. We don't want the resumed frame to
-                // have a huge delta time because we were stopped in the debugger.
-                lastTime = std::chrono::high_resolution_clock::now();
-            };
+        if (!stream) {
+            // getline will fail under certain conditions, like when Ctrl+C is pressed, in which
+            // case we just clear the stream status and restart the loop.
+            std::cin.clear();
+            std::cout << std::endl;
+            return true;
+        }
 
-            printf("$%04x (%s)>", m_cpu->Registers().PC, m_lastCommand.c_str());
+        auto tokens = Tokenize(input);
 
-            std::string input;
-            const auto& stream = std::getline(std::cin, input);
+        // If no input, repeat last command
+        if (tokens.size() == 0) {
+            input = m_lastCommand;
+            tokens = Tokenize(m_lastCommand);
+        }
 
-            Platform::ScopedConsoleColor defaultOutputColor(Platform::ConsoleColor::LightAqua);
+        bool validCommand = true;
 
-            if (!stream) {
-                // getline will fail under certain conditions, like when Ctrl+C is pressed, in which
-                // case we just clear the stream status and restart the loop.
-                std::cin.clear();
-                std::cout << std::endl;
-                continue;
-            }
+        if (tokens.size() == 0) {
+            // Don't do anything (no command entered yet)
 
-            auto tokens = Tokenize(input);
+        } else if (tokens[0] == "quit" || tokens[0] == "q") {
+            return false;
 
-            // If no input, repeat last command
-            if (tokens.size() == 0) {
-                input = m_lastCommand;
-                tokens = Tokenize(m_lastCommand);
-            }
+        } else if (tokens[0] == "help" || tokens[0] == "h") {
+            PrintHelp();
 
-            bool validCommand = true;
+        } else if (tokens[0] == "continue" || tokens[0] == "c") {
+            // First 'step' current instruction, otherwise if we have a breakpoint on it we will
+            // end up breaking immediately on it again (we won't actually continue)
+            PrintOp();
+            ExecuteInstruction();
+            ContinueExecution();
 
-            if (tokens.size() == 0) {
-                // Don't do anything (no command entered yet)
+        } else if (tokens[0] == "step" || tokens[0] == "s") {
+            // "Step into"
+            PrintOp();
+            ExecuteInstruction();
 
-            } else if (tokens[0] == "quit" || tokens[0] == "q") {
-                return;
-
-            } else if (tokens[0] == "help" || tokens[0] == "h") {
-                PrintHelp();
-
-            } else if (tokens[0] == "continue" || tokens[0] == "c") {
-                // First 'step' current instruction, otherwise if we have a breakpoint on it we will
-                // end up breaking immediately on it again (we won't actually continue)
-                PrintOp();
-                ExecuteInstruction();
-                ContinueExecution();
-
-            } else if (tokens[0] == "step" || tokens[0] == "s") {
-                // "Step into"
-                PrintOp();
-                ExecuteInstruction();
-
-                // Handle optional number of steps parameter
-                if (tokens.size() > 1) {
-                    m_numInstructionsToExecute = StringToIntegral<int64_t>(tokens[1]) - 1;
-                    if (m_numInstructionsToExecute.value() > 0) {
-                        ContinueExecution();
-                    }
-                }
-
-            } else if (tokens[0] == "until" || tokens[0] == "u") {
-                if (tokens.size() > 1) {
-                    uint16_t address = StringToIntegral<uint16_t>(tokens[1]);
-                    auto bp = m_breakpoints.Add(Breakpoint::Type::Instruction, address);
-                    bp->autoDelete = true;
+            // Handle optional number of steps parameter
+            if (tokens.size() > 1) {
+                m_numInstructionsToExecute = StringToIntegral<int64_t>(tokens[1]) - 1;
+                if (m_numInstructionsToExecute.value() > 0) {
                     ContinueExecution();
-                } else {
-                    validCommand = false;
                 }
+            }
 
-            } else if (tokens[0] == "break" || tokens[0] == "b") {
-                validCommand = false;
-                if (tokens.size() > 1) {
-                    uint16_t address = StringToIntegral<uint16_t>(tokens[1]);
-                    if (auto bp = m_breakpoints.Add(Breakpoint::Type::Instruction, address)) {
-                        printf("Added breakpoint at $%04x\n", address);
-                        validCommand = true;
-                    }
-                }
-
-            } else if (tokens[0] == "watch" || tokens[0] == "rwatch" || tokens[0] == "awatch") {
-                validCommand = false;
-                if (tokens.size() > 1) {
-                    uint16_t address = StringToIntegral<uint16_t>(tokens[1]);
-
-                    auto type = tokens[0][0] == 'w'
-                                    ? Breakpoint::Type::Write
-                                    : tokens[0][0] == 'r' ? Breakpoint::Type::Read
-                                                          : Breakpoint::Type::ReadWrite;
-
-                    if (auto bp = m_breakpoints.Add(type, address)) {
-                        printf("Added watchpoint at $%04x\n", address);
-                        validCommand = true;
-                    }
-                }
-
-            } else if (tokens[0] == "delete") {
-                validCommand = false;
-                if (tokens.size() > 1) {
-                    int breakpointIndex = std::stoi(tokens[1]);
-                    if (auto bp = m_breakpoints.RemoveAtIndex(breakpointIndex)) {
-                        printf("Deleted breakpoint %d at $%04x\n", breakpointIndex, bp->address);
-                        validCommand = true;
-                    } else {
-                        printf("Invalid breakpoint specified\n");
-                    }
-                }
-
-            } else if (tokens[0] == "enable") {
-                validCommand = false;
-                if (tokens.size() > 1) {
-                    size_t breakpointIndex = std::stoi(tokens[1]);
-                    if (auto bp = m_breakpoints.GetAtIndex(breakpointIndex)) {
-                        bp->enabled = true;
-                        printf("Enabled breakpoint %d at $%04x\n", breakpointIndex, bp->address);
-                        validCommand = true;
-                    } else {
-                        printf("Invalid breakpoint specified\n");
-                    }
-                }
-
-            } else if (tokens[0] == "disable") {
-                validCommand = false;
-                if (tokens.size() > 1) {
-                    size_t breakpointIndex = std::stoi(tokens[1]);
-                    if (auto bp = m_breakpoints.GetAtIndex(breakpointIndex)) {
-                        bp->enabled = false;
-                        printf("Disabled breakpoint %d at $%04x\n", breakpointIndex, bp->address);
-                        validCommand = true;
-                    } else {
-                        printf("Invalid breakpoint specified\n");
-                    }
-                }
-
-            } else if (tokens[0] == "info") {
-                if (tokens.size() > 1 && (tokens[1] == "registers" || tokens[1] == "reg")) {
-                    PrintRegisters(m_cpu->Registers());
-                } else if (tokens.size() > 1 && (tokens[1] == "break")) {
-                    printf("Breakpoints:\n");
-                    Platform::ScopedConsoleColor scc;
-                    for (size_t i = 0; i < m_breakpoints.Num(); ++i) {
-                        auto bp = m_breakpoints.GetAtIndex(i);
-                        Platform::SetConsoleColor(bp->enabled ? Platform::ConsoleColor::LightGreen
-                                                              : Platform::ConsoleColor::LightRed);
-                        printf("%3d: $%04x\t%-20s%s\n", i, bp->address,
-                               Breakpoint::TypeToString(bp->type),
-                               bp->enabled ? "Enabled" : "Disabled");
-                    }
-                } else {
-                    validCommand = false;
-                }
-
-            } else if (tokens[0] == "print" || tokens[0] == "p") {
-                if (tokens.size() > 1) {
-                    uint16_t address = StringToIntegral<uint16_t>(tokens[1]);
-                    uint8_t value = m_memoryBus->Read(address);
-                    printf("$%04x = $%02x (%d)\n", address, value, value);
-                } else {
-                    validCommand = false;
-                }
-
-            } else if (tokens[0] == "set") { // e.g. set $addr=value
-                validCommand = false;
-                if (tokens.size() > 1) {
-                    // Recombine the tokens after 'set' into a string so we can split it on '='. We
-                    // have to do this because the user may have put whitespace around '='.
-                    auto assignment =
-                        std::accumulate(tokens.begin() + 1, tokens.end(), std::string(""));
-                    auto args = Split(assignment, "=");
-                    if (args.size() == 2) {
-                        auto address = StringToIntegral<uint16_t>(args[0]);
-                        auto value = StringToIntegral<uint8_t>(args[1]);
-                        m_memoryBus->Write(address, value);
-                        validCommand = true;
-                    }
-                }
-
-            } else if (tokens[0] == "loadsymbols") {
-                if (tokens.size() > 1 && LoadUserSymbolsFile(tokens[1].c_str(), m_symbolTable)) {
-                    printf("Loaded symbols from %s\n", tokens[1].c_str());
-                } else {
-                    validCommand = false;
-                }
-
-            } else if (tokens[0] == "trace") {
-                m_traceEnabled = !m_traceEnabled;
-                printf("Trace %s\n", m_traceEnabled ? "enabled" : "disabled");
-
-            } else if (tokens[0] == "color") {
-                m_colorEnabled = !m_colorEnabled;
-                SetColorEnabled(m_colorEnabled);
-                printf("Color %s\n", m_colorEnabled ? "enabled" : "disabled");
-
+        } else if (tokens[0] == "until" || tokens[0] == "u") {
+            if (tokens.size() > 1) {
+                uint16_t address = StringToIntegral<uint16_t>(tokens[1]);
+                auto bp = m_breakpoints.Add(Breakpoint::Type::Instruction, address);
+                bp->autoDelete = true;
+                ContinueExecution();
             } else {
                 validCommand = false;
             }
 
-            if (validCommand) {
-                m_lastCommand = input;
-            } else {
-                printf("Invalid command: %s\n", input.c_str());
+        } else if (tokens[0] == "break" || tokens[0] == "b") {
+            validCommand = false;
+            if (tokens.size() > 1) {
+                uint16_t address = StringToIntegral<uint16_t>(tokens[1]);
+                if (auto bp = m_breakpoints.Add(Breakpoint::Type::Instruction, address)) {
+                    printf("Added breakpoint at $%04x\n", address);
+                    validCommand = true;
+                }
             }
 
-        } else { // Not broken into debugger (running)
+        } else if (tokens[0] == "watch" || tokens[0] == "rwatch" || tokens[0] == "awatch") {
+            validCommand = false;
+            if (tokens.size() > 1) {
+                uint16_t address = StringToIntegral<uint16_t>(tokens[1]);
 
-#define FORCE_FAST_FORWARD 1
-#if FORCE_FAST_FORWARD
-            const double cpuHz = std::numeric_limits<float>::max();
-#else
-            const double cpuHz = 6'000'000.0 / 4.0; // Frequency of the CPU (cycles/second)
-#endif
-            const cycles_t cpuCyclesThisFrame = cpuHz * deltaTime;
+                auto type = tokens[0][0] == 'w' ? Breakpoint::Type::Write
+                                                : tokens[0][0] == 'r' ? Breakpoint::Type::Read
+                                                                      : Breakpoint::Type::ReadWrite;
 
-            // Execute as many instructions that can fit in this time slice (plus one more at most)
-            cpuCyclesLeft += cpuCyclesThisFrame;
-            while (cpuCyclesLeft > 0) {
-                if (auto bp = m_breakpoints.Get(m_cpu->Registers().PC)) {
-                    if (bp->type == Breakpoint::Type::Instruction) {
-                        if (bp->autoDelete) {
-                            m_breakpoints.Remove(m_cpu->Registers().PC);
-                            m_breakIntoDebugger = true;
-                        } else if (bp->enabled) {
-                            printf("Breakpoint hit at %04x\n", bp->address);
-                            m_breakIntoDebugger = true;
-                        }
+                if (auto bp = m_breakpoints.Add(type, address)) {
+                    printf("Added watchpoint at $%04x\n", address);
+                    validCommand = true;
+                }
+            }
+
+        } else if (tokens[0] == "delete") {
+            validCommand = false;
+            if (tokens.size() > 1) {
+                int breakpointIndex = std::stoi(tokens[1]);
+                if (auto bp = m_breakpoints.RemoveAtIndex(breakpointIndex)) {
+                    printf("Deleted breakpoint %d at $%04x\n", breakpointIndex, bp->address);
+                    validCommand = true;
+                } else {
+                    printf("Invalid breakpoint specified\n");
+                }
+            }
+
+        } else if (tokens[0] == "enable") {
+            validCommand = false;
+            if (tokens.size() > 1) {
+                size_t breakpointIndex = std::stoi(tokens[1]);
+                if (auto bp = m_breakpoints.GetAtIndex(breakpointIndex)) {
+                    bp->enabled = true;
+                    printf("Enabled breakpoint %d at $%04x\n", breakpointIndex, bp->address);
+                    validCommand = true;
+                } else {
+                    printf("Invalid breakpoint specified\n");
+                }
+            }
+
+        } else if (tokens[0] == "disable") {
+            validCommand = false;
+            if (tokens.size() > 1) {
+                size_t breakpointIndex = std::stoi(tokens[1]);
+                if (auto bp = m_breakpoints.GetAtIndex(breakpointIndex)) {
+                    bp->enabled = false;
+                    printf("Disabled breakpoint %d at $%04x\n", breakpointIndex, bp->address);
+                    validCommand = true;
+                } else {
+                    printf("Invalid breakpoint specified\n");
+                }
+            }
+
+        } else if (tokens[0] == "info") {
+            if (tokens.size() > 1 && (tokens[1] == "registers" || tokens[1] == "reg")) {
+                PrintRegisters(m_cpu->Registers());
+            } else if (tokens.size() > 1 && (tokens[1] == "break")) {
+                printf("Breakpoints:\n");
+                Platform::ScopedConsoleColor scc;
+                for (size_t i = 0; i < m_breakpoints.Num(); ++i) {
+                    auto bp = m_breakpoints.GetAtIndex(i);
+                    Platform::SetConsoleColor(bp->enabled ? Platform::ConsoleColor::LightGreen
+                                                          : Platform::ConsoleColor::LightRed);
+                    printf("%3d: $%04x\t%-20s%s\n", i, bp->address,
+                           Breakpoint::TypeToString(bp->type),
+                           bp->enabled ? "Enabled" : "Disabled");
+                }
+            } else {
+                validCommand = false;
+            }
+
+        } else if (tokens[0] == "print" || tokens[0] == "p") {
+            if (tokens.size() > 1) {
+                uint16_t address = StringToIntegral<uint16_t>(tokens[1]);
+                uint8_t value = m_memoryBus->Read(address);
+                printf("$%04x = $%02x (%d)\n", address, value, value);
+            } else {
+                validCommand = false;
+            }
+
+        } else if (tokens[0] == "set") { // e.g. set $addr=value
+            validCommand = false;
+            if (tokens.size() > 1) {
+                // Recombine the tokens after 'set' into a string so we can split it on '='. We
+                // have to do this because the user may have put whitespace around '='.
+                auto assignment =
+                    std::accumulate(tokens.begin() + 1, tokens.end(), std::string(""));
+                auto args = Split(assignment, "=");
+                if (args.size() == 2) {
+                    auto address = StringToIntegral<uint16_t>(args[0]);
+                    auto value = StringToIntegral<uint8_t>(args[1]);
+                    m_memoryBus->Write(address, value);
+                    validCommand = true;
+                }
+            }
+
+        } else if (tokens[0] == "loadsymbols") {
+            if (tokens.size() > 1 && LoadUserSymbolsFile(tokens[1].c_str(), m_symbolTable)) {
+                printf("Loaded symbols from %s\n", tokens[1].c_str());
+            } else {
+                validCommand = false;
+            }
+
+        } else if (tokens[0] == "trace") {
+            m_traceEnabled = !m_traceEnabled;
+            printf("Trace %s\n", m_traceEnabled ? "enabled" : "disabled");
+
+        } else if (tokens[0] == "color") {
+            m_colorEnabled = !m_colorEnabled;
+            SetColorEnabled(m_colorEnabled);
+            printf("Color %s\n", m_colorEnabled ? "enabled" : "disabled");
+
+        } else {
+            validCommand = false;
+        }
+
+        if (validCommand) {
+            m_lastCommand = input;
+        } else {
+            printf("Invalid command: %s\n", input.c_str());
+        }
+
+    } else { // Not broken into debugger (running)
+
+        const double cpuHz = 6'000'000.0 / 4.0; // Frequency of the CPU (cycles/second)
+        const cycles_t cpuCyclesThisFrame = cpuHz * deltaTime;
+
+        // Execute as many instructions that can fit in this time slice (plus one more at most)
+        m_cpuCyclesLeft += cpuCyclesThisFrame;
+        while (m_cpuCyclesLeft > 0) {
+            if (auto bp = m_breakpoints.Get(m_cpu->Registers().PC)) {
+                if (bp->type == Breakpoint::Type::Instruction) {
+                    if (bp->autoDelete) {
+                        m_breakpoints.Remove(m_cpu->Registers().PC);
+                        m_breakIntoDebugger = true;
+                    } else if (bp->enabled) {
+                        printf("Breakpoint hit at %04x\n", bp->address);
+                        m_breakIntoDebugger = true;
                     }
                 }
+            }
 
-                if (m_breakIntoDebugger) {
-                    cpuCyclesLeft = 0;
-                    break;
-                }
+            if (m_breakIntoDebugger) {
+                m_cpuCyclesLeft = 0;
+                break;
+            }
 
-                PrintOp();
+            PrintOp();
 
-                const auto elapsedCycles = ExecuteInstruction();
-                cpuCyclesTotal += elapsedCycles;
-                cpuCyclesLeft -= elapsedCycles;
+            const auto elapsedCycles = ExecuteInstruction();
+            m_cpuCyclesTotal += elapsedCycles;
+            m_cpuCyclesLeft -= elapsedCycles;
 
-                if (m_numInstructionsToExecute && (--m_numInstructionsToExecute.value() == 0)) {
-                    m_numInstructionsToExecute = {};
-                    m_breakIntoDebugger = true;
-                }
+            if (m_numInstructionsToExecute && (--m_numInstructionsToExecute.value() == 0)) {
+                m_numInstructionsToExecute = {};
+                m_breakIntoDebugger = true;
+            }
 
-                if (m_breakIntoDebugger) {
-                    cpuCyclesLeft = 0;
-                    break;
-                }
+            if (m_breakIntoDebugger) {
+                m_cpuCyclesLeft = 0;
+                break;
             }
         }
     }
+
+    return true;
 }

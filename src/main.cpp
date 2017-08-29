@@ -7,39 +7,55 @@
 #include "MemoryMap.h"
 #include "Platform.h"
 #include "Ram.h"
+#include "SDLEngine.h"
 #include "UnmappedMemoryDevice.h"
 #include "Via.h"
 #include <memory>
 
+class Vectrexy final : public IEngineClient {
+private:
+    bool Init(int argc, char** argv) override {
+        std::string rom = argc == 2 ? argv[1] : "";
+
+        m_cpu.Init(m_memoryBus);
+        m_via.Init(m_memoryBus);
+        m_ram.Init(m_memoryBus);
+        m_biosRom.Init(m_memoryBus);
+        m_unmapped.Init(m_memoryBus);
+        m_cartridge.Init(m_memoryBus);
+        m_debugger.Init(m_memoryBus, m_cpu);
+
+        m_biosRom.LoadBiosRom("bios_rom.bin");
+
+        if (!rom.empty())
+            m_cartridge.LoadRom(rom.c_str());
+
+        m_cpu.Reset();
+
+        return true;
+    }
+
+    bool Update(double deltaTime) override {
+        // Update m_debugger
+        return m_debugger.Update(deltaTime);
+    }
+
+    void Shutdown() override {}
+
+    MemoryBus m_memoryBus;
+    Cpu m_cpu;
+    Via m_via;
+    Ram m_ram;
+    BiosRom m_biosRom;
+    UnmappedMemoryDevice m_unmapped;
+    Cartridge m_cartridge;
+    Debugger m_debugger;
+};
+
 int main(int argc, char** argv) {
-    std::string rom = argc == 2 ? argv[1] : "";
-
-    auto memoryBus = std::make_unique<MemoryBus>();
-    auto cpu = std::make_unique<Cpu>();
-    auto via = std::make_unique<Via>();
-    auto ram = std::make_unique<Ram>();
-    auto biosRom = std::make_unique<BiosRom>();
-    auto unmapped = std::make_unique<UnmappedMemoryDevice>();
-    auto cartridge = std::make_unique<Cartridge>();
-    auto debugger = std::make_unique<Debugger>();
-
-    cpu->Init(*memoryBus);
-    via->Init(*memoryBus);
-    ram->Init(*memoryBus);
-    biosRom->Init(*memoryBus);
-    unmapped->Init(*memoryBus);
-    cartridge->Init(*memoryBus);
-    debugger->Init(*memoryBus, *cpu);
-
-    biosRom->LoadBiosRom("bios_rom.bin");
-
-    if (!rom.empty())
-        cartridge->LoadRom(rom.c_str());
-
-    cpu->Reset();
-
-    // For now (and maybe forever), we always run via the debugger
-    debugger->Run();
-
-    return 0;
+    auto client = std::make_unique<Vectrexy>();
+    auto engine = std::make_unique<SDLEngine>();
+    engine->RegisterClient(*client);
+    bool result = engine->Run(argc, argv);
+    return result ? 0 : -1;
 }
