@@ -36,13 +36,21 @@ private:
     }
 
     bool Update(double deltaTime) override {
-        // Update m_debugger
-        return m_debugger.Update(deltaTime);
+        if (!m_debugger.Update(deltaTime))
+            return false;
+
+        m_via.Update(deltaTime);
+
+        return true;
     }
 
-    virtual void Render(Display& display) {
-        display.Clear();
-        display.DrawLine(-100.0, -100.0, 100.0, 100.0);
+    void Render(Display& display) override {
+        // display.Clear();
+        // display.DrawLine(-100.0, -100.0, 100.0, 100.0);
+
+        for (const auto& line : m_via.m_lines) {
+            display.DrawLine(line.p0.x, line.p0.y, line.p1.x, line.p1.y);
+        }
     }
 
     void Shutdown() override {}
