@@ -51,45 +51,48 @@ void Via::Update(cycles_t cycles) {
 uint8_t Via::Read(uint16_t address) const {
     const uint16_t index = MemoryMap::Via.MapAddress(address);
     switch (index) {
-    case 0:
+    case 0x0:
         return B;
-    case 1:
+    case 0x1:
         return A;
-    case 2:
+    case 0x2:
         return DataDirB;
-    case 3:
+    case 0x3:
         return DataDirA;
-    case 4:
+    case 0x4:
         return Timer1Low;
-    case 5:
+    case 0x5:
         return Timer1High;
-    case 6:
+    case 0x6:
         FAIL_MSG("Not implemented. Not sure we need this.");
         return Timer1LatchLow;
-    case 7:
+    case 0x7:
         FAIL_MSG("Not implemented. Not sure we need this.");
         return Timer1LatchHigh;
-    case 8:
+    case 0x8:
         FAIL_MSG("Not implemented. Not sure we need this.");
         // return Timer2Low;
         return 0;
-    case 9:
+    case 0x9:
         FAIL_MSG("Not implemented. Not sure we need this. 2");
         // return Timer2High;
         return 0;
-    case 10:
+    case 0xA:
         return Shift;
-    case 11:
+    case 0xB:
         return AuxCntl;
-    case 12:
+    case 0xC:
         return PeriphCntl;
-    case 13:
+    case 0xD:
         return InterruptFlag;
-    case 14:
+    case 0xE:
         FAIL_MSG("Not implemented");
         return InterruptEnable;
-    case 15:
+    case 0xF:
         FAIL_MSG("A without handshake not implemented yet");
+        break;
+    default:
+        FAIL();
         break;
     }
     return 0;
@@ -102,7 +105,7 @@ void Via::Write(uint16_t address, uint8_t value) {
         B = value;
         goto UPDATE_INTEGRATORS;
         break;
-    case 1: {
+    case 0x1: {
         // Port A is connected directly to the DAC, which in turn is connected to both a MUX with 4
         // outputs, and to the X-axis integrator.
         A = value;
@@ -144,40 +147,40 @@ void Via::Write(uint16_t address, uint8_t value) {
             m_velocity.x = A;
         }
     } break;
-    case 2:
+    case 0x2:
         DataDirB = value;
         break;
-    case 3:
+    case 0x3:
         DataDirA = value;
         break;
-    case 4:
+    case 0x4:
         Timer1Low = value;
         break;
-    case 5:
+    case 0x5:
         Timer1High = value;
         break;
-    case 6:
+    case 0x6:
         Timer1LatchLow = value;
         break;
-    case 7:
+    case 0x7:
         Timer1LatchHigh = value;
         break;
-    case 8:
+    case 0x8:
         // Timer2Low = value;
         m_timer1.SetCounterLow(value);
         break;
-    case 9:
+    case 0x9:
         // Timer2High = value;
         m_timer1.SetCounterHigh(value);
         break;
-    case 10:
+    case 0xA:
         Shift = value;
         break;
-    case 11:
+    case 0xB:
         ASSERT_MSG((value & 0b0110'0000) == 0, "t1 and t2 assumed to be always in one-shot mode");
         AuxCntl = value;
         break;
-    case 12: {
+    case 0xC: {
         PeriphCntl = value;
 
         // CA2 is used to control /ZERO which is used bring beam to center of screen (0,0)
@@ -210,16 +213,19 @@ void Via::Write(uint16_t address, uint8_t value) {
         }
 
     } break;
-    case 13:
+    case 0xD:
         FAIL_MSG("Not implemented");
         InterruptFlag = value;
         break;
-    case 14:
+    case 0xE:
         FAIL_MSG("Not implemented");
         InterruptEnable = value;
         break;
-    case 15:
+    case 0xF:
         FAIL_MSG("A without handshake not implemented yet");
+        break;
+    default:
+        FAIL();
         break;
     }
 }
