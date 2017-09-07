@@ -120,4 +120,4 @@ inline void AssertHandler(const char* file, int line, const char* condition, con
 #define FAIL_MSG(msg, ...) ASSERT_MSG(false, msg, __VA_ARGS__)
 
 // Type aliases
-using cycles_t = double;
+using cycles_t = uint64_t;

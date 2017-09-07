@@ -23,7 +23,7 @@ private:
         m_biosRom.Init(m_memoryBus);
         m_unmapped.Init(m_memoryBus);
         m_cartridge.Init(m_memoryBus);
-        m_debugger.Init(m_memoryBus, m_cpu);
+        m_debugger.Init(m_memoryBus, m_cpu, m_via);
 
         m_biosRom.LoadBiosRom("bios_rom.bin");
 
@@ -38,8 +38,6 @@ private:
     bool Update(double deltaTime) override {
         if (!m_debugger.Update(deltaTime))
             return false;
-
-        m_via.Update(deltaTime);
 
         return true;
     }

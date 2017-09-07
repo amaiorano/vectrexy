@@ -15,32 +15,37 @@ void Via::Init(MemoryBus& memoryBus) {
     InterruptEnable = 0;
 }
 
-void Via::Update(double deltaTime) {
+void Via::Update(cycles_t cycles) {
+    m_timer1.Update(cycles);
+
+    // Update timer 1 interrupt flag (bit 6)
+    InterruptFlag |= (m_timer1.InterruptEnabled() ? (1 << 6) : 0);
+
     // Integrators are enabled while RAMP line is active (low)
-    bool integratorEnabled = (B & 0b1000'0000) == 0; // /RAMP
+    // bool integratorEnabled = (B & 0b1000'0000) == 0; // /RAMP
 
-    if (integratorEnabled) {
-        Vector2 integratorInput;
-        integratorInput.x = (m_velocity.x - 128.f) * (10.f / 256.f);
-        integratorInput.y = (m_velocity.y - 128.f) * (10.f / 256.f);
+    // if (integratorEnabled) {
+    //    Vector2 integratorInput;
+    //    integratorInput.x = (m_velocity.x - 128.f) * (10.f / 256.f);
+    //    integratorInput.y = (m_velocity.y - 128.f) * (10.f / 256.f);
 
-        float integratorOffset = (m_xyOffset - 128.f) * (10.f / 256.f);
+    //    float integratorOffset = (m_xyOffset - 128.f) * (10.f / 256.f);
 
-        Vector2 targetPos;
-        targetPos.x =
-            -((10000.0f * (integratorInput.x - integratorOffset) * (float)deltaTime) + m_pos.x);
-        targetPos.y =
-            -((10000.0f * (integratorInput.y - integratorOffset) * (float)deltaTime) + m_pos.y);
+    //    Vector2 targetPos;
+    //    targetPos.x =
+    //        -((10000.0f * (integratorInput.x - integratorOffset) * (float)deltaTime) + m_pos.x);
+    //    targetPos.y =
+    //        -((10000.0f * (integratorInput.y - integratorOffset) * (float)deltaTime) + m_pos.y);
 
-        bool drawEnabled = !m_blank && m_brightness > 0.f;
+    //    bool drawEnabled = !m_blank && m_brightness > 0.f;
 
-        if (drawEnabled) {
-            // printf("Added line!\n");
-            m_lines.emplace_back(Line{m_pos, targetPos});
-        }
+    //    if (drawEnabled) {
+    //        // printf("Added line!\n");
+    //        m_lines.emplace_back(Line{m_pos, targetPos});
+    //    }
 
-        m_pos = targetPos;
-    }
+    //    m_pos = targetPos;
+    //}
 }
 
 uint8_t Via::Read(uint16_t address) const {
@@ -59,13 +64,19 @@ uint8_t Via::Read(uint16_t address) const {
     case 5:
         return Timer1High;
     case 6:
+        FAIL_MSG("Not implemented. Not sure we need this.");
         return Timer1LatchLow;
     case 7:
+        FAIL_MSG("Not implemented. Not sure we need this.");
         return Timer1LatchHigh;
     case 8:
-        return Timer2Low;
+        printf("Not implemented. Not sure we need this.");
+        // return Timer2Low;
+        return 0;
     case 9:
-        return Timer2High;
+        printf("Not implemented. Not sure we need this. 2");
+        // return Timer2High;
+        return 0;
     case 10:
         return Shift;
     case 11:
@@ -75,6 +86,7 @@ uint8_t Via::Read(uint16_t address) const {
     case 13:
         return InterruptFlag;
     case 14:
+        FAIL_MSG("Not implemented");
         return InterruptEnable;
     case 15:
         FAIL_MSG("A without handshake not implemented yet");
@@ -151,15 +163,18 @@ void Via::Write(uint16_t address, uint8_t value) {
         Timer1LatchHigh = value;
         break;
     case 8:
-        Timer2Low = value;
+        // Timer2Low = value;
+        m_timer1.SetCounterLow(value);
         break;
     case 9:
-        Timer2High = value;
+        // Timer2High = value;
+        m_timer1.SetCounterHigh(value);
         break;
     case 10:
         Shift = value;
         break;
     case 11:
+        ASSERT_MSG((value & 0b0110'0000) == 0, "t1 and t2 assumed to be always in one-shot mode");
         AuxCntl = value;
         break;
     case 12: {
@@ -196,9 +211,11 @@ void Via::Write(uint16_t address, uint8_t value) {
 
     } break;
     case 13:
+        FAIL_MSG("Not implemented");
         InterruptFlag = value;
         break;
     case 14:
+        FAIL_MSG("Not implemented");
         InterruptEnable = value;
         break;
     case 15:

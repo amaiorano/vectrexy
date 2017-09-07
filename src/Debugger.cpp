@@ -6,6 +6,7 @@
 #include "Platform.h"
 #include "RegexHelpers.h"
 #include "StringHelpers.h"
+#include "Via.h"
 #include <array>
 #include <cstdio>
 #include <fstream>
@@ -570,9 +571,10 @@ namespace {
     }
 } // namespace
 
-void Debugger::Init(MemoryBus& memoryBus, Cpu& cpu) {
+void Debugger::Init(MemoryBus& memoryBus, Cpu& cpu, Via& via) {
     m_memoryBus = &memoryBus;
     m_cpu = &cpu;
+    m_via = &via;
 
     Platform::SetConsoleCtrlHandler([this] {
         m_breakIntoDebugger = true;
@@ -637,9 +639,7 @@ bool Debugger::Update(double deltaTime) {
                                               Platform::ConsoleColor::Black);
 
     if (m_breakIntoDebugger) {
-        auto ContinueExecution = [&] {
-            m_breakIntoDebugger = false;
-        };
+        auto ContinueExecution = [&] { m_breakIntoDebugger = false; };
 
         printf("$%04x (%s)>", m_cpu->Registers().PC, m_lastCommand.c_str());
 
@@ -840,7 +840,7 @@ bool Debugger::Update(double deltaTime) {
     } else { // Not broken into debugger (running)
 
         const double cpuHz = 6'000'000.0 / 4.0; // Frequency of the CPU (cycles/second)
-        const cycles_t cpuCyclesThisFrame = cpuHz * deltaTime;
+        const double cpuCyclesThisFrame = cpuHz * deltaTime;
 
         // Execute as many instructions that can fit in this time slice (plus one more at most)
         m_cpuCyclesLeft += cpuCyclesThisFrame;
@@ -864,7 +864,9 @@ bool Debugger::Update(double deltaTime) {
 
             PrintOp();
 
-            const auto elapsedCycles = ExecuteInstruction();
+            const cycles_t elapsedCycles = ExecuteInstruction();
+            m_via->Update(elapsedCycles);
+
             m_cpuCyclesTotal += elapsedCycles;
             m_cpuCyclesLeft -= elapsedCycles;
 

@@ -8,10 +8,11 @@
 
 class MemoryBus;
 class Cpu;
+class Via;
 
 class Debugger {
 public:
-    void Init(MemoryBus& memoryBus, Cpu& cpu);
+    void Init(MemoryBus& memoryBus, Cpu& cpu, Via& via);
     bool Update(double deltaTime);
 
     using SymbolTable = std::multimap<uint16_t, std::string>;
@@ -19,6 +20,7 @@ public:
 private:
     MemoryBus* m_memoryBus = nullptr;
     Cpu* m_cpu = nullptr;
+    Via* m_via = nullptr;
     bool m_breakIntoDebugger = false;
     bool m_traceEnabled = false;
     bool m_colorEnabled = false;
@@ -28,5 +30,5 @@ private:
     std::optional<int64_t> m_numInstructionsToExecute = {};
     SymbolTable m_symbolTable; // Address to symbol name
     cycles_t m_cpuCyclesTotal = 0;
-    cycles_t m_cpuCyclesLeft = 0;
+    double m_cpuCyclesLeft = 0;
 };

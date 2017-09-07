@@ -14,6 +14,36 @@ struct Line {
     Vector2 p1;
 };
 
+// Timer 1 is used mainly for drawing
+class Timer1 {
+public:
+    void SetCounterLow(uint8_t value) { m_latchLow = value; }
+
+    void SetCounterHigh(uint8_t value) {
+        m_latchHigh = value;
+        // Transfer contents of both latches to counter
+        m_counter = m_latchHigh << 8 | m_latchLow;
+        // Reset interrupt
+        m_interruptEnabled = false;
+    }
+
+    void Update(cycles_t cycles) {
+        bool expired = cycles >= m_counter;
+        m_counter -= checked_static_cast<uint16_t>(cycles);
+        if (expired) {
+            m_interruptEnabled = true;
+        }
+    }
+
+    bool InterruptEnabled() const { return m_interruptEnabled; }
+
+private:
+    uint8_t m_latchLow = 0;
+    uint8_t m_latchHigh = 0;
+    uint16_t m_counter;
+    bool m_interruptEnabled = false;
+};
+
 // Implementation of the 6522 Versatile Interface Adapter (VIA)
 // Used to control all of the Vectrex peripherals, such as keypads, vector generator, DAC, sound
 // chip, etc.
@@ -21,7 +51,7 @@ struct Line {
 class Via : public IMemoryBusDevice {
 public:
     void Init(MemoryBus& memoryBus);
-    void Update(double deltaTime);
+    void Update(cycles_t cycles);
 
 private:
     uint8_t Read(uint16_t address) const override;
@@ -59,5 +89,6 @@ private:
     bool m_blank = false;
 
 public:
+    Timer1 m_timer1;
     std::vector<Line> m_lines;
 };
