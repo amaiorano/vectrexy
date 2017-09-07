@@ -70,11 +70,11 @@ uint8_t Via::Read(uint16_t address) const {
         FAIL_MSG("Not implemented. Not sure we need this.");
         return Timer1LatchHigh;
     case 8:
-        printf("Not implemented. Not sure we need this.");
+        FAIL_MSG("Not implemented. Not sure we need this.");
         // return Timer2Low;
         return 0;
     case 9:
-        printf("Not implemented. Not sure we need this. 2");
+        FAIL_MSG("Not implemented. Not sure we need this. 2");
         // return Timer2High;
         return 0;
     case 10:

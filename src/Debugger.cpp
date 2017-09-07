@@ -413,17 +413,16 @@ namespace {
                 auto msb = instruction.operands[0];
                 auto lsb = instruction.operands[1];
                 uint16_t EA = CombineToU16(msb, lsb);
-                uint8_t value = memoryBus.Read(EA);
                 disasmInstruction = FormattedString<>("%s $%04x", cpuOp.name, EA);
-                comment = FormattedString<>("$%02x (%d)", value, value);
+                comment = FormattedString<>("%s", TryMemoryBusRead(memoryBus, EA).c_str());
             } break;
 
             case AddressingMode::Direct: {
                 uint16_t EA = CombineToU16(cpuRegisters.DP, instruction.operands[0]);
-                uint8_t value = memoryBus.Read(EA);
                 disasmInstruction =
                     FormattedString<>("%s $%02x", cpuOp.name, instruction.operands[0]);
-                comment = FormattedString<>("DP:(PC) = $%02x = $%02x (%d)", EA, value, value);
+                comment = FormattedString<>("DP:(PC) = $%02x = %s", EA,
+                                            TryMemoryBusRead(memoryBus, EA).c_str());
             } break;
 
             case AddressingMode::Indexed: {
