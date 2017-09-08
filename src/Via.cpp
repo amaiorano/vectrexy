@@ -1,6 +1,21 @@
 #include "Via.h"
 #include "MemoryMap.h"
 
+namespace {
+    namespace BMask {
+        const uint8_t MuxDisabled = BITS(0);
+        const uint8_t MuxSelMask = BITS(1, 2);
+        const uint8_t MuxSelShift = 1; //???
+        const uint8_t RampDisabled = BITS(7);
+    } // namespace BMask
+
+    namespace InterruptFlagMask {
+        const uint8_t Timer2 = BITS(5);
+        const uint8_t Timer1 = BITS(6);
+    }; // namespace InterruptFlagMask
+
+} // namespace
+
 void Via::Init(MemoryBus& memoryBus) {
     memoryBus.ConnectDevice(*this, MemoryMap::Via.range);
     B = A = 0;
@@ -19,10 +34,15 @@ void Via::Update(cycles_t cycles) {
     m_timer1.Update(cycles);
 
     // Update timer 1 interrupt flag (bit 6)
-    InterruptFlag |= (m_timer1.InterruptEnabled() ? (1 << 6) : 0);
+    InterruptFlag |= (m_timer1.InterruptEnabled() ? InterruptFlagMask::Timer1 : 0);
+
+    //@TODO: if (VIA_aux_cntl bit 7 set), need to set /RAMP based on timer 1's PB7 value
+    if ((AuxCntl & BITS(7)) != 0) {
+        B |= (m_timer1.PB7Enabled() ? 0 : BMask::RampDisabled);
+    }
 
     // Integrators are enabled while RAMP line is active (low)
-    // bool integratorEnabled = (B & 0b1000'0000) == 0; // /RAMP
+    // bool integratorEnabled = (B & BMask::Ramp) == 0; // /RAMP
 
     // if (integratorEnabled) {
     //    Vector2 integratorInput;
@@ -113,7 +133,7 @@ void Via::Write(uint16_t address, uint8_t value) {
     UPDATE_INTEGRATORS:
 
         // Port B bit 0 is connected to the MUX enable signal (when low)
-        if ((B & 0b0000'0001) == 0) {
+        if ((B & BMask::MuxDisabled) == 0) {
             // MUX enabled
             switch ((B & 0b0000'0110) >> 1) {
             case 0:

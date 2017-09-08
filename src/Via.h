@@ -25,6 +25,7 @@ public:
         m_counter = m_latchHigh << 8 | m_latchLow;
         // Reset interrupt
         m_interruptEnabled = false;
+        m_pb7Enabled = true;
     }
 
     void Update(cycles_t cycles) {
@@ -32,17 +33,23 @@ public:
         m_counter -= checked_static_cast<uint16_t>(cycles);
         if (expired) {
             m_interruptEnabled = true;
+            m_pb7Enabled = false;
         }
     }
 
     bool InterruptEnabled() const { return m_interruptEnabled; }
+    bool PB7Enabled() const { return m_pb7Enabled; }
 
 private:
     uint8_t m_latchLow = 0;
     uint8_t m_latchHigh = 0;
     uint16_t m_counter;
-    bool m_interruptEnabled = false;
+    bool m_interruptEnabled = false; // Enabled means signal low (enabled once expired)
+    bool m_pb7Enabled = false;       // Enabled means signal low (enabled while counting down)
 };
+
+// Timer 2 is used mainly as a 50Hz game frame timer
+class Timer2 {};
 
 // Implementation of the 6522 Versatile Interface Adapter (VIA)
 // Used to control all of the Vectrex peripherals, such as keypads, vector generator, DAC, sound
