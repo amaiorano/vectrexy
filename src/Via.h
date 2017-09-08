@@ -65,28 +65,22 @@ private:
     void Write(uint16_t address, uint8_t value) override;
 
     // Registers
-    uint8_t B;
-    uint8_t A;
-
-    uint8_t DataDirB;
-    uint8_t DataDirA;
-
-    uint8_t Timer1Low;
-    uint8_t Timer1High;
-
-    uint8_t Timer1LatchLow;
-    uint8_t Timer1LatchHigh;
-
-    uint8_t Timer2Low;
-    uint8_t Timer2High;
-
-    uint8_t Shift;
-
-    uint8_t AuxCntl;
-    uint8_t PeriphCntl;
-
-    uint8_t InterruptFlag;
-    uint8_t InterruptEnable;
+    uint8_t m_portB;           // 0x0
+    uint8_t m_portA;           // 0x1
+    uint8_t m_dataDirB;        // 0x2
+    uint8_t m_dataDirA;        // 0x3
+    uint8_t m_timer1Low;       // 0x4
+    uint8_t m_timer1High;      // 0x5
+    uint8_t m_timer1LatchLow;  // 0x6
+    uint8_t m_timer1LatchHigh; // 0x7
+    uint8_t m_timer2Low;       // 0x8
+    uint8_t m_timer2High;      // 0x9
+    uint8_t m_shift;           // 0xA
+    uint8_t m_auxCntl;         // 0xB
+    uint8_t m_periphCntl;      // 0xC
+    uint8_t m_interruptFlag;   // 0xD
+    uint8_t m_interruptEnable; // 0xE
+                               // NOTE: 0xF is port A without handshake
 
     // State
     Vector2 m_pos;
