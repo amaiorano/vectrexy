@@ -11,9 +11,19 @@ namespace {
     } // namespace PortB
 
     namespace AuxCntl {
-        const uint8_t Timer2FreeRunning = BITS(5);
-        const uint8_t Timer1FreeRunning = BITS(6);
+        const uint8_t Timer2PulseCounting = BITS(5); // 1=free running, 0=one-shot
+        const uint8_t Timer1FreeRunning = BITS(6);   // 1=pulse counting, 0=one-shot
         const uint8_t PB7Enabled = BITS(7);
+
+        inline TimerMode GetTimer1Mode(uint8_t auxCntl) {
+            return TestBits(auxCntl, Timer1FreeRunning) ? TimerMode::FreeRunning
+                                                        : TimerMode::OneShot;
+        }
+
+        inline TimerMode GetTimer2Mode(uint8_t auxCntl) {
+            return TestBits(auxCntl, Timer2PulseCounting) ? TimerMode::PulseCounting
+                                                          : TimerMode::OneShot;
+        }
     } // namespace AuxCntl
 
     namespace PeriphCntl {
@@ -31,18 +41,17 @@ namespace {
         const uint8_t CB2Mask = BITS(5, 6, 7);
         const uint8_t CB2Shift = 5;
 
-        inline bool ZeroEnabled(uint8_t periphCntrl) {
+        inline bool IsZeroEnabled(uint8_t periphCntrl) {
             const uint8_t value = ReadBitsWithShift(periphCntrl, CA2Mask, CA2Shift);
             ASSERT_MSG(value == 0b110 || value == 0b111, "Top 2 bits should always be 1 (right?)");
             return value == 0b110;
         }
 
-        inline bool BlankEnabled(uint8_t periphCntrl) {
+        inline bool IsBlankEnabled(uint8_t periphCntrl) {
             const uint8_t value = ReadBitsWithShift(periphCntrl, CB2Mask, CB2Shift);
             ASSERT_MSG(value == 0b110 || value == 0b111, "Top 2 bits should always be 1 (right?)");
             return value == 0b110;
         }
-
     } // namespace PeriphCntl
 
     namespace InterruptFlag {
@@ -234,17 +243,21 @@ void Via::Write(uint16_t address, uint8_t value) {
         m_shift = value;
         break;
     case 0xB:
-        ASSERT_MSG(ReadBits(value, AuxCntl::Timer1FreeRunning | AuxCntl::Timer2FreeRunning) == 0,
-                   "t1 and t2 assumed to be always in one-shot mode");
         m_auxCntl = value;
+        ASSERT_MSG(AuxCntl::GetTimer1Mode(m_auxCntl) == TimerMode::OneShot,
+                   "t1 assumed always on one-shot mode");
+        ASSERT_MSG(AuxCntl::GetTimer2Mode(m_auxCntl) == TimerMode::OneShot,
+                   "t2 assumed always on one-shot mode");
+        m_timer1.SetMode(AuxCntl::GetTimer1Mode(m_auxCntl));
+        // TODO: set timer2 mode
         break;
     case 0xC: {
         m_periphCntl = value;
 
-        if (PeriphCntl::ZeroEnabled(m_periphCntl))
+        if (PeriphCntl::IsZeroEnabled(m_periphCntl))
             m_pos = {0.f, 0.f};
 
-        m_blank = PeriphCntl::BlankEnabled(m_periphCntl);
+        m_blank = PeriphCntl::IsBlankEnabled(m_periphCntl);
     } break;
     case 0xD:
         FAIL_MSG("Not implemented");

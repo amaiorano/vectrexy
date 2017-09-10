@@ -14,9 +14,17 @@ struct Line {
     Vector2 p1;
 };
 
-// Timer 1 is used mainly for drawing
+enum class TimerMode { FreeRunning, OneShot, PulseCounting };
+
+// Timer 1 is used mainly for drawing.
+// Supports timed interrupt each time t1 is loaded (one-shot), or continuous interrupts
+// (free-running) in which it auto-reloads initial count when it reaches 0.
 class Timer1 {
 public:
+    void SetMode(TimerMode mode) {
+        ASSERT_MSG(mode == TimerMode::OneShot, "Only supports one-shot mode for now");
+    }
+
     void SetCounterLow(uint8_t value) { m_latchLow = value; }
 
     void SetCounterHigh(uint8_t value) {
@@ -48,7 +56,7 @@ private:
     bool m_pb7Enabled = false;       // Enabled means signal low (enabled while counting down)
 };
 
-// Timer 2 is used mainly as a 50Hz game frame timer
+// Timer 2 is used mainly as a 50Hz game frame timer.
 class Timer2 {};
 
 // Implementation of the 6522 Versatile Interface Adapter (VIA)
