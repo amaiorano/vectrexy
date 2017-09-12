@@ -24,36 +24,62 @@ public:
     void SetMode(TimerMode mode) {
         ASSERT_MSG(mode == TimerMode::OneShot, "Only supports one-shot mode for now");
     }
+    TimerMode TimerMode() const { return TimerMode::OneShot; }
 
-    void SetCounterLow(uint8_t value) { m_latchLow = value; }
+    void WriteCounterLow(uint8_t value) { m_latchLow = value; }
 
-    void SetCounterHigh(uint8_t value) {
+    void WriteCounterHigh(uint8_t value) {
         m_latchHigh = value;
-        // Transfer contents of both latches to counter
+        // Transfer contents of both latches to counter and reset interrupt flag
         m_counter = m_latchHigh << 8 | m_latchLow;
-        // Reset interrupt
-        m_interruptEnabled = false;
-        m_pb7Enabled = true;
+        m_interruptFlag = false;
+
+        //@TODO: This should happen 1 cycle later
+        if (m_pb7Flag) {
+            m_pb7SignalLow = true;
+        }
     }
+
+    uint8_t ReadCounterLow() const {
+        m_interruptFlag = false;
+        return static_cast<uint8_t>(m_counter & 0x0F);
+    }
+
+    uint8_t ReadCounterHigh() const { return static_cast<uint8_t>(m_counter >> 8); }
+
+    void WriteLatchLow(uint8_t value) { WriteCounterLow(value); }
+    void WriteLatchHigh(uint8_t value) { m_latchHigh = value; }
+    uint8_t ReadLatchLow() const { return m_latchLow; }
+    uint8_t ReadLatchHigh() const { return m_latchHigh; }
 
     void Update(cycles_t cycles) {
         bool expired = cycles >= m_counter;
         m_counter -= checked_static_cast<uint16_t>(cycles);
         if (expired) {
-            m_interruptEnabled = true;
-            m_pb7Enabled = false;
+            m_interruptFlag = true;
+            //@TODO: When do we set this back to false? What is it used for?
+            m_interruptSignalLow = true;
+            m_pb7SignalLow = false;
         }
     }
 
-    bool InterruptEnabled() const { return m_interruptEnabled; }
-    bool PB7Enabled() const { return m_pb7Enabled; }
+    void SetInterruptFlag(bool enabled) { m_interruptFlag = enabled; }
+    bool InterruptFlag() const { return m_interruptFlag; }
+
+    void SetPB7Flag(bool enabled) { m_pb7Flag = enabled; }
+    bool PB7Flag() const { return m_pb7Flag; }
+    bool PB7SignalLow() const { return m_pb7SignalLow; }
 
 private:
     uint8_t m_latchLow = 0;
     uint8_t m_latchHigh = 0;
-    uint16_t m_counter;
-    bool m_interruptEnabled = false; // Enabled means signal low (enabled once expired)
-    bool m_pb7Enabled = false;       // Enabled means signal low (enabled while counting down)
+    uint16_t m_counter = 0;
+
+    mutable bool m_interruptFlag = false;
+    bool m_interruptSignalLow = false;
+
+    bool m_pb7Flag = false;
+    bool m_pb7SignalLow = false;
 };
 
 // Timer 2 is used mainly as a 50Hz game frame timer.
@@ -73,20 +99,20 @@ private:
     void Write(uint16_t address, uint8_t value) override;
 
     // Registers
-    uint8_t m_portB;           // 0x0
-    uint8_t m_portA;           // 0x1
-    uint8_t m_dataDirB;        // 0x2
-    uint8_t m_dataDirA;        // 0x3
-    uint8_t m_timer1Low;       // 0x4
-    uint8_t m_timer1High;      // 0x5
-    uint8_t m_timer1LatchLow;  // 0x6
-    uint8_t m_timer1LatchHigh; // 0x7
-    uint8_t m_timer2Low;       // 0x8
-    uint8_t m_timer2High;      // 0x9
-    uint8_t m_shift;           // 0xA
-    uint8_t m_auxCntl;         // 0xB
-    uint8_t m_periphCntl;      // 0xC
-    uint8_t m_interruptFlag;   // 0xD
+    uint8_t m_portB;    // 0x0
+    uint8_t m_portA;    // 0x1
+    uint8_t m_dataDirB; // 0x2
+    uint8_t m_dataDirA; // 0x3
+    // uint8_t m_timer1Low;       // 0x4
+    // uint8_t m_timer1High;      // 0x5
+    // uint8_t m_timer1LatchLow;  // 0x6
+    // uint8_t m_timer1LatchHigh; // 0x7
+    uint8_t m_timer2Low;  // 0x8
+    uint8_t m_timer2High; // 0x9
+    uint8_t m_shift;      // 0xA
+    // uint8_t m_auxCntl;         // 0xB
+    uint8_t m_periphCntl; // 0xC
+    // uint8_t m_interruptFlag;   // 0xD
     uint8_t m_interruptEnable; // 0xE
                                // NOTE: 0xF is port A without handshake
 

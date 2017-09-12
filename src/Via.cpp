@@ -11,9 +11,9 @@ namespace {
     } // namespace PortB
 
     namespace AuxCntl {
-        const uint8_t Timer2PulseCounting = BITS(5); // 1=free running, 0=one-shot
-        const uint8_t Timer1FreeRunning = BITS(6);   // 1=pulse counting, 0=one-shot
-        const uint8_t PB7Enabled = BITS(7);
+        const uint8_t Timer2PulseCounting = BITS(5); // 1=pulse counting, 0=one-shot
+        const uint8_t Timer1FreeRunning = BITS(6);   // 1=free running, 0=one-shot
+        const uint8_t PB7Flag = BITS(7);             // 1=enable PB7 output
 
         inline TimerMode GetTimer1Mode(uint8_t auxCntl) {
             return TestBits(auxCntl, Timer1FreeRunning) ? TimerMode::FreeRunning
@@ -65,27 +65,20 @@ void Via::Init(MemoryBus& memoryBus) {
     memoryBus.ConnectDevice(*this, MemoryMap::Via.range);
     m_portB = m_portA = 0;
     m_dataDirB = m_dataDirA = 0;
-    m_timer1Low = m_timer1High = 0;
-    m_timer1LatchLow = m_timer1LatchHigh = 0;
     m_timer2Low = m_timer2High = 0;
     m_shift = 0;
-    m_auxCntl = 0;
     m_periphCntl = 0;
-    m_interruptFlag = 0;
     m_interruptEnable = 0;
 }
 
 void Via::Update(cycles_t cycles) {
     m_timer1.Update(cycles);
 
-    // Update timer 1 interrupt flag (bit 6)
-    SetBits(m_interruptFlag, InterruptFlag::Timer1, m_timer1.InterruptEnabled());
-    // m_interruptFlag |= (m_timer1.InterruptEnabled() ? InterruptFlag::Timer1 : 0);
-
-    //@TODO: if (VIA_aux_cntl bit 7 set), need to set /RAMP based on timer 1's PB7 value
-    if ((m_auxCntl & BITS(7)) != 0) {
-        SetBits(m_portB, PortB::RampDisabled, !m_timer1.PB7Enabled());
-        // m_portB |= (m_timer1.PB7Enabled() ? 0 : PortB::RampDisabled);
+    //@TODO: This is wrong, we need to account for how many cycles PB7 was enabled
+    // for before we turn off drawing.
+    if (m_timer1.PB7SignalLow()) {
+        SetBits(m_portB, PortB::RampDisabled, !m_timer1.PB7Flag());
+        // m_portB |= (m_timer1.PB7Flag() ? 0 : PortB::RampDisabled);
     }
 
     // Integrators are enabled while RAMP line is active (low)
@@ -127,15 +120,13 @@ uint8_t Via::Read(uint16_t address) const {
     case 0x3:
         return m_dataDirA;
     case 0x4:
-        return m_timer1Low;
+        return m_timer1.ReadCounterLow();
     case 0x5:
-        return m_timer1High;
+        return m_timer1.ReadCounterHigh();
     case 0x6:
-        FAIL_MSG("Not implemented. Not sure we need this.");
-        return m_timer1LatchLow;
+        return m_timer1.ReadLatchLow();
     case 0x7:
-        FAIL_MSG("Not implemented. Not sure we need this.");
-        return m_timer1LatchHigh;
+        return m_timer1.ReadLatchHigh();
     case 0x8:
         FAIL_MSG("Not implemented. Not sure we need this.");
         // return m_timer2Low;
@@ -146,12 +137,23 @@ uint8_t Via::Read(uint16_t address) const {
         return 0;
     case 0xA:
         return m_shift;
-    case 0xB:
-        return m_auxCntl;
+    case 0xB: {
+        uint8_t auxCntl = 0;
+        SetBits(auxCntl, AuxCntl::Timer1FreeRunning,
+                m_timer1.TimerMode() == TimerMode::FreeRunning);
+        // SetBits(auxCntl, AuxCntl::Timer2PulseCounting,
+        //	m_timer2.TimerMode() == TimerMode::PulseCounting);
+        SetBits(auxCntl, AuxCntl::PB7Flag, m_timer1.PB7Flag());
+        return auxCntl;
+    }
     case 0xC:
         return m_periphCntl;
-    case 0xD:
-        return m_interruptFlag;
+    case 0xD: {
+        uint8_t interruptFlag = 0;
+        SetBits(interruptFlag, InterruptFlag::Timer1, m_timer1.InterruptFlag());
+        // TODO: SetBits(interruptFlag, InterruptFlag::Timer2, m_timer2.InterruptFlag());
+        return interruptFlag;
+    }
     case 0xE:
         FAIL_MSG("Not implemented");
         return m_interruptEnable;
@@ -220,36 +222,36 @@ void Via::Write(uint16_t address, uint8_t value) {
         m_dataDirA = value;
         break;
     case 0x4:
-        m_timer1Low = value;
+        m_timer1.WriteCounterLow(value);
         break;
     case 0x5:
-        m_timer1High = value;
+        m_timer1.WriteCounterHigh(value);
         break;
     case 0x6:
-        m_timer1LatchLow = value;
+        m_timer1.WriteLatchLow(value);
         break;
     case 0x7:
-        m_timer1LatchHigh = value;
+        m_timer1.WriteLatchHigh(value);
         break;
     case 0x8:
-        // m_timer2Low = value;
-        m_timer1.SetCounterLow(value);
+        m_timer1.WriteCounterLow(value);
         break;
     case 0x9:
-        // m_timer2High = value;
-        m_timer1.SetCounterHigh(value);
+        m_timer1.WriteCounterHigh(value);
         break;
     case 0xA:
         m_shift = value;
         break;
     case 0xB:
-        m_auxCntl = value;
-        ASSERT_MSG(AuxCntl::GetTimer1Mode(m_auxCntl) == TimerMode::OneShot,
+        ASSERT_MSG(AuxCntl::GetTimer1Mode(value) == TimerMode::OneShot,
                    "t1 assumed always on one-shot mode");
-        ASSERT_MSG(AuxCntl::GetTimer2Mode(m_auxCntl) == TimerMode::OneShot,
+        ASSERT_MSG(AuxCntl::GetTimer2Mode(value) == TimerMode::OneShot,
                    "t2 assumed always on one-shot mode");
-        m_timer1.SetMode(AuxCntl::GetTimer1Mode(m_auxCntl));
+        m_timer1.SetMode(AuxCntl::GetTimer1Mode(value));
         // TODO: set timer2 mode
+
+        m_timer1.SetPB7Flag(TestBits(value, AuxCntl::PB7Flag));
+
         break;
     case 0xC: {
         m_periphCntl = value;
@@ -260,8 +262,8 @@ void Via::Write(uint16_t address, uint8_t value) {
         m_blank = PeriphCntl::IsBlankEnabled(m_periphCntl);
     } break;
     case 0xD:
-        FAIL_MSG("Not implemented");
-        m_interruptFlag = value;
+        // TODO: handle setting all other interrupt flags
+        m_timer1.SetInterruptFlag(TestBits(value, InterruptFlag::Timer1));
         break;
     case 0xE:
         FAIL_MSG("Not implemented");
