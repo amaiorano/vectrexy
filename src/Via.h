@@ -8,7 +8,16 @@
 struct Vector2 {
     float x = 0.f;
     float y = 0.f;
+
+    void operator+=(const Vector2& rhs) {
+        x += rhs.x;
+        y += rhs.y;
+    }
 };
+
+inline Vector2 operator+(const Vector2& lhs, const Vector2& rhs) {
+    return {lhs.x + rhs.x, lhs.y + rhs.y};
+}
 
 struct Line {
     Vector2 p0;
@@ -27,6 +36,7 @@ public:
 private:
     uint8_t Read(uint16_t address) const override;
     void Write(uint16_t address, uint8_t value) override;
+    void UpdateShift(cycles_t cycles);
 
     // Registers
     uint8_t m_portB;    // 0x0
@@ -52,6 +62,7 @@ private:
     float m_xyOffset = 0.f;
     float m_brightness = 0.f;
     bool m_blank = false;
+    bool m_shiftCycle = true;
 
 public:
     Timer1 m_timer1;

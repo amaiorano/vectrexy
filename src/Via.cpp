@@ -43,13 +43,11 @@ namespace {
 
         inline bool IsZeroEnabled(uint8_t periphCntrl) {
             const uint8_t value = ReadBitsWithShift(periphCntrl, CA2Mask, CA2Shift);
-            ASSERT_MSG(value == 0b110 || value == 0b111, "Top 2 bits should always be 1 (right?)");
             return value == 0b110;
         }
 
         inline bool IsBlankEnabled(uint8_t periphCntrl) {
             const uint8_t value = ReadBitsWithShift(periphCntrl, CB2Mask, CB2Shift);
-            ASSERT_MSG(value == 0b110 || value == 0b111, "Top 2 bits should always be 1 (right?)");
             return value == 0b110;
         }
     } // namespace PeriphCntl
@@ -69,43 +67,41 @@ void Via::Init(MemoryBus& memoryBus) {
     m_shift = 0;
     m_periphCntl = 0;
     m_interruptEnable = 0;
+
+    SetBits(m_portB, PortB::RampDisabled, true);
 }
 
 void Via::Update(cycles_t cycles) {
     m_timer1.Update(cycles);
+    UpdateShift(cycles);
 
     //@TODO: This is wrong, we need to account for how many cycles PB7 was enabled
     // for before we turn off drawing.
-    if (m_timer1.PB7SignalLow()) {
-        SetBits(m_portB, PortB::RampDisabled, !m_timer1.PB7Flag());
-        // m_portB |= (m_timer1.PB7Flag() ? 0 : PortB::RampDisabled);
+    if (m_timer1.PB7Flag()) {
+        SetBits(m_portB, PortB::RampDisabled, !m_timer1.PB7SignalLow());
+    }
+
+    if (PeriphCntl::IsZeroEnabled(m_periphCntl)) {
+        //@TODO: move beam towards 0,0 over time
+        m_pos = {0.f, 0.f};
     }
 
     // Integrators are enabled while RAMP line is active (low)
-    // bool integratorEnabled = (B & PortB::Ramp) == 0; // /RAMP
+    bool integratorsEnabled = !TestBits(m_portB, PortB::RampDisabled);
+    if (integratorsEnabled) {
+        //@TODO: float offset = 0; // m_xyOffset;
+        Vector2 delta = {0.f, 0.f};
 
-    // if (integratorEnabled) {
-    //    Vector2 integratorInput;
-    //    integratorInput.x = (m_velocity.x - 128.f) * (10.f / 256.f);
-    //    integratorInput.y = (m_velocity.y - 128.f) * (10.f / 256.f);
+        delta.x = m_velocity.x != 0.f ? (m_velocity.x / 128.f) * cycles : 0.f;
+        delta.y = m_velocity.y != 0.f ? (m_velocity.y / 128.f) * cycles : 0.f;
 
-    //    float integratorOffset = (m_xyOffset - 128.f) * (10.f / 256.f);
+        bool drawEnabled = !m_blank && (m_brightness > 0.f && m_brightness <= 128.f);
+        if (drawEnabled) {
+            m_lines.emplace_back(Line{m_pos, m_pos + delta});
+        }
 
-    //    Vector2 targetPos;
-    //    targetPos.x =
-    //        -((10000.0f * (integratorInput.x - integratorOffset) * (float)deltaTime) + m_pos.x);
-    //    targetPos.y =
-    //        -((10000.0f * (integratorInput.y - integratorOffset) * (float)deltaTime) + m_pos.y);
-
-    //    bool drawEnabled = !m_blank && m_brightness > 0.f;
-
-    //    if (drawEnabled) {
-    //        // printf("Added line!\n");
-    //        m_lines.emplace_back(Line{m_pos, targetPos});
-    //    }
-
-    //    m_pos = targetPos;
-    //}
+        m_pos += delta;
+    }
 }
 
 uint8_t Via::Read(uint16_t address) const {
@@ -151,7 +147,9 @@ uint8_t Via::Read(uint16_t address) const {
     case 0xD: {
         uint8_t interruptFlag = 0;
         SetBits(interruptFlag, InterruptFlag::Timer1, m_timer1.InterruptFlag());
-        // TODO: SetBits(interruptFlag, InterruptFlag::Timer2, m_timer2.InterruptFlag());
+        //@HACK: For now, Timer2 will always report that it's interrupt flag is set. This will make
+        // the game run faster than 50 hz.
+        SetBits(interruptFlag, InterruptFlag::Timer2, true /*m_timer2.InterruptFlag()*/);
         return interruptFlag;
     }
     case 0xE:
@@ -168,53 +166,44 @@ uint8_t Via::Read(uint16_t address) const {
 }
 
 void Via::Write(uint16_t address, uint8_t value) {
-    const uint16_t index = MemoryMap::Via.MapAddress(address);
-    switch (index) {
-    case 0:
-        m_portB = value;
-        goto UPDATE_INTEGRATORS;
-        break;
-    case 0x1: {
-        // Port A is connected directly to the DAC, which in turn is connected to both a MUX with 4
-        // outputs, and to the X-axis integrator.
-        m_portA = value;
 
-    UPDATE_INTEGRATORS:
-
+    auto UpdateIntegrators = [&] {
         const bool muxEnabled = !TestBits(m_portB, PortB::MuxDisabled);
         if (muxEnabled) {
             switch (ReadBitsWithShift(m_portB, PortB::MuxSelMask, PortB::MuxSelShift)) {
-            case 0:
-                // Y-axis integrator
-                // printf("Writing Y-axis integrator value!\n");
-                m_velocity.y = m_portA;
+            case 0: // Y-axis integrator
+                m_velocity.y = static_cast<int8_t>(m_portA);
                 break;
-
-            case 1:
-                // X,Y Axis integrator offset
-                m_xyOffset = m_portA;
+            case 1: // X,Y Axis integrator offset
+                m_xyOffset = static_cast<int8_t>(m_portA);
                 break;
-
-            case 2:
-                // Z Axis (Vector Brightness) level
+            case 2: // Z Axis (Vector Brightness) level
                 m_brightness = m_portA;
                 break;
-
-            case 3:
-                // Connected to sound output line via divider network
+            case 3: // Connected to sound output line via divider network
                 //@TODO
                 break;
-
             default:
                 FAIL();
                 break;
             }
-        } else {
-            // printf("Writing X-axis integrator value!\n");
-            // MUX disabled so we output to X-axis integrator
-            m_velocity.x = m_portA;
         }
-    } break;
+        // Always output to X-axis integrator
+        m_velocity.x = static_cast<int8_t>(m_portA);
+    };
+
+    const uint16_t index = MemoryMap::Via.MapAddress(address);
+    switch (index) {
+    case 0x0:
+        m_portB = value;
+        UpdateIntegrators();
+        break;
+    case 0x1:
+        // Port A is connected directly to the DAC, which in turn is connected to both a MUX with 4
+        // outputs, and to the X-axis integrator.
+        m_portA = value;
+        UpdateIntegrators();
+        break;
     case 0x2:
         m_dataDirB = value;
         break;
@@ -234,13 +223,15 @@ void Via::Write(uint16_t address, uint8_t value) {
         m_timer1.WriteLatchHigh(value);
         break;
     case 0x8:
-        m_timer1.WriteCounterLow(value);
+        //@TODO: m_timer2.WriteCounterLow(value);
         break;
     case 0x9:
-        m_timer1.WriteCounterHigh(value);
+        //@TODO: m_timer2.WriteCounterHigh(value);
         break;
     case 0xA:
         m_shift = value;
+        m_shiftCycle = true;
+        UpdateShift(2);
         break;
     case 0xB:
         ASSERT_MSG(AuxCntl::GetTimer1Mode(value) == TimerMode::OneShot,
@@ -254,19 +245,23 @@ void Via::Write(uint16_t address, uint8_t value) {
 
         break;
     case 0xC: {
+        ASSERT_MSG(ReadBitsWithShift(value, PeriphCntl::CA2Mask, PeriphCntl::CA2Shift) == 0b110 ||
+                       ReadBitsWithShift(value, PeriphCntl::CA2Mask, PeriphCntl::CA2Shift) == 0b111,
+                   "Unexpected value for Zero bits");
+
+        ASSERT_MSG(ReadBitsWithShift(value, PeriphCntl::CB2Mask, PeriphCntl::CB2Shift) == 0b110 ||
+                       ReadBitsWithShift(value, PeriphCntl::CB2Mask, PeriphCntl::CB2Shift) == 0b111,
+                   "Top 2 bits should always be 1 (right?)");
+
         m_periphCntl = value;
-
-        if (PeriphCntl::IsZeroEnabled(m_periphCntl))
-            m_pos = {0.f, 0.f};
-
         m_blank = PeriphCntl::IsBlankEnabled(m_periphCntl);
     } break;
     case 0xD:
-        // TODO: handle setting all other interrupt flags
+        //@TODO: handle setting all other interrupt flags
         m_timer1.SetInterruptFlag(TestBits(value, InterruptFlag::Timer1));
         break;
     case 0xE:
-        FAIL_MSG("Not implemented");
+        // FAIL_MSG("Not implemented");
         m_interruptEnable = value;
         break;
     case 0xF:
@@ -275,5 +270,16 @@ void Via::Write(uint16_t address, uint8_t value) {
     default:
         FAIL();
         break;
+    }
+}
+
+void Via::UpdateShift(cycles_t cycles) {
+    for (int i = 0; i < cycles; ++i) {
+        m_shiftCycle = !m_shiftCycle;
+        if (m_shiftCycle) {
+            uint8_t bit7 = TestBits01(m_shift, BITS(7));
+            m_shift = (m_shift << 1) | bit7;
+            m_blank = (bit7 == 0);
+        }
     }
 }
