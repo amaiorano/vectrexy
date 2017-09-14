@@ -623,7 +623,9 @@ bool Debugger::Update(double deltaTime) {
     auto ExecuteInstruction = [&] {
         ++m_instructionCount;
         try {
-            return m_cpu->ExecuteInstruction();
+            cycles_t elapsedCycles = m_cpu->ExecuteInstruction();
+            m_via->Update(elapsedCycles);
+            return elapsedCycles;
         } catch (std::exception& ex) {
             printf("Exception caught:\n%s\n", ex.what());
         } catch (...) {
@@ -864,7 +866,6 @@ bool Debugger::Update(double deltaTime) {
             PrintOp();
 
             const cycles_t elapsedCycles = ExecuteInstruction();
-            m_via->Update(elapsedCycles);
 
             m_cpuCyclesTotal += elapsedCycles;
             m_cpuCyclesLeft -= elapsedCycles;
