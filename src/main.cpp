@@ -39,11 +39,12 @@ private:
         if (!m_debugger.Update(deltaTime))
             return false;
 
-        m_elapsed += deltaTime;
         return true;
     }
 
-    void Render(Display& display) override {
+    void Render(double deltaTime, Display& display) override {
+        m_elapsed += deltaTime;
+
         //@HACK: clear lines and screen at approximately 50hz
         if (m_elapsed >= (1.0 / 50.0)) {
             m_elapsed = 0;

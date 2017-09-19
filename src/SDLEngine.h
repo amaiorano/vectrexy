@@ -10,7 +10,7 @@ class IEngineClient {
 public:
     virtual bool Init(int argc, char** argv) = 0;
     virtual bool Update(double deltaTime) = 0;
-    virtual void Render(Display& display) = 0;
+    virtual void Render(double deltaTime, Display& display) = 0;
     virtual void Shutdown() = 0;
 };
 

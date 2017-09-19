@@ -163,9 +163,6 @@ bool SDLEngine::Run(int argc, char** argv) {
             }
         }
 
-        glLoadIdentity();
-        g_client->Render(display);
-
         const auto currTime = std::chrono::high_resolution_clock::now();
         const std::chrono::duration<double> diff = currTime - lastTime;
         const double deltaTime = std::min(diff.count(), 1 / 10.0);
@@ -192,6 +189,9 @@ bool SDLEngine::Run(int argc, char** argv) {
 
         if (!g_client->Update(deltaTime))
             quit = true;
+
+        glLoadIdentity();
+        g_client->Render(deltaTime, display);
 
         SDL_GL_SwapWindow(g_window);
     }
