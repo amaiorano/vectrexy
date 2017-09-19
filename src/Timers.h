@@ -9,7 +9,7 @@ enum class TimerMode { FreeRunning, OneShot, PulseCounting };
 // (free-running) in which it auto-reloads initial count when it reaches 0.
 class Timer1 {
 public:
-    void SetMode(TimerMode mode) {
+    void SetTimerMode(TimerMode mode) {
         ASSERT_MSG(mode == TimerMode::OneShot, "Only supports one-shot mode for now");
     }
     TimerMode TimerMode() const { return TimerMode::OneShot; }
@@ -46,7 +46,7 @@ public:
         if (expired) {
             m_interruptFlag = true;
             //@TODO: When do we set this back to false? What is it used for?
-            m_interruptSignalLow = true;
+            // m_interruptSignalLow = true;
             m_pb7SignalLow = false;
         }
     }
@@ -64,11 +64,48 @@ private:
     uint16_t m_counter = 0;
 
     mutable bool m_interruptFlag = false;
-    bool m_interruptSignalLow = false;
+    // bool m_interruptSignalLow = false;
 
     bool m_pb7Flag = false;
     bool m_pb7SignalLow = false;
 };
 
 // Timer 2 is used mainly as a 50Hz game frame timer.
-class Timer2 {};
+class Timer2 {
+public:
+    void SetTimerMode(TimerMode mode) {
+        ASSERT_MSG(mode == TimerMode::OneShot, "Only supports one-shot mode for now");
+    }
+    TimerMode TimerMode() const { return TimerMode::OneShot; }
+
+    void WriteCounterLow(uint8_t value) { m_latchLow = value; }
+
+    void WriteCounterHigh(uint8_t value) {
+        // Transfer contents of counter high and low-order latch to counter and reset interrupt flag
+        m_counter = value << 8 | m_latchLow;
+        m_interruptFlag = false;
+    }
+
+    uint8_t ReadCounterLow() const {
+        m_interruptFlag = false;
+        return static_cast<uint8_t>(m_counter & 0x0F);
+    }
+
+    uint8_t ReadCounterHigh() const { return static_cast<uint8_t>(m_counter >> 8); }
+
+    void Update(cycles_t cycles) {
+        bool expired = cycles >= m_counter;
+        m_counter -= checked_static_cast<uint16_t>(cycles);
+        if (expired) {
+            m_interruptFlag = true;
+        }
+    }
+
+    void SetInterruptFlag(bool enabled) { m_interruptFlag = enabled; }
+    bool InterruptFlag() const { return m_interruptFlag; }
+
+private:
+    uint8_t m_latchLow = 0; // Note: Timer2 has no high-order latch
+    uint16_t m_counter = 0;
+    mutable bool m_interruptFlag = false;
+};

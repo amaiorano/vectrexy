@@ -63,7 +63,6 @@ void Via::Init(MemoryBus& memoryBus) {
     memoryBus.ConnectDevice(*this, MemoryMap::Via.range);
     m_portB = m_portA = 0;
     m_dataDirB = m_dataDirA = 0;
-    m_timer2Low = m_timer2High = 0;
     m_shift = 0;
     m_periphCntl = 0;
     m_interruptEnable = 0;
@@ -73,6 +72,7 @@ void Via::Init(MemoryBus& memoryBus) {
 
 void Via::Update(cycles_t cycles) {
     m_timer1.Update(cycles);
+    m_timer2.Update(cycles);
     UpdateShift(cycles);
 
     //@TODO: This is wrong, we need to account for how many cycles PB7 was enabled
@@ -124,21 +124,17 @@ uint8_t Via::Read(uint16_t address) const {
     case 0x7:
         return m_timer1.ReadLatchHigh();
     case 0x8:
-        FAIL_MSG("Not implemented. Not sure we need this.");
-        // return m_timer2Low;
-        return 0;
+        return m_timer2.ReadCounterLow();
     case 0x9:
-        FAIL_MSG("Not implemented. Not sure we need this. 2");
-        // return m_timer2High;
-        return 0;
+        return m_timer2.ReadCounterHigh();
     case 0xA:
         return m_shift;
     case 0xB: {
         uint8_t auxCntl = 0;
         SetBits(auxCntl, AuxCntl::Timer1FreeRunning,
                 m_timer1.TimerMode() == TimerMode::FreeRunning);
-        // SetBits(auxCntl, AuxCntl::Timer2PulseCounting,
-        //	m_timer2.TimerMode() == TimerMode::PulseCounting);
+        SetBits(auxCntl, AuxCntl::Timer2PulseCounting,
+                m_timer2.TimerMode() == TimerMode::PulseCounting);
         SetBits(auxCntl, AuxCntl::PB7Flag, m_timer1.PB7Flag());
         return auxCntl;
     }
@@ -147,9 +143,7 @@ uint8_t Via::Read(uint16_t address) const {
     case 0xD: {
         uint8_t interruptFlag = 0;
         SetBits(interruptFlag, InterruptFlag::Timer1, m_timer1.InterruptFlag());
-        //@HACK: For now, Timer2 will always report that it's interrupt flag is set. This will make
-        // the game run faster than 50 hz.
-        SetBits(interruptFlag, InterruptFlag::Timer2, true /*m_timer2.InterruptFlag()*/);
+        SetBits(interruptFlag, InterruptFlag::Timer2, m_timer2.InterruptFlag());
         return interruptFlag;
     }
     case 0xE:
@@ -223,10 +217,10 @@ void Via::Write(uint16_t address, uint8_t value) {
         m_timer1.WriteLatchHigh(value);
         break;
     case 0x8:
-        //@TODO: m_timer2.WriteCounterLow(value);
+        m_timer2.WriteCounterLow(value);
         break;
     case 0x9:
-        //@TODO: m_timer2.WriteCounterHigh(value);
+        m_timer2.WriteCounterHigh(value);
         break;
     case 0xA:
         m_shift = value;
@@ -238,8 +232,8 @@ void Via::Write(uint16_t address, uint8_t value) {
                    "t1 assumed always on one-shot mode");
         ASSERT_MSG(AuxCntl::GetTimer2Mode(value) == TimerMode::OneShot,
                    "t2 assumed always on one-shot mode");
-        m_timer1.SetMode(AuxCntl::GetTimer1Mode(value));
-        // TODO: set timer2 mode
+        m_timer1.SetTimerMode(AuxCntl::GetTimer1Mode(value));
+        m_timer2.SetTimerMode(AuxCntl::GetTimer2Mode(value));
 
         m_timer1.SetPB7Flag(TestBits(value, AuxCntl::PB7Flag));
 

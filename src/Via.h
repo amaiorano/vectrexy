@@ -47,9 +47,9 @@ private:
     // uint8_t m_timer1High;      // 0x5
     // uint8_t m_timer1LatchLow;  // 0x6
     // uint8_t m_timer1LatchHigh; // 0x7
-    uint8_t m_timer2Low;  // 0x8
-    uint8_t m_timer2High; // 0x9
-    uint8_t m_shift;      // 0xA
+    // uint8_t m_timer2Low;  // 0x8
+    // uint8_t m_timer2High; // 0x9
+    uint8_t m_shift; // 0xA
     // uint8_t m_auxCntl;         // 0xB
     uint8_t m_periphCntl; // 0xC
     // uint8_t m_interruptFlag;   // 0xD
@@ -66,5 +66,6 @@ private:
 
 public:
     Timer1 m_timer1;
+    Timer2 m_timer2;
     std::vector<Line> m_lines;
 };
