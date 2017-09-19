@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 
-std::vector<std::string> Split(const std::string& s, const char* delimiters) {
+inline std::vector<std::string> Split(const std::string& s, const char* delimiters) {
     std::vector<std::string> result;
     size_t startIndex = 0;
     while ((startIndex = s.find_first_not_of(delimiters, startIndex)) != std::string::npos) {
@@ -29,4 +29,23 @@ std::string Join(const StringContainer& values, const char* between) {
             result += between;
     }
     return result;
+}
+
+inline std::string Trim(std::string s, const char* delimiters = " \t") {
+    size_t index = s.find_first_not_of(delimiters, 0);
+    if (index != std::string::npos) {
+        s = s.substr(index);
+    }
+    index = s.find_last_not_of(delimiters);
+    if (index != std::string::npos) {
+        s = s.substr(0, index + 1);
+    }
+    return s;
+}
+
+template <typename StringContainer>
+inline StringContainer Trim(StringContainer values) {
+    std::transform(begin(values), end(values), begin(values),
+                   [](const auto& s) { return Trim(s); });
+    return values;
 }
