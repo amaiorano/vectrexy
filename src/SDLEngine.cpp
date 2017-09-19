@@ -9,9 +9,12 @@
 #include <SDL_opengl.h>
 #include <algorithm>
 #include <chrono>
+#include <fstream>
 #include <iostream>
+#include <optional>
 
 #include "Base.h" //@TODO: remove this?
+#include "StringHelpers.h"
 
 namespace {
     // Display window dimensions
@@ -66,6 +69,38 @@ namespace {
         return true;
     }
 
+    struct Options {
+        std::optional<int> windowX;
+        std::optional<int> windowY;
+    };
+
+    Options LoadOptionsFile(const char* file) {
+        Options options;
+
+        std::ifstream fin(file);
+        if (!fin) {
+            std::cerr << "No options file \"" << file << "\" found, using default values"
+                      << std::endl;
+            return options;
+        }
+
+        std::string line;
+        while (std::getline(fin, line)) {
+            auto tokens = Trim(Split(line, "="));
+
+            if (tokens.size() < 2)
+                continue;
+            if (tokens[0] == "windowX")
+                options.windowX = std::stoi(tokens[1]);
+            else if (tokens[0] == "windowY")
+                options.windowY = std::stoi(tokens[1]);
+            else {
+                std::cerr << "Unknown option: " << tokens[0] << std::endl;
+            }
+        }
+        return options;
+    }
+
 } // namespace
 
 void Display::Clear() {
@@ -85,6 +120,8 @@ void SDLEngine::RegisterClient(IEngineClient& client) {
 }
 
 bool SDLEngine::Run(int argc, char** argv) {
+    const auto options = LoadOptionsFile("options.txt");
+
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
         std::cout << "SDL cannot init with error " << SDL_GetError() << std::endl;
         return false;
@@ -92,8 +129,10 @@ bool SDLEngine::Run(int argc, char** argv) {
 
     SetOpenGLVersion();
 
-    g_window = SDL_CreateWindow(WINDOW_TITLE, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                                WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
+    int windowX = options.windowX ? *options.windowX : SDL_WINDOWPOS_CENTERED;
+    int windowY = options.windowY ? *options.windowY : SDL_WINDOWPOS_CENTERED;
+    g_window = SDL_CreateWindow(WINDOW_TITLE, windowX, windowY, WINDOW_WIDTH, WINDOW_HEIGHT,
+                                SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
     if (g_window == NULL) {
         std::cout << "Cannot create window with error " << SDL_GetError() << std::endl;
         return false;
