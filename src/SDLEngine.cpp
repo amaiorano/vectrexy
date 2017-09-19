@@ -152,6 +152,9 @@ bool SDLEngine::Run(int argc, char** argv) {
     }
 
     Display display;
+    // Clear at least once, required for certain drivers that don't clear the buffers
+    display.Clear();
+
     auto lastTime = std::chrono::high_resolution_clock::now();
 
     bool quit = false;
