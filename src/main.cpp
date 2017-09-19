@@ -39,12 +39,17 @@ private:
         if (!m_debugger.Update(deltaTime))
             return false;
 
+        m_elapsed += deltaTime;
         return true;
     }
 
     void Render(Display& display) override {
-        // display.Clear();
-        // display.DrawLine(-100.0, -100.0, 100.0, 100.0);
+        //@HACK: clear lines and screen at approximately 50hz
+        if (m_elapsed >= (1.0 / 50.0)) {
+            m_elapsed = 0;
+            m_via.m_lines.clear();
+            display.Clear();
+        }
 
         for (const auto& line : m_via.m_lines) {
             display.DrawLine(line.p0.x, line.p0.y, line.p1.x, line.p1.y);
@@ -61,6 +66,7 @@ private:
     UnmappedMemoryDevice m_unmapped;
     Cartridge m_cartridge;
     Debugger m_debugger;
+    double m_elapsed = 0;
 };
 
 int main(int argc, char** argv) {
