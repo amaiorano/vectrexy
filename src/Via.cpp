@@ -3,17 +3,32 @@
 #include "MemoryMap.h"
 
 namespace {
+    enum class ShiftRegisterMode {
+        // There are actually many more modes, but I think Vectrex only uses one
+        ShiftOutUnder02
+    };
+
     namespace PortB {
         const uint8_t MuxDisabled = BITS(0);
         const uint8_t MuxSelMask = BITS(1, 2);
-        const uint8_t MuxSelShift = 1; //???
+        const uint8_t MuxSelShift = 1;
         const uint8_t RampDisabled = BITS(7);
     } // namespace PortB
 
     namespace AuxCntl {
+        const uint8_t ShiftRegisterModeMask = BITS(2, 3, 4);
+        const uint8_t ShiftRegisterModeShift = 2;
         const uint8_t Timer2PulseCounting = BITS(5); // 1=pulse counting, 0=one-shot
         const uint8_t Timer1FreeRunning = BITS(6);   // 1=free running, 0=one-shot
         const uint8_t PB7Flag = BITS(7);             // 1=enable PB7 output
+
+        inline ShiftRegisterMode GetShiftRegisterMode(uint8_t auxCntrl) {
+            uint8_t result =
+                ReadBitsWithShift(auxCntrl, ShiftRegisterModeMask, ShiftRegisterModeShift);
+            ASSERT_MSG(result == 0b110,
+                       "ShiftRegisterMode expected to only support ShiftOutUnder02");
+            return ShiftRegisterMode::ShiftOutUnder02;
+        }
 
         inline TimerMode GetTimer1Mode(uint8_t auxCntl) {
             return TestBits(auxCntl, Timer1FreeRunning) ? TimerMode::FreeRunning
@@ -132,6 +147,7 @@ uint8_t Via::Read(uint16_t address) const {
         return m_shift;
     case 0xB: {
         uint8_t auxCntl = 0;
+        SetBits(auxCntl, 0b110 << AuxCntl::ShiftRegisterModeShift, true); //@HACK
         SetBits(auxCntl, AuxCntl::Timer1FreeRunning,
                 m_timer1.TimerMode() == TimerMode::FreeRunning);
         SetBits(auxCntl, AuxCntl::Timer2PulseCounting,
@@ -228,7 +244,11 @@ void Via::Write(uint16_t address, uint8_t value) {
         m_shiftCycle = true;
         UpdateShift(2);
         break;
-    case 0xB:
+    case 0xB: {
+        // For now just read the shift register mode, which will assert if it's invalid/unexpected
+        auto shiftRegisterMode = AuxCntl::GetShiftRegisterMode(value);
+        (void)shiftRegisterMode;
+
         ASSERT_MSG(AuxCntl::GetTimer1Mode(value) == TimerMode::OneShot,
                    "t1 assumed always on one-shot mode");
         ASSERT_MSG(AuxCntl::GetTimer2Mode(value) == TimerMode::OneShot,
@@ -238,7 +258,7 @@ void Via::Write(uint16_t address, uint8_t value) {
 
         m_timer1.SetPB7Flag(TestBits(value, AuxCntl::PB7Flag));
 
-        break;
+    } break;
     case 0xC: {
         ASSERT_MSG(ReadBitsWithShift(value, PeriphCntl::CA2Mask, PeriphCntl::CA2Shift) == 0b110 ||
                        ReadBitsWithShift(value, PeriphCntl::CA2Mask, PeriphCntl::CA2Shift) == 0b111,
