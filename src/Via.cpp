@@ -75,6 +75,7 @@ void Via::Update(cycles_t cycles) {
     m_timer2.Update(cycles);
     UpdateShift(cycles);
 
+    // If the Timer1 PB7 flag is set, then PB7 drives /RAMP
     //@TODO: This is wrong, we need to account for how many cycles PB7 was enabled
     // for before we turn off drawing.
     if (m_timer1.PB7Flag()) {
@@ -92,8 +93,8 @@ void Via::Update(cycles_t cycles) {
         //@TODO: float offset = 0; // m_xyOffset;
         Vector2 delta = {0.f, 0.f};
 
-        delta.x = m_velocity.x != 0.f ? (m_velocity.x / 128.f) * cycles : 0.f;
-        delta.y = m_velocity.y != 0.f ? (m_velocity.y / 128.f) * cycles : 0.f;
+        delta.x = ((m_velocity.x + m_xyOffset) / 128.f) * cycles;
+        delta.y = ((m_velocity.y + m_xyOffset) / 128.f) * cycles;
 
         bool drawEnabled = !m_blank && (m_brightness > 0.f && m_brightness <= 128.f);
         if (drawEnabled) {
