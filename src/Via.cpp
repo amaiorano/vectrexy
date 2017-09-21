@@ -86,37 +86,43 @@ void Via::Init(MemoryBus& memoryBus) {
 }
 
 void Via::Update(cycles_t cycles) {
-    m_timer1.Update(cycles);
-    m_timer2.Update(cycles);
-    UpdateShift(cycles);
+    // For cycle-accurate drawing, we update our timers, shift register, and beam movement 1 cycle
+    // at a time
+    cycles_t cyclesLeft = cycles;
+    cycles = 1;
+    while (cyclesLeft-- > 0) {
+        m_timer1.Update(cycles);
+        m_timer2.Update(cycles);
+        UpdateShift(cycles);
 
-    // If the Timer1 PB7 flag is set, then PB7 drives /RAMP
-    //@TODO: This is wrong, we need to account for how many cycles PB7 was enabled
-    // for before we turn off drawing.
-    if (m_timer1.PB7Flag()) {
-        SetBits(m_portB, PortB::RampDisabled, !m_timer1.PB7SignalLow());
-    }
-
-    if (PeriphCntl::IsZeroEnabled(m_periphCntl)) {
-        //@TODO: move beam towards 0,0 over time
-        m_pos = {0.f, 0.f};
-    }
-
-    // Integrators are enabled while RAMP line is active (low)
-    bool integratorsEnabled = !TestBits(m_portB, PortB::RampDisabled);
-    if (integratorsEnabled) {
-        //@TODO: float offset = 0; // m_xyOffset;
-        Vector2 delta = {0.f, 0.f};
-
-        delta.x = ((m_velocity.x + m_xyOffset) / 128.f) * cycles;
-        delta.y = ((m_velocity.y + m_xyOffset) / 128.f) * cycles;
-
-        bool drawEnabled = !m_blank && (m_brightness > 0.f && m_brightness <= 128.f);
-        if (drawEnabled) {
-            m_lines.emplace_back(Line{m_pos, m_pos + delta});
+        // If the Timer1 PB7 flag is set, then PB7 drives /RAMP
+        //@TODO: This is wrong, we need to account for how many cycles PB7 was enabled
+        // for before we turn off drawing.
+        if (m_timer1.PB7Flag()) {
+            SetBits(m_portB, PortB::RampDisabled, !m_timer1.PB7SignalLow());
         }
 
-        m_pos += delta;
+        if (PeriphCntl::IsZeroEnabled(m_periphCntl)) {
+            //@TODO: move beam towards 0,0 over time
+            m_pos = {0.f, 0.f};
+        }
+
+        // Integrators are enabled while RAMP line is active (low)
+        bool integratorsEnabled = !TestBits(m_portB, PortB::RampDisabled);
+        if (integratorsEnabled) {
+            //@TODO: float offset = 0; // m_xyOffset;
+            Vector2 delta = {0.f, 0.f};
+
+            delta.x = ((m_velocity.x + m_xyOffset) / 128.f) * cycles;
+            delta.y = ((m_velocity.y + m_xyOffset) / 128.f) * cycles;
+
+            bool drawEnabled = !m_blank && (m_brightness > 0.f && m_brightness <= 128.f);
+            if (drawEnabled) {
+                m_lines.emplace_back(Line{m_pos, m_pos + delta});
+            }
+
+            m_pos += delta;
+        }
     }
 }
 
@@ -292,9 +298,8 @@ void Via::UpdateShift(cycles_t cycles) {
     for (int i = 0; i < cycles; ++i) {
         m_shiftCycle = !m_shiftCycle;
         if (m_shiftCycle) {
-            uint8_t bit7 = TestBits01(m_shift, BITS(7));
-            m_shift = (m_shift << 1) | bit7;
-            m_blank = (bit7 == 0);
+            m_blank = !TestBits(m_shift, BITS(7));
+            m_shift <<= 1;
         }
     }
 }
