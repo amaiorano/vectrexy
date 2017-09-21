@@ -86,8 +86,11 @@ namespace {
 
         std::string line;
         while (std::getline(fin, line)) {
-            auto tokens = Trim(Split(line, "="));
+            line = Trim(line);
+            if (line[0] == ';') // Skip comments
+                continue;
 
+            auto tokens = Trim(Split(line, "="));
             if (tokens.size() < 2)
                 continue;
             if (tokens[0] == "windowX")
