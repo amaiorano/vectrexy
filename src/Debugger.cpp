@@ -584,11 +584,11 @@ void Debugger::Init(MemoryBus& memoryBus, Cpu& cpu, Via& via) {
 
     m_lastCommand = "step"; // Reasonable default
 
-    // Break on start
-    m_breakIntoDebugger = true;
+    // Break on start?
+    m_breakIntoDebugger = false;
 
-    // Enable trace when running normally
-    m_traceEnabled = true;
+    // Enable trace by default?
+    m_traceEnabled = false;
 
     m_memoryBus->RegisterCallbacks(
         [&](uint16_t address) {
