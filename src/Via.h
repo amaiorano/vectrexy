@@ -62,7 +62,7 @@ private:
     float m_xyOffset = 0.f;
     float m_brightness = 0.f;
     bool m_blank = false;
-    bool m_shiftCycle = true;
+    int m_shiftCyclesLeft = 0;
 
 public:
     Timer1 m_timer1;

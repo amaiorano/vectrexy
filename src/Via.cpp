@@ -307,7 +307,7 @@ void Via::Write(uint16_t address, uint8_t value) {
         break;
     case 0xA:
         m_shift = value;
-        m_shiftCycle = true;
+        m_shiftCyclesLeft = 18;
         UpdateShift(2);
         break;
     case 0xB: {
@@ -356,10 +356,22 @@ void Via::Write(uint16_t address, uint8_t value) {
 
 void Via::UpdateShift(cycles_t cycles) {
     for (int i = 0; i < cycles; ++i) {
-        m_shiftCycle = !m_shiftCycle;
-        if (m_shiftCycle) {
-            m_blank = !TestBits(m_shift, BITS(7));
-            m_shift <<= 1;
+        if (m_shiftCyclesLeft > 0) {
+            if (m_shiftCyclesLeft % 2 == 1) {
+                bool isLastShiftCycle = m_shiftCyclesLeft == 1;
+                if (isLastShiftCycle) {
+                    // For the last (9th) shift cycle, we output the same bit that was output for
+                    // the 8th, which is now in bit position 0. We also don't shift (is that
+                    // correct?)
+                    uint8_t bit = TestBits01(m_shift, BITS(0));
+                    m_blank = bit == 0;
+                } else {
+                    uint8_t bit = TestBits01(m_shift, BITS(7));
+                    m_blank = bit == 0;
+                    m_shift = (m_shift << 1) | bit;
+                }
+            }
+            --m_shiftCyclesLeft;
         }
     }
 }
