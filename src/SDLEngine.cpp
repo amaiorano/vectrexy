@@ -112,10 +112,20 @@ void Display::Clear() {
 }
 
 void Display::DrawLine(float x1, float y1, float x2, float y2) {
-    glBegin(GL_LINES);
-    glVertex2f(x1, y1);
-    glVertex2f(x2, y2);
-    glEnd();
+    auto AlmostEqual = [](float a, float b, float epsilon = 0.01f) {
+        return abs(a - b) <= epsilon;
+    };
+
+    if (AlmostEqual(x1, x2) && AlmostEqual(y1, y2)) {
+        glBegin(GL_POINTS);
+        glVertex2f(x1, y1);
+        glEnd();
+    } else {
+        glBegin(GL_LINES);
+        glVertex2f(x1, y1);
+        glVertex2f(x2, y2);
+        glEnd();
+    }
 }
 
 void SDLEngine::RegisterClient(IEngineClient& client) {

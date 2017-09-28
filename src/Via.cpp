@@ -129,8 +129,6 @@ void Via::Update(cycles_t cycles) {
         UpdateShift(cycles);
 
         // If the Timer1 PB7 flag is set, then PB7 drives /RAMP
-        //@TODO: This is wrong, we need to account for how many cycles PB7 was enabled
-        // for before we turn off drawing.
         if (m_timer1.PB7Flag()) {
             SetBits(m_portB, PortB::RampDisabled, !m_timer1.PB7SignalLow());
         }
@@ -140,21 +138,21 @@ void Via::Update(cycles_t cycles) {
             m_pos = {0.f, 0.f};
         }
 
+        const auto lastPos = m_pos;
+        Vector2 delta = {0.f, 0.f};
+
         // Integrators are enabled while RAMP line is active (low)
         bool integratorsEnabled = !TestBits(m_portB, PortB::RampDisabled);
         if (integratorsEnabled) {
-            //@TODO: float offset = 0; // m_xyOffset;
-            Vector2 delta = {0.f, 0.f};
-
-            delta.x = ((m_velocity.x + m_xyOffset) / 128.f) * cycles;
-            delta.y = ((m_velocity.y + m_xyOffset) / 128.f) * cycles;
-
-            bool drawEnabled = !m_blank && (m_brightness > 0.f && m_brightness <= 128.f);
-            if (drawEnabled) {
-                m_lines.emplace_back(Line{m_pos, m_pos + delta});
-            }
-
+            auto offset = Vector2{m_xyOffset, m_xyOffset};
+            delta = (m_velocity + offset) / 128.f * static_cast<float>(cycles);
             m_pos += delta;
+        }
+
+        // We might draw even when integrators are disabled (e.g. drawing dots)
+        bool drawingEnabled = !m_blank && (m_brightness > 0.f && m_brightness <= 128.f);
+        if (drawingEnabled) {
+            m_lines.emplace_back(Line{lastPos, m_pos});
         }
     }
 }
