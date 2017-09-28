@@ -219,13 +219,17 @@ void Via::Write(uint16_t address, uint8_t value) {
         // Port A is connected directly to the DAC, which in turn is connected to both a MUX with 4
         // outputs, and to the X-axis integrator.
         m_portA = value;
-        UpdateIntegrators();
+        if (m_dataDirA == 0xFF) {
+            UpdateIntegrators();
+        }
         break;
     case 0x2:
         m_dataDirB = value;
         break;
     case 0x3:
         m_dataDirA = value;
+        ASSERT_MSG(m_dataDirA == 0 || m_dataDirA == 0xFF,
+                   "Expecting DDR for A to be either all 0s or all 1s");
         break;
     case 0x4:
         m_timer1.WriteCounterLow(value);
