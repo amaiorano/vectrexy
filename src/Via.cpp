@@ -2,6 +2,36 @@
 #include "BitOps.h"
 #include "MemoryMap.h"
 
+#include <SDL_events.h>
+#include <SDL_keyboard.h>
+
+namespace {
+    uint8_t ReadJoystickButtons() {
+        auto* state = SDL_GetKeyboardState(nullptr);
+        uint8_t result = 0xFF;
+        SetBits(result, 0b0000'0001, state[SDL_SCANCODE_A] == 0);
+        SetBits(result, 0b0000'0010, state[SDL_SCANCODE_S] == 0);
+        SetBits(result, 0b0000'0100, state[SDL_SCANCODE_D] == 0);
+        SetBits(result, 0b0000'1000, state[SDL_SCANCODE_F] == 0);
+        return result;
+    }
+
+    int8_t ReadJoystickAnalog(uint8_t muxSel) {
+        // 00: Vec_Joy_Mux_1_X
+        // 01 : Vec_Joy_Mux_1_Y
+        // 10 : Vec_Joy_Mux_2_X
+        // 11 : Vec_Joy_Mux_2_Y
+        auto* state = SDL_GetKeyboardState(nullptr);
+        switch (muxSel) {
+        case 0:
+            return state[SDL_SCANCODE_LEFT] != 0 ? -128 : state[SDL_SCANCODE_RIGHT] != 0 ? 127 : 0;
+        case 1:
+            return state[SDL_SCANCODE_DOWN] != 0 ? -128 : state[SDL_SCANCODE_UP] != 0 ? 127 : 0;
+        }
+        return 0;
+    }
+} // namespace
+
 namespace {
     enum class ShiftRegisterMode {
         // There are actually many more modes, but I think Vectrex only uses one
@@ -12,6 +42,9 @@ namespace {
         const uint8_t MuxDisabled = BITS(0);
         const uint8_t MuxSelMask = BITS(1, 2);
         const uint8_t MuxSelShift = 1;
+        const uint8_t SoundBC1 = BITS(3);
+        const uint8_t SoundBDir = BITS(4);
+        const uint8_t Comparator = BITS(5);
         const uint8_t RampDisabled = BITS(7);
     } // namespace PortB
 
@@ -129,10 +162,33 @@ void Via::Update(cycles_t cycles) {
 uint8_t Via::Read(uint16_t address) const {
     const uint16_t index = MemoryMap::Via.MapAddress(address);
     switch (index) {
-    case 0x0:
-        return m_portB;
-    case 0x1:
-        return m_portA;
+    case 0x0: {
+        uint8_t result = m_portB;
+
+        // Analog input
+        const bool muxEnabled = !TestBits(m_portB, PortB::MuxDisabled);
+        if (!muxEnabled) {
+            uint8_t muxSel = ReadBitsWithShift(m_portB, PortB::MuxSelMask, PortB::MuxSelShift);
+            int8_t portASigned = static_cast<int8_t>(m_portA);
+            SetBits(result, PortB::Comparator, portASigned < ReadJoystickAnalog(muxSel));
+        }
+
+        return result;
+    }
+    case 0x1: {
+        uint8_t result = m_portA;
+
+        // Digital input
+        if (!TestBits(m_portB, PortB::SoundBDir) && TestBits(m_portB, PortB::SoundBC1)) {
+            if (m_dataDirA == 0) { // Input mode
+                                   // @TODO: in this mode, we're reading the PSG's port A, not the
+                                   // VIA's DAC, so this is probably wrong
+                result = ReadJoystickButtons();
+            }
+        }
+
+        return result;
+    }
     case 0x2:
         return m_dataDirB;
     case 0x3:
