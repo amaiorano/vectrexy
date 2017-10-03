@@ -181,7 +181,7 @@ bool SDLEngine::Run(int argc, char** argv) {
 
         const auto currTime = std::chrono::high_resolution_clock::now();
         const std::chrono::duration<double> diff = currTime - lastTime;
-        const double deltaTime = std::min(diff.count(), 1 / 10.0);
+        const double deltaTime = std::min(diff.count(), 1 / 100.0);
         lastTime = currTime;
 
         // FPS
