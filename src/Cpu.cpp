@@ -1,4 +1,5 @@
 #include "Cpu.h"
+#include "BitOps.h"
 #include "CpuHelpers.h"
 #include "CpuOpCodes.h"
 #include "MemoryBus.h"
@@ -223,7 +224,7 @@ public:
                 uint8_t postbyte2 = ReadPC8();
                 uint8_t postbyte3 = ReadPC8();
                 EA = CombineToS16(postbyte2, postbyte3);
-                extraCycles = 5;
+                extraCycles = 2;
             } break;
             default:
                 FAIL_MSG("Illegal");
@@ -666,7 +667,9 @@ public:
         if (value & BITS(0))
             Push8(stackReg, CC.Value);
 
-        m_cycles += NumBitsSet(value); // 1 cycle per value that's pushed
+		// 1 cycle per byte pushed
+        m_cycles += NumBitsSet(ReadBits(value, BITS(0, 1, 2, 3)));
+        m_cycles += NumBitsSet(ReadBits(value, BITS(4, 5, 6, 7))) * 2;
     }
 
     template <int page, uint8_t opCode>
@@ -692,7 +695,9 @@ public:
         if (value & BITS(7))
             PC = Pop16(stackReg);
 
-        m_cycles += NumBitsSet(value); // 1 cycle per value that's pulled
+		// 1 cycle per byte pulled
+        m_cycles += NumBitsSet(ReadBits(value, BITS(0, 1, 2, 3)));
+        m_cycles += NumBitsSet(ReadBits(value, BITS(4, 5, 6, 7))) * 2;
     }
 
     template <int page, uint8_t opCode>
