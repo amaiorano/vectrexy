@@ -538,7 +538,7 @@ namespace {
                "trace                   toggle disassembly trace\n"
                "color                   toggle colored output (slow)\n"
                "q[uit]                  quit\n"
-               "h[help]                 display this help text\n");
+               "h[elp]                  display this help text\n");
     }
 
     bool LoadUserSymbolsFile(const char* file, Debugger::SymbolTable& symbolTable) {
