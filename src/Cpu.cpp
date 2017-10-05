@@ -625,7 +625,7 @@ public:
         value = (value << 1);
         CC.Zero = (value == 0);
         CC.Negative = (value & BITS(7)) != 0;
-        CC.Carry = origValue & 0b1000'0000;
+        CC.Carry = (origValue & 0b1000'0000) != 0;
         // Overflow (sign change) happens if bit 7 or 6 was set, but not both
         CC.Overflow = (origValue >> 7) ^ (origValue >> 6);
     }
@@ -667,7 +667,7 @@ public:
         if (value & BITS(0))
             Push8(stackReg, CC.Value);
 
-		// 1 cycle per byte pushed
+        // 1 cycle per byte pushed
         m_cycles += NumBitsSet(ReadBits(value, BITS(0, 1, 2, 3)));
         m_cycles += NumBitsSet(ReadBits(value, BITS(4, 5, 6, 7))) * 2;
     }
@@ -695,7 +695,7 @@ public:
         if (value & BITS(7))
             PC = Pop16(stackReg);
 
-		// 1 cycle per byte pulled
+        // 1 cycle per byte pulled
         m_cycles += NumBitsSet(ReadBits(value, BITS(0, 1, 2, 3)));
         m_cycles += NumBitsSet(ReadBits(value, BITS(4, 5, 6, 7))) * 2;
     }
