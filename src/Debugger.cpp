@@ -487,6 +487,29 @@ namespace {
         return {hexInstruction, disasmInstruction, comment, cpuOp.description};
     };
 
+    std::string GetCCString(const CpuRegisters& cpuRegisters) {
+        const auto& cc = cpuRegisters.CC;
+        return FormattedString<>("%c%c%c%c%c%c%c%c", cc.Entire ? 'E' : 'e',
+                                 cc.FastInterruptMask ? 'F' : 'f', cc.HalfCarry ? 'H' : 'h',
+                                 cc.InterruptMask ? 'I' : 'i', cc.Negative ? 'N' : 'n',
+                                 cc.Zero ? 'Z' : 'z', cc.Overflow ? 'V' : 'v', cc.Carry ? 'C' : 'c')
+            .Value();
+    }
+
+    void PrintRegisters(const CpuRegisters& cpuRegisters) {
+        const auto& r = cpuRegisters;
+        printf("A=$%02x (%d) B=$%02x (%d) D=$%04x (%d) X=$%04x (%d) "
+               "Y=$%04x (%d) U=$%04x S=$%04x DP=$%02x PC=$%04x CC=%s",
+               r.A, r.A, r.B, r.B, r.D, r.D, r.X, r.X, r.Y, r.Y, r.U, r.S, r.DP, r.PC,
+               GetCCString(cpuRegisters).c_str());
+    }
+
+    void PrintRegistersCompact(const CpuRegisters& cpuRegisters) {
+        const auto& r = cpuRegisters;
+        printf("A$%02x|B$%02x|X$%04x|Y$%04x|U$%04x|S$%04x|DP$%02x|%s", r.A, r.B, r.X, r.Y, r.U, r.S,
+               r.DP, GetCCString(cpuRegisters).c_str());
+    }
+
     void PrintOp(const CpuRegisters& cpuRegisters, const MemoryBus& memoryBus,
                  const Debugger::SymbolTable& symbolTable) {
         auto op = DisassembleOp(cpuRegisters, memoryBus, symbolTable);
@@ -500,25 +523,15 @@ namespace {
         printf("%-32s ", op.disasmInstruction.c_str());
         SetConsoleColor(ConsoleColor::LightGreen);
         printf("%-40s ", op.comment.c_str());
-        SetConsoleColor(ConsoleColor::LightPurple);
-        printf("%s", op.description.c_str());
-        printf("\n");
     }
 
-    void PrintRegisters(const CpuRegisters& cpuRegisters) {
-        const auto& cc = cpuRegisters.CC;
-
-        std::string CC =
-            FormattedString<>("%c%c%c%c%c%c%c%c", cc.Entire ? 'E' : 'e',
-                              cc.FastInterruptMask ? 'F' : 'f', cc.HalfCarry ? 'H' : 'h',
-                              cc.InterruptMask ? 'I' : 'i', cc.Negative ? 'N' : 'n',
-                              cc.Zero ? 'Z' : 'z', cc.Overflow ? 'V' : 'v', cc.Carry ? 'C' : 'c')
-                .Value();
-
-        const auto& r = cpuRegisters;
-        printf("A=$%02x (%d) B=$%02x (%d) D=$%04x (%d) X=$%04x (%d) "
-               "Y=$%04x (%d) U=$%04x S=$%04x DP=$%02x PC=$%04x CC=%s\n",
-               r.A, r.A, r.B, r.B, r.D, r.D, r.X, r.X, r.Y, r.Y, r.U, r.S, r.DP, r.PC, CC.c_str());
+    void PrintPostOp(const CpuRegisters& cpuRegisters, cycles_t elapsedCycles) {
+        using namespace Platform;
+        ScopedConsoleColor scc(ConsoleColor::Gray);
+        SetConsoleColor(ConsoleColor::LightPurple);
+        printf("%2llu ", elapsedCycles);
+        PrintRegistersCompact(cpuRegisters);
+        printf("\n");
     }
 
     void PrintHelp() {
@@ -625,6 +638,8 @@ bool Debugger::Update(double deltaTime) {
         try {
             cycles_t elapsedCycles = m_cpu->ExecuteInstruction();
             m_via->Update(elapsedCycles);
+            if (m_traceEnabled)
+                PrintPostOp(m_cpu->Registers(), elapsedCycles);
             return elapsedCycles;
         } catch (std::exception& ex) {
             printf("Exception caught:\n%s\n", ex.what());
@@ -772,6 +787,7 @@ bool Debugger::Update(double deltaTime) {
         } else if (tokens[0] == "info") {
             if (tokens.size() > 1 && (tokens[1] == "registers" || tokens[1] == "reg")) {
                 PrintRegisters(m_cpu->Registers());
+                printf("\n");
             } else if (tokens.size() > 1 && (tokens[1] == "break")) {
                 printf("Breakpoints:\n");
                 Platform::ScopedConsoleColor scc;
