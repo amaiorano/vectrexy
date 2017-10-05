@@ -37,6 +37,13 @@
 #pragma warning(disable : 4201) // nonstandard extension used : nameless struct/union
 #endif
 
+// Optimization control
+#if _MSC_VER
+#define OPTIMIZE_OFF __pragma(optimize("", off))
+#define OPTIMIZE_ON __pragma(optimize("", on))
+#define NO_INLINE_FUNC __declspec(noinline)
+#endif
+
 template <typename T>
 constexpr bool IsPowerOfTwo(T value) {
     return (value != 0) && ((value & (value - 1)) == 0);
