@@ -718,8 +718,8 @@ public:
         reg = reg | value;
         // For ORCC, we don't update CC. @TODO: separate function?
         if (&reg != &CC.Value) {
-            CC.Negative = (value & BITS(7)) != 0;
-            CC.Zero = value == 0;
+            CC.Negative = (reg & BITS(7)) != 0;
+            CC.Zero = reg == 0;
             CC.Overflow = 0;
         }
     }
@@ -730,8 +730,8 @@ public:
         reg = reg & value;
         // For ANDCC, we don't update CC. @TODO: separate function?
         if (&reg != &CC.Value) {
-            CC.Negative = (value & BITS(7)) != 0;
-            CC.Zero = value == 0;
+            CC.Negative = (reg & BITS(7)) != 0;
+            CC.Zero = reg == 0;
             CC.Overflow = 0;
         }
     }
