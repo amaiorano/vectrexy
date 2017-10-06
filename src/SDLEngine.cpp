@@ -15,10 +15,8 @@
 
 namespace {
     // Display window dimensions
-    //#define WINDOW_WIDTH 480
-    const int WINDOW_WIDTH = 600;
-    //#define WINDOW_WIDTH 768
-    const int WINDOW_HEIGHT = static_cast<int>(WINDOW_WIDTH * 4.0f / 3.0f);
+    const int DEFAULT_WINDOW_WIDTH = 600;
+    inline int WindowHeightFromWidth(int width) { return static_cast<int>(width * 4.0f / 3.0f); }
 
     // Vectrex screen dimensions
     const int SCREEN_WIDTH = 256;
@@ -69,6 +67,7 @@ namespace {
     struct Options {
         std::optional<int> windowX;
         std::optional<int> windowY;
+        std::optional<int> windowWidth;
     };
 
     Options LoadOptionsFile(const char* file) {
@@ -94,6 +93,8 @@ namespace {
                 options.windowX = std::stoi(tokens[1]);
             else if (tokens[0] == "windowY")
                 options.windowY = std::stoi(tokens[1]);
+            else if (tokens[0] == "windowWidth")
+                options.windowWidth = std::stoi(tokens[1]);
             else {
                 std::cerr << "Unknown option: " << tokens[0] << std::endl;
             }
@@ -139,9 +140,12 @@ bool SDLEngine::Run(int argc, char** argv) {
 
     SetOpenGLVersion();
 
-    int windowX = options.windowX ? *options.windowX : SDL_WINDOWPOS_CENTERED;
-    int windowY = options.windowY ? *options.windowY : SDL_WINDOWPOS_CENTERED;
-    g_window = SDL_CreateWindow(WINDOW_TITLE, windowX, windowY, WINDOW_WIDTH, WINDOW_HEIGHT,
+    const int windowX = options.windowX.value_or(SDL_WINDOWPOS_CENTERED);
+    const int windowY = options.windowY.value_or(SDL_WINDOWPOS_CENTERED);
+    const int windowWidth = options.windowWidth.value_or(DEFAULT_WINDOW_WIDTH);
+    const int windowHeight = WindowHeightFromWidth(windowWidth);
+
+    g_window = SDL_CreateWindow(WINDOW_TITLE, windowX, windowY, windowWidth, windowHeight,
                                 SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
     if (g_window == NULL) {
         std::cout << "Cannot create window with error " << SDL_GetError() << std::endl;
@@ -155,7 +159,7 @@ bool SDLEngine::Run(int argc, char** argv) {
     }
 
     InitGL();
-    SetViewport(WINDOW_WIDTH, WINDOW_HEIGHT);
+    SetViewport(windowWidth, windowHeight);
 
     if (!g_client->Init(argc, argv)) {
         return false;
