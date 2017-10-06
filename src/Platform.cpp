@@ -3,6 +3,7 @@
 #ifdef WIN32
 
 #include <cassert>
+struct IUnknown; // Fix compile error in VS2017 15.3 when including windows.h
 #include <windows.h>
 
 // Undef the macro from windows.h so we can use the same name

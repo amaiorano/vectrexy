@@ -1,10 +1,5 @@
 #include "SDLEngine.h"
 
-#include <Windows.h>
-#undef min
-#undef max
-
-#include <GL/GLU.h>
 #include <SDL.h>
 #include <SDL_opengl.h>
 #include <algorithm>
@@ -12,6 +7,8 @@
 #include <fstream>
 #include <iostream>
 #include <optional>
+
+#include <GL/GLU.h>
 
 #include "Base.h" //@TODO: remove this?
 #include "StringHelpers.h"
