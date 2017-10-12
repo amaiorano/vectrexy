@@ -19,30 +19,30 @@ namespace {
     }
 
     template <typename T>
-    uint8_t CalcZero(T v) {
+    constexpr uint8_t CalcZero(T v) {
         return v == 0;
     }
 
-    uint8_t CalcNegative(uint8_t v) { return (v & BITS(7)) != 0; }
-    uint8_t CalcNegative(uint16_t v) { return (v & BITS(15)) != 0; }
+    constexpr uint8_t CalcNegative(uint8_t v) { return (v & BITS(7)) != 0; }
+    constexpr uint8_t CalcNegative(uint16_t v) { return (v & BITS(15)) != 0; }
 
-    uint8_t CalcCarry(uint16_t r) { return (r & 0xFF00) != 0; }
-    uint8_t CalcCarry(uint32_t r) { return (r & 0xFFFF'0000) != 0; }
+    constexpr uint8_t CalcCarry(uint16_t r) { return (r & 0xFF00) != 0; }
+    constexpr uint8_t CalcCarry(uint32_t r) { return (r & 0xFFFF'0000) != 0; }
     uint8_t CalcCarry(uint8_t r) = delete; // Result must be larger than 8 or 16 bits
 
-    uint8_t CalcHalfCarryFromAdd(uint8_t a, uint8_t b) {
+    constexpr uint8_t CalcHalfCarryFromAdd(uint8_t a, uint8_t b) {
         return (((a & 0x0F) + (b & 0x0F)) & 0xF0) != 0;
     }
     uint8_t CalcHalfCarryFromAdd(uint16_t a,
                                  uint16_t b) = delete; // Only 8-bit add computes half-carry
 
-    uint8_t CalcOverflow(uint8_t a, uint8_t b, uint16_t r) {
+    constexpr uint8_t CalcOverflow(uint8_t a, uint8_t b, uint16_t r) {
         // Given r = a + b, overflow occurs if both a and b are negative and r is positive, or both
         // a and b are positive and r is negative. Looking at sign bits of a, b, and r, overflow
         // occurs when 0 0 1 or 1 1 0.
         return (((uint16_t)a ^ r) & ((uint16_t)b ^ r) & BITS(7)) != 0;
     }
-    uint8_t CalcOverflow(uint16_t a, uint16_t b, uint32_t r) {
+    constexpr uint8_t CalcOverflow(uint16_t a, uint16_t b, uint32_t r) {
         return (((uint32_t)a ^ r) & ((uint32_t)b ^ r) & BITS(15)) != 0;
     }
     template <typename T>
@@ -309,8 +309,8 @@ public:
     template <int page, uint8_t opCode>
     void OpLD(uint8_t& targetReg) {
         uint8_t value = ReadOperandValue8<LookupCpuOp(page, opCode).addrMode>();
-        CC.Negative = (value & BITS(7)) != 0;
-        CC.Zero = (value == 0);
+        CC.Negative = CalcNegative(value);
+        CC.Zero = CalcZero(value);
         CC.Overflow = 0;
         targetReg = value;
     }
@@ -318,8 +318,8 @@ public:
     template <int page, uint8_t opCode>
     void OpLD(uint16_t& targetReg) {
         uint16_t value = ReadOperandValue16<LookupCpuOp(page, opCode).addrMode>();
-        CC.Negative = (value & BITS(15)) != 0;
-        CC.Zero = (value == 0);
+        CC.Negative = CalcNegative(value);
+        CC.Zero = CalcZero(value);
         CC.Overflow = 0;
         targetReg = value;
     }
@@ -328,8 +328,8 @@ public:
     void OpST(const uint8_t& sourceReg) {
         uint16_t EA = ReadEA16<LookupCpuOp(page, opCode).addrMode>();
         m_memoryBus->Write(EA, sourceReg);
-        CC.Negative = (sourceReg & BITS(7)) != 0;
-        CC.Zero = (sourceReg == 0);
+        CC.Negative = CalcNegative(sourceReg);
+        CC.Zero = CalcZero(sourceReg);
         CC.Overflow = 0;
     }
 
@@ -338,8 +338,8 @@ public:
         uint16_t EA = ReadEA16<LookupCpuOp(page, opCode).addrMode>();
         m_memoryBus->Write(EA, U8(sourceReg >> 8));       // High
         m_memoryBus->Write(EA + 1, U8(sourceReg & 0xFF)); // Low
-        CC.Negative = (sourceReg & BITS(7)) != 0;
-        CC.Zero = (sourceReg == 0);
+        CC.Negative = CalcNegative(sourceReg);
+        CC.Zero = CalcZero(sourceReg);
         CC.Overflow = 0;
     }
 
@@ -458,13 +458,13 @@ public:
     void OpMUL() {
         uint16_t result = A * B;
         CC.Zero = CalcZero(result);
-        CC.Carry = (result & BITS(7)) != 0;
+        CC.Carry = TestBits01(result, BITS(7)); // Because bitwise multiply
         D = result;
     }
 
     template <int page, uint8_t opCode>
     void OpSEX() {
-        A = ((B & BITS(7)) != 0) ? 0xFF : 0;
+        A = TestBits(B, BITS(7)) ? 0xFF : 0;
         CC.Negative = CalcNegative(D);
         CC.Zero = CalcZero(D);
     }
@@ -474,9 +474,9 @@ public:
     void OpNEG(uint8_t& value) {
         auto origValue = value;
         value = -value;
-        CC.Overflow = origValue == 0b1000'0000;
-        CC.Zero = value == 0;
-        CC.Negative = (value & BITS(7)) != 0;
+        CC.Overflow = origValue == BITS(7);
+        CC.Zero = CalcZero(value);
+        CC.Negative = CalcNegative(value);
         CC.Carry = origValue != 0; //@TODO: double check this
     }
 
@@ -491,34 +491,30 @@ public:
 
     // INCA, INCB
     template <int page, uint8_t opCode>
-    void OpINC(uint8_t& reg) {
-        ++reg;
-        CC.Overflow = reg == 0;
-        CC.Zero = (reg == 0);
-        CC.Negative = (reg & BITS(7)) != 0;
+    void OpINC(uint8_t& value) {
+        ++value;
+        CC.Overflow = value == 0; // Overflowed if value became 0
+        CC.Zero = CalcZero(value);
+        CC.Negative = CalcNegative(value);
     }
 
     // INC <address>
     template <int page, uint8_t opCode>
     void OpINC() {
-        //@TODO: refactor in terms of OpINC(uint8_t&) like OpNEG
         uint16_t EA = ReadEA16<LookupCpuOp(page, opCode).addrMode>();
         uint8_t value = m_memoryBus->Read(EA);
-        ++value;
+        OpINC<page, opCode>(value);
         m_memoryBus->Write(EA, value);
-        CC.Overflow = value == 0;
-        CC.Zero = (value == 0);
-        CC.Negative = (value & BITS(7)) != 0;
     }
 
     // DECA, DECB
     template <int page, uint8_t opCode>
-    void OpDEC(uint8_t& reg) {
-        uint8_t origReg = reg;
-        --reg;
-        CC.Overflow = origReg == 0b1000'0000; // Could also set to (reg == 0b01111'1111)
-        CC.Zero = (reg == 0);
-        CC.Negative = (reg & BITS(7)) != 0;
+    void OpDEC(uint8_t& value) {
+        uint8_t origValue = value;
+        --value;
+        CC.Overflow = origValue == 0b1000'0000; // Could also set to (value == 0b01111'1111)
+        CC.Zero = CalcZero(value);
+        CC.Negative = CalcNegative(value);
     }
 
     // DEC <address>
@@ -526,20 +522,16 @@ public:
     void OpDEC() {
         uint16_t EA = ReadEA16<LookupCpuOp(page, opCode).addrMode>();
         uint8_t value = m_memoryBus->Read(EA);
-        uint8_t origValue = value;
-        --value;
+        OpDEC<page, opCode>(value);
         m_memoryBus->Write(EA, value);
-        CC.Overflow = origValue == 0b1000'0000;
-        CC.Zero = (value == 0);
-        CC.Negative = (value & BITS(7)) != 0;
     }
 
     template <int page, uint8_t opCode>
     void OpASR(uint8_t& value) {
         auto origValue = value;
         value = (origValue & 0b1000'0000) | (value >> 1);
-        CC.Zero = (value == 0);
-        CC.Negative = (value & BITS(7)) != 0;
+        CC.Zero = CalcZero(value);
+        CC.Negative = CalcNegative(value);
         CC.Carry = origValue & 0b0000'0001;
     }
 
@@ -555,7 +547,7 @@ public:
     void OpLSR(uint8_t& value) {
         auto origValue = value;
         value = (value >> 1);
-        CC.Zero = (value == 0);
+        CC.Zero = CalcZero(value);
         CC.Negative = 0; // Bit 7 always shifted out
         CC.Carry = origValue & 0b0000'0001;
     }
@@ -572,6 +564,7 @@ public:
     void OpROL(uint8_t& value) {
         uint8_t result = (value << 1) | CC.Carry;
         CC.Carry = TestBits01(value, BITS(7));
+        //@TODO: Can we use CalcOverflow(value) instead?
         CC.Overflow = (value & BITS(7)) ^ (value & BITS(6));
         CC.Negative = CalcNegative(value);
         CC.Zero = CalcZero(result);
@@ -623,9 +616,9 @@ public:
     void OpASL(uint8_t& value) {
         auto origValue = value;
         value = (value << 1);
-        CC.Zero = (value == 0);
-        CC.Negative = (value & BITS(7)) != 0;
-        CC.Carry = (origValue & 0b1000'0000) != 0;
+        CC.Zero = CalcZero(value);
+        CC.Negative = CalcNegative(value);
+        CC.Carry = TestBits01(origValue, BITS(7));
         // Overflow (sign change) happens if bit 7 or 6 was set, but not both
         CC.Overflow = (origValue >> 7) ^ (origValue >> 6);
     }
@@ -702,8 +695,8 @@ public:
 
     template <int page, uint8_t opCode>
     void OpTST(const uint8_t& value) {
-        CC.Negative = (value & BITS(7)) != 0;
-        CC.Zero = value == 0;
+        CC.Negative = CalcNegative(value);
+        CC.Zero = CalcZero(value);
         CC.Overflow = 0;
     }
 
@@ -718,8 +711,8 @@ public:
         reg = reg | value;
         // For ORCC, we don't update CC. @TODO: separate function?
         if (&reg != &CC.Value) {
-            CC.Negative = (reg & BITS(7)) != 0;
-            CC.Zero = reg == 0;
+            CC.Negative = CalcNegative(reg);
+            CC.Zero = CalcZero(reg);
             CC.Overflow = 0;
         }
     }
@@ -730,8 +723,8 @@ public:
         reg = reg & value;
         // For ANDCC, we don't update CC. @TODO: separate function?
         if (&reg != &CC.Value) {
-            CC.Negative = (reg & BITS(7)) != 0;
-            CC.Zero = reg == 0;
+            CC.Negative = CalcNegative(reg);
+            CC.Zero = CalcZero(reg);
             CC.Overflow = 0;
         }
     }
@@ -764,8 +757,8 @@ public:
     void OpBIT(const uint8_t& reg) {
         uint8_t value = ReadOperandValue8<LookupCpuOp(page, opCode).addrMode>();
         uint8_t result = reg & value;
-        CC.Negative = (result & BITS(7)) != 0;
-        CC.Zero = result == 0;
+        CC.Negative = CalcNegative(result);
+        CC.Zero = CalcZero(result);
         CC.Overflow = 0;
     }
 
