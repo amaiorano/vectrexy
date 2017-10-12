@@ -79,5 +79,5 @@ uint8_t Cartridge::Read(uint16_t address) const {
 }
 
 void Cartridge::Write(uint16_t /*address*/, uint8_t /*value*/) {
-    FAIL_MSG("Writes to ROM not allowed");
+    FAIL_MSG("Writes to Cartridge ROM not allowed");
 }
