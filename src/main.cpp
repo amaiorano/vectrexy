@@ -11,6 +11,7 @@
 #include "UnmappedMemoryDevice.h"
 #include "Via.h"
 #include <memory>
+#include <random>
 
 class Vectrexy final : public IEngineClient {
 private:
@@ -24,6 +25,10 @@ private:
         m_unmapped.Init(m_memoryBus);
         m_cartridge.Init(m_memoryBus);
         m_debugger.Init(m_memoryBus, m_cpu, m_via);
+
+        // Some games rely on initial random state of memory (e.g. Mine Storm)
+        const unsigned int seed = std::random_device{}();
+        m_ram.Randomize(seed);
 
         m_biosRom.LoadBiosRom("bios_rom.bin");
 
