@@ -409,13 +409,13 @@ public:
         return r;
     }
 
-    static uint8_t SubtractImpl(uint8_t a, uint8_t b, ConditionCode& CC) {
-        auto result = AddImpl(a, ~b, 1, CC, UpdateHalfCarry::False);
+    static uint8_t SubtractImpl(uint8_t a, uint8_t b, uint8_t carry, ConditionCode& CC) {
+        auto result = AddImpl(a, ~b, 1 + carry, CC, UpdateHalfCarry::False);
         CC.Carry = !CC.Carry; // Carry is set if no borrow occurs
         return result;
     }
-    static uint16_t SubtractImpl(uint16_t a, uint16_t b, ConditionCode& CC) {
-        auto result = AddImpl(a, ~b, 1, CC, UpdateHalfCarry::False);
+    static uint16_t SubtractImpl(uint16_t a, uint16_t b, uint16_t carry, ConditionCode& CC) {
+        auto result = AddImpl(a, ~b, 1 + carry, CC, UpdateHalfCarry::False);
         CC.Carry = !CC.Carry; // Carry is set if no borrow occurs
         return result;
     }
@@ -434,23 +434,30 @@ public:
         reg = AddImpl(reg, b, 0, CC, UpdateHalfCarry::False);
     }
 
-    // SUBA, SUBB
-    template <int page, uint8_t opCode>
-    void OpSUB(uint8_t& reg) {
-        reg = SubtractImpl(reg, ReadOperandValue8<LookupCpuOp(page, opCode).addrMode>(), CC);
-    }
-
-    // SUBD
-    template <int page, uint8_t opCode>
-    void OpSUB(uint16_t& reg) {
-        reg = SubtractImpl(reg, ReadOperandValue16<LookupCpuOp(page, opCode).addrMode>(), CC);
-    }
-
     // ADCA, ADCB
     template <int page, uint8_t opCode>
     void OpADC(uint8_t& reg) {
         uint8_t b = ReadOperandValue8<LookupCpuOp(page, opCode).addrMode>();
         reg = AddImpl(reg, b, CC.Carry, CC, UpdateHalfCarry::True);
+    }
+
+    // SUBA, SUBB
+    template <int page, uint8_t opCode>
+    void OpSUB(uint8_t& reg) {
+        reg = SubtractImpl(reg, ReadOperandValue8<LookupCpuOp(page, opCode).addrMode>(), 0, CC);
+    }
+
+    // SUBD
+    template <int page, uint8_t opCode>
+    void OpSUB(uint16_t& reg) {
+        reg = SubtractImpl(reg, ReadOperandValue16<LookupCpuOp(page, opCode).addrMode>(), 0, CC);
+    }
+
+    // SBCA, SBCB
+    template <int page, uint8_t opCode>
+    void OpSBC(uint8_t& reg) {
+        reg = SubtractImpl(reg, ReadOperandValue8<LookupCpuOp(page, opCode).addrMode>(), CC.Carry,
+                           CC);
     }
 
     // MUL
@@ -742,14 +749,14 @@ public:
     void OpCMP(const uint8_t& reg) {
         // Subtract to update CC, but discard result
         uint8_t discard =
-            SubtractImpl(reg, ReadOperandValue8<LookupCpuOp(page, opCode).addrMode>(), CC);
+            SubtractImpl(reg, ReadOperandValue8<LookupCpuOp(page, opCode).addrMode>(), 0, CC);
         (void)discard;
     }
 
     template <int page, uint8_t opCode>
     void OpCMP(const uint16_t& reg) {
         uint16_t discard =
-            SubtractImpl(reg, ReadOperandValue16<LookupCpuOp(page, opCode).addrMode>(), CC);
+            SubtractImpl(reg, ReadOperandValue16<LookupCpuOp(page, opCode).addrMode>(), 0, CC);
         (void)discard;
     }
 
@@ -1202,6 +1209,31 @@ public:
                 break;
             case 0xF9:
                 OpADC<0, 0xF9>(B);
+                break;
+
+            case 0x82:
+                OpSBC<0, 0x82>(A);
+                break;
+            case 0x92:
+                OpSBC<0, 0x92>(A);
+                break;
+            case 0xA2:
+                OpSBC<0, 0xA2>(A);
+                break;
+            case 0xB2:
+                OpSBC<0, 0xB2>(A);
+                break;
+            case 0xC2:
+                OpSBC<0, 0xC2>(B);
+                break;
+            case 0xD2:
+                OpSBC<0, 0xD2>(B);
+                break;
+            case 0xE2:
+                OpSBC<0, 0xE2>(B);
+                break;
+            case 0xF2:
+                OpSBC<0, 0xF2>(B);
                 break;
 
             case 0x3D:
