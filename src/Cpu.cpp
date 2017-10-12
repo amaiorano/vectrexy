@@ -571,7 +571,7 @@ public:
     template <int page, uint8_t opCode>
     void OpROL(uint8_t& value) {
         uint8_t result = (value << 1) | CC.Carry;
-        CC.Carry = value & BITS(7);
+        CC.Carry = TestBits01(value, BITS(7));
         CC.Overflow = (value & BITS(7)) ^ (value & BITS(6));
         CC.Negative = CalcNegative(value);
         CC.Zero = CalcZero(result);
@@ -589,7 +589,7 @@ public:
     template <int page, uint8_t opCode>
     void OpROR(uint8_t& value) {
         uint8_t result = (CC.Carry << 7) | (value >> 1);
-        CC.Carry = value & BITS(0);
+        CC.Carry = TestBits01(value, BITS(0));
         CC.Negative = CalcNegative(result);
         CC.Zero = CalcZero(result);
     }
