@@ -129,7 +129,9 @@ void Via::Update(cycles_t cycles) {
 
         // Shift register's CB2 line drives /BLANK
         //@TODO: check some flag on the shift register to know whether it's active
-        m_blank = m_shiftRegister.CB2Active();
+        if (m_shiftRegister.Enabled()) {
+            m_blank = m_shiftRegister.CB2Active();
+        }
 
         // If the Timer1 PB7 flag is set, then PB7 drives /RAMP
         if (m_timer1.PB7Flag()) {
@@ -334,7 +336,9 @@ void Via::Write(uint16_t address, uint8_t value) {
                    "Top 2 bits should always be 1 (right?)");
 
         m_periphCntl = value;
-        m_blank = PeriphCntl::IsBlankEnabled(m_periphCntl);
+        if (!m_shiftRegister.Enabled()) {
+            m_blank = PeriphCntl::IsBlankEnabled(m_periphCntl);
+        }
     } break;
     case 0xD:
         //@TODO: handle setting all other interrupt flags
