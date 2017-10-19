@@ -118,6 +118,12 @@ void Via::Init(MemoryBus& memoryBus) {
 }
 
 void Via::Update(cycles_t cycles) {
+    // Update cached input state
+    m_joystickButtonState = ReadJoystickButtons();
+    for (uint8_t i = 0; i < 4; ++i) {
+        m_joystickAnalogState[i] = ReadJoystickAnalog(i);
+    }
+
     // For cycle-accurate drawing, we update our timers, shift register, and beam movement 1 cycle
     // at a time
     cycles_t cyclesLeft = cycles;
@@ -173,7 +179,7 @@ uint8_t Via::Read(uint16_t address) const {
         if (!muxEnabled) {
             uint8_t muxSel = ReadBitsWithShift(m_portB, PortB::MuxSelMask, PortB::MuxSelShift);
             int8_t portASigned = static_cast<int8_t>(m_portA);
-            SetBits(result, PortB::Comparator, portASigned < ReadJoystickAnalog(muxSel));
+            SetBits(result, PortB::Comparator, portASigned < m_joystickAnalogState[muxSel]);
         }
 
         return result;
@@ -186,7 +192,7 @@ uint8_t Via::Read(uint16_t address) const {
             if (m_dataDirA == 0) { // Input mode
                                    // @TODO: in this mode, we're reading the PSG's port A, not the
                                    // VIA's DAC, so this is probably wrong
-                result = ReadJoystickButtons();
+                result = m_joystickButtonState;
             }
         }
 

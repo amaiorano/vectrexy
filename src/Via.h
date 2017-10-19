@@ -54,5 +54,7 @@ public:
     Timer1 m_timer1;
     Timer2 m_timer2;
     ShiftRegister m_shiftRegister;
+    uint8_t m_joystickButtonState;
+    std::array<int8_t, 4> m_joystickAnalogState;
     std::vector<Line> m_lines;
 };
