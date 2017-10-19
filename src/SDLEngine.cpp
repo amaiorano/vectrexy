@@ -1,5 +1,6 @@
 #include "SDLEngine.h"
 
+#include "EngineClient.h"
 #include <SDL.h>
 #include <SDL_opengl.h>
 #include <algorithm>
@@ -100,6 +101,23 @@ namespace {
             }
         }
         return options;
+    }
+
+    Input UpdateInput() {
+        Input input;
+
+        auto* state = SDL_GetKeyboardState(nullptr);
+        input.SetButton(0, 0, state[SDL_SCANCODE_A] != 0);
+        input.SetButton(0, 1, state[SDL_SCANCODE_S] != 0);
+        input.SetButton(0, 2, state[SDL_SCANCODE_D] != 0);
+        input.SetButton(0, 3, state[SDL_SCANCODE_F] != 0);
+
+        input.SetAnalogAxisX(
+            0, state[SDL_SCANCODE_LEFT] != 0 ? -128 : state[SDL_SCANCODE_RIGHT] != 0 ? 127 : 0);
+        input.SetAnalogAxisY(
+            0, state[SDL_SCANCODE_DOWN] != 0 ? -128 : state[SDL_SCANCODE_UP] != 0 ? 127 : 0);
+
+        return input;
     }
 
 } // namespace
@@ -204,7 +222,9 @@ bool SDLEngine::Run(int argc, char** argv) {
             }
         }
 
-        if (!g_client->Update(deltaTime))
+        auto input = UpdateInput();
+
+        if (!g_client->Update(deltaTime, input))
             quit = true;
 
         glLoadIdentity();

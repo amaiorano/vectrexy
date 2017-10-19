@@ -9,11 +9,12 @@
 class MemoryBus;
 class Cpu;
 class Via;
+class Input;
 
 class Debugger {
 public:
     void Init(MemoryBus& memoryBus, Cpu& cpu, Via& via);
-    bool Update(double deltaTime);
+    bool Update(double deltaTime, const Input& input);
 
     using SymbolTable = std::multimap<uint16_t, std::string>;
 

@@ -1,36 +1,7 @@
 #include "Via.h"
 #include "BitOps.h"
+#include "EngineClient.h"
 #include "MemoryMap.h"
-
-#include <SDL_events.h>
-#include <SDL_keyboard.h>
-
-namespace {
-    uint8_t ReadJoystickButtons() {
-        auto* state = SDL_GetKeyboardState(nullptr);
-        uint8_t result = 0xFF;
-        SetBits(result, 0b0000'0001, state[SDL_SCANCODE_A] == 0);
-        SetBits(result, 0b0000'0010, state[SDL_SCANCODE_S] == 0);
-        SetBits(result, 0b0000'0100, state[SDL_SCANCODE_D] == 0);
-        SetBits(result, 0b0000'1000, state[SDL_SCANCODE_F] == 0);
-        return result;
-    }
-
-    int8_t ReadJoystickAnalog(uint8_t muxSel) {
-        // 00: Vec_Joy_Mux_1_X
-        // 01 : Vec_Joy_Mux_1_Y
-        // 10 : Vec_Joy_Mux_2_X
-        // 11 : Vec_Joy_Mux_2_Y
-        auto* state = SDL_GetKeyboardState(nullptr);
-        switch (muxSel) {
-        case 0:
-            return state[SDL_SCANCODE_LEFT] != 0 ? -128 : state[SDL_SCANCODE_RIGHT] != 0 ? 127 : 0;
-        case 1:
-            return state[SDL_SCANCODE_DOWN] != 0 ? -128 : state[SDL_SCANCODE_UP] != 0 ? 127 : 0;
-        }
-        return 0;
-    }
-} // namespace
 
 namespace {
     enum class ShiftRegisterMode {
@@ -117,11 +88,11 @@ void Via::Init(MemoryBus& memoryBus) {
     SetBits(m_portB, PortB::RampDisabled, true);
 }
 
-void Via::Update(cycles_t cycles) {
+void Via::Update(cycles_t cycles, const Input& input) {
     // Update cached input state
-    m_joystickButtonState = ReadJoystickButtons();
+    m_joystickButtonState = input.ButtonStateMask();
     for (uint8_t i = 0; i < 4; ++i) {
-        m_joystickAnalogState[i] = ReadJoystickAnalog(i);
+        m_joystickAnalogState[i] = input.AnalogStateMask(i);
     }
 
     // For cycle-accurate drawing, we update our timers, shift register, and beam movement 1 cycle

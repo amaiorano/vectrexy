@@ -3,6 +3,7 @@
 #include "Cartridge.h"
 #include "Cpu.h"
 #include "Debugger.h"
+#include "EngineClient.h"
 #include "MemoryBus.h"
 #include "MemoryMap.h"
 #include "Platform.h"
@@ -40,8 +41,8 @@ private:
         return true;
     }
 
-    bool Update(double deltaTime) override {
-        if (!m_debugger.Update(deltaTime))
+    bool Update(double deltaTime, const Input& input) override {
+        if (!m_debugger.Update(deltaTime, input))
             return false;
 
         return true;

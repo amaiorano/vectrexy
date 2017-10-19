@@ -624,7 +624,7 @@ void Debugger::Init(MemoryBus& memoryBus, Cpu& cpu, Via& via) {
         });
 }
 
-bool Debugger::Update(double deltaTime) {
+bool Debugger::Update(double deltaTime, const Input& input) {
     auto PrintOp = [&] {
         if (m_traceEnabled) {
             m_memoryBus->SetCallbacksEnabled(false); // Don't stop on watchpoints when disassembling
@@ -637,7 +637,7 @@ bool Debugger::Update(double deltaTime) {
         ++m_instructionCount;
         try {
             cycles_t elapsedCycles = m_cpu->ExecuteInstruction();
-            m_via->Update(elapsedCycles);
+            m_via->Update(elapsedCycles, input);
             if (m_traceEnabled)
                 PrintPostOp(m_cpu->Registers(), elapsedCycles);
             return elapsedCycles;
@@ -659,8 +659,8 @@ bool Debugger::Update(double deltaTime) {
 
         printf("$%04x (%s)>", m_cpu->Registers().PC, m_lastCommand.c_str());
 
-        std::string input;
-        const auto& stream = std::getline(std::cin, input);
+        std::string inputCommand;
+        const auto& stream = std::getline(std::cin, inputCommand);
 
         Platform::ScopedConsoleColor defaultOutputColor(Platform::ConsoleColor::LightAqua);
 
@@ -672,11 +672,11 @@ bool Debugger::Update(double deltaTime) {
             return true;
         }
 
-        auto tokens = Tokenize(input);
+        auto tokens = Tokenize(inputCommand);
 
         // If no input, repeat last command
         if (tokens.size() == 0) {
-            input = m_lastCommand;
+            inputCommand = m_lastCommand;
             tokens = Tokenize(m_lastCommand);
         }
 
@@ -849,9 +849,9 @@ bool Debugger::Update(double deltaTime) {
         }
 
         if (validCommand) {
-            m_lastCommand = input;
+            m_lastCommand = inputCommand;
         } else {
-            printf("Invalid command: %s\n", input.c_str());
+            printf("Invalid command: %s\n", inputCommand.c_str());
         }
 
     } else { // Not broken into debugger (running)

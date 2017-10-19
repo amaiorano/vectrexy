@@ -7,6 +7,8 @@
 #include "Vector2.h"
 #include <array>
 
+class Input;
+
 struct Line {
     Vector2 p0;
     Vector2 p1;
@@ -19,7 +21,7 @@ struct Line {
 class Via : public IMemoryBusDevice {
 public:
     void Init(MemoryBus& memoryBus);
-    void Update(cycles_t cycles);
+    void Update(cycles_t cycles, const Input& input);
 
 private:
     uint8_t Read(uint16_t address) const override;
