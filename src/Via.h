@@ -2,6 +2,7 @@
 
 #include "MemoryBus.h"
 #include "MemoryMap.h"
+#include "ShiftRegister.h"
 #include "Timers.h"
 #include "Vector2.h"
 #include <array>
@@ -23,7 +24,6 @@ public:
 private:
     uint8_t Read(uint16_t address) const override;
     void Write(uint16_t address, uint8_t value) override;
-    void UpdateShift(cycles_t cycles);
 
     // Registers
     uint8_t m_portB;    // 0x0
@@ -36,7 +36,7 @@ private:
     // uint8_t m_timer1LatchHigh; // 0x7
     // uint8_t m_timer2Low;  // 0x8
     // uint8_t m_timer2High; // 0x9
-    uint8_t m_shift; // 0xA
+    // uint8_t m_shift; // 0xA
     // uint8_t m_auxCntl;         // 0xB
     uint8_t m_periphCntl; // 0xC
     // uint8_t m_interruptFlag;   // 0xD
@@ -49,10 +49,10 @@ private:
     float m_xyOffset = 0.f;
     float m_brightness = 0.f;
     bool m_blank = false;
-    int m_shiftCyclesLeft = 0;
 
 public:
     Timer1 m_timer1;
     Timer2 m_timer2;
+    ShiftRegister m_shiftRegister;
     std::vector<Line> m_lines;
 };

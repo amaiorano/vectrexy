@@ -111,7 +111,6 @@ void Via::Init(MemoryBus& memoryBus) {
     memoryBus.ConnectDevice(*this, MemoryMap::Via.range);
     m_portB = m_portA = 0;
     m_dataDirB = m_dataDirA = 0;
-    m_shift = 0;
     m_periphCntl = 0;
     m_interruptEnable = 0;
 
@@ -126,7 +125,11 @@ void Via::Update(cycles_t cycles) {
     while (cyclesLeft-- > 0) {
         m_timer1.Update(cycles);
         m_timer2.Update(cycles);
-        UpdateShift(cycles);
+        m_shiftRegister.Update(cycles);
+
+        // Shift register's CB2 line drives /BLANK
+        //@TODO: check some flag on the shift register to know whether it's active
+        m_blank = m_shiftRegister.CB2Active();
 
         // If the Timer1 PB7 flag is set, then PB7 drives /RAMP
         if (m_timer1.PB7Flag()) {
@@ -204,7 +207,7 @@ uint8_t Via::Read(uint16_t address) const {
     case 0x9:
         return m_timer2.ReadCounterHigh();
     case 0xA:
-        return m_shift;
+        return m_shiftRegister.Value();
     case 0xB: {
         uint8_t auxCntl = 0;
         SetBits(auxCntl, 0b110 << AuxCntl::ShiftRegisterModeShift, true); //@HACK
@@ -304,9 +307,7 @@ void Via::Write(uint16_t address, uint8_t value) {
         m_timer2.WriteCounterHigh(value);
         break;
     case 0xA:
-        m_shift = value;
-        m_shiftCyclesLeft = 18;
-        UpdateShift(2);
+        m_shiftRegister.SetValue(value);
         break;
     case 0xB: {
         // For now just read the shift register mode, which will assert if it's invalid/unexpected
@@ -349,27 +350,5 @@ void Via::Write(uint16_t address, uint8_t value) {
     default:
         FAIL();
         break;
-    }
-}
-
-void Via::UpdateShift(cycles_t cycles) {
-    for (int i = 0; i < cycles; ++i) {
-        if (m_shiftCyclesLeft > 0) {
-            if (m_shiftCyclesLeft % 2 == 1) {
-                bool isLastShiftCycle = m_shiftCyclesLeft == 1;
-                if (isLastShiftCycle) {
-                    // For the last (9th) shift cycle, we output the same bit that was output for
-                    // the 8th, which is now in bit position 0. We also don't shift (is that
-                    // correct?)
-                    uint8_t bit = TestBits01(m_shift, BITS(0));
-                    m_blank = bit == 0;
-                } else {
-                    uint8_t bit = TestBits01(m_shift, BITS(7));
-                    m_blank = bit == 0;
-                    m_shift = (m_shift << 1) | bit;
-                }
-            }
-            --m_shiftCyclesLeft;
-        }
     }
 }
