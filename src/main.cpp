@@ -61,7 +61,7 @@ private:
             m_via.m_lines.clear();
         }
 
-#define DRAW_LINES_EVERY_RENDER 0 /* Useful for debugging vector drawing */
+#define DRAW_LINES_EVERY_RENDER 1 /* Useful for debugging vector drawing */
 #if DRAW_LINES_EVERY_RENDER
         for (const auto& line : m_via.m_lines) {
             display.DrawLine(line.p0.x, line.p0.y, line.p1.x, line.p1.y);
