@@ -116,7 +116,6 @@ public:
         // In all indexed addressing one of the pointer registers (X, Y, U, S and sometimes PC) is
         // used in a calculation of the EA. The postbyte specifies type and variation of addressing
         // mode as well as pointer registers to be used.
-        //@TODO: add extra cycles
 
         auto RegisterSelect = [this](uint8_t postbyte) -> uint16_t& {
             switch ((postbyte >> 5) & 0b11) {
