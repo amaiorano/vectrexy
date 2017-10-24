@@ -8,6 +8,7 @@
 #include <fstream>
 #include <iostream>
 #include <optional>
+#include <unordered_map>
 
 #include <GL/GLU.h>
 
@@ -103,19 +104,115 @@ namespace {
         return options;
     }
 
+    struct GamepadState {
+        std::array<bool, SDL_CONTROLLER_BUTTON_MAX> buttonDown = {false};
+        std::array<int32_t, SDL_CONTROLLER_AXIS_MAX> axisValue = {0};
+    };
+    std::unordered_map<int, GamepadState> m_gamepadStatesByPlayerIndex;
+
+    std::unordered_map<int, int> g_controllerIndexToInstanceId;
+
+    GamepadState& GetGamepadStateByInstanceId(int instanceId) {
+        assert(g_controllerIndexToInstanceId.find(instanceId) !=
+               g_controllerIndexToInstanceId.end());
+        int index = g_controllerIndexToInstanceId[instanceId];
+
+        auto iter = m_gamepadStatesByPlayerIndex.find(index);
+        assert(iter != m_gamepadStatesByPlayerIndex.end());
+        return iter->second;
+    }
+
+    void AddController(int index) {
+        if (index >= 2) {
+            printf("Cannot support more than 2 gamepads\n");
+            return;
+        }
+
+        if (SDL_IsGameController(index)) {
+            SDL_GameController* controller = SDL_GameControllerOpen(index);
+            if (controller) {
+                auto joy = SDL_GameControllerGetJoystick(controller);
+                auto instanceId = SDL_JoystickInstanceID(joy);
+                g_controllerIndexToInstanceId[index] = instanceId;
+                m_gamepadStatesByPlayerIndex.insert({index, {}});
+            }
+        }
+    }
+
+    void RemoveController(int instanceId) {
+        auto controller = SDL_GameControllerFromInstanceID(instanceId);
+        SDL_GameControllerClose(controller);
+
+        int index = g_controllerIndexToInstanceId[instanceId];
+        auto iter = m_gamepadStatesByPlayerIndex.find(index);
+        assert(iter != m_gamepadStatesByPlayerIndex.end());
+        m_gamepadStatesByPlayerIndex.erase(iter);
+    }
+
     Input UpdateInput() {
         Input input;
 
-        auto* state = SDL_GetKeyboardState(nullptr);
-        input.SetButton(0, 0, state[SDL_SCANCODE_A] != 0);
-        input.SetButton(0, 1, state[SDL_SCANCODE_S] != 0);
-        input.SetButton(0, 2, state[SDL_SCANCODE_D] != 0);
-        input.SetButton(0, 3, state[SDL_SCANCODE_F] != 0);
+        auto remapDigitalToAxisValue = [](auto left, auto right) -> int8_t {
+            return left ? -128 : right ? 127 : 0;
+        };
 
-        input.SetAnalogAxisX(
-            0, state[SDL_SCANCODE_LEFT] != 0 ? -128 : state[SDL_SCANCODE_RIGHT] != 0 ? 127 : 0);
-        input.SetAnalogAxisY(
-            0, state[SDL_SCANCODE_DOWN] != 0 ? -128 : state[SDL_SCANCODE_UP] != 0 ? 127 : 0);
+        auto remapAxisValue = [](int32_t value) -> int8_t {
+            return static_cast<int8_t>((value / 32767.0f) * 127);
+        };
+
+        const bool playerOneHasGamepad =
+            m_gamepadStatesByPlayerIndex.find(0) != m_gamepadStatesByPlayerIndex.end();
+
+        if (!playerOneHasGamepad) {
+
+            auto* state = SDL_GetKeyboardState(nullptr);
+            input.SetButton(0, 0, state[SDL_SCANCODE_A] != 0);
+            input.SetButton(0, 1, state[SDL_SCANCODE_S] != 0);
+            input.SetButton(0, 2, state[SDL_SCANCODE_D] != 0);
+            input.SetButton(0, 3, state[SDL_SCANCODE_F] != 0);
+
+            input.SetAnalogAxisX(
+                0, remapDigitalToAxisValue(state[SDL_SCANCODE_LEFT], state[SDL_SCANCODE_RIGHT]));
+            input.SetAnalogAxisY(
+                0, remapDigitalToAxisValue(state[SDL_SCANCODE_DOWN], state[SDL_SCANCODE_UP]));
+
+        } else {
+
+            for (auto& p : m_gamepadStatesByPlayerIndex) {
+                uint8_t joystickIndex = static_cast<uint8_t>(p.first);
+                auto& gamepadState = p.second;
+                auto& buttonState = gamepadState.buttonDown;
+
+                input.SetButton(joystickIndex, 0, buttonState[SDL_CONTROLLER_BUTTON_X]);
+                input.SetButton(joystickIndex, 1, buttonState[SDL_CONTROLLER_BUTTON_A]);
+                input.SetButton(joystickIndex, 2, buttonState[SDL_CONTROLLER_BUTTON_B]);
+                input.SetButton(joystickIndex, 3, buttonState[SDL_CONTROLLER_BUTTON_Y]);
+
+                if (buttonState[SDL_CONTROLLER_BUTTON_DPAD_LEFT] ||
+                    buttonState[SDL_CONTROLLER_BUTTON_DPAD_RIGHT]) {
+                    input.SetAnalogAxisX(
+                        joystickIndex,
+                        remapDigitalToAxisValue(buttonState[SDL_CONTROLLER_BUTTON_DPAD_LEFT],
+                                                buttonState[SDL_CONTROLLER_BUTTON_DPAD_RIGHT]));
+                } else {
+                    input.SetAnalogAxisX(
+                        joystickIndex,
+                        remapAxisValue(gamepadState.axisValue[SDL_CONTROLLER_AXIS_LEFTX]));
+                }
+
+                if (buttonState[SDL_CONTROLLER_BUTTON_DPAD_DOWN] ||
+                    buttonState[SDL_CONTROLLER_BUTTON_DPAD_UP]) {
+                    input.SetAnalogAxisY(
+                        joystickIndex,
+                        remapDigitalToAxisValue(buttonState[SDL_CONTROLLER_BUTTON_DPAD_DOWN],
+                                                buttonState[SDL_CONTROLLER_BUTTON_DPAD_UP]));
+                } else {
+                    input.SetAnalogAxisY(
+                        joystickIndex,
+                        -remapAxisValue(gamepadState.axisValue[SDL_CONTROLLER_AXIS_LEFTY]));
+                }
+            }
+        }
 
         return input;
     }
@@ -151,7 +248,7 @@ void SDLEngine::RegisterClient(IEngineClient& client) {
 bool SDLEngine::Run(int argc, char** argv) {
     const auto options = LoadOptionsFile("options.txt");
 
-    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER) < 0) {
         std::cout << "SDL cannot init with error " << SDL_GetError() << std::endl;
         return false;
     }
@@ -195,6 +292,30 @@ bool SDLEngine::Run(int argc, char** argv) {
         while (SDL_PollEvent(&sdlEvent) != 0) {
             if (sdlEvent.type == SDL_QUIT) {
                 quit = true;
+            }
+
+            switch (sdlEvent.type) {
+            case SDL_CONTROLLERDEVICEADDED:
+                AddController(sdlEvent.cdevice.which);
+                break;
+
+            case SDL_CONTROLLERDEVICEREMOVED:
+                RemoveController(sdlEvent.cdevice.which);
+                break;
+
+            case SDL_CONTROLLERBUTTONDOWN:
+            case SDL_CONTROLLERBUTTONUP: {
+                const auto& cbutton = sdlEvent.cbutton;
+                const bool buttonDown = sdlEvent.type == SDL_CONTROLLERBUTTONDOWN;
+                GetGamepadStateByInstanceId(sdlEvent.cbutton.which).buttonDown[cbutton.button] =
+                    buttonDown;
+            } break;
+
+            case SDL_CONTROLLERAXISMOTION: {
+                const auto& caxis = sdlEvent.caxis;
+                GetGamepadStateByInstanceId(sdlEvent.cdevice.which).axisValue[caxis.axis] =
+                    caxis.value;
+            } break;
             }
         }
 
