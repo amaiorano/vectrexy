@@ -61,6 +61,11 @@ public:
     }
 
     Breakpoint* Get(uint16_t address) {
+        // @HACK: Temporary optimization to make debug builds faster when no breakpoints have been
+        // added. Need to make breakpoints generally faster (with or without breakpoints set).
+        if (Num() == 0)
+            return nullptr;
+
         auto iter = m_breakpoints.find(address);
         if (iter != m_breakpoints.end()) {
             return &iter->second;
