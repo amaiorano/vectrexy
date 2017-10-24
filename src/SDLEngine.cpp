@@ -160,57 +160,62 @@ namespace {
             return static_cast<int8_t>((value / 32767.0f) * 127);
         };
 
+        // Prefer gamepads for both players. If one gamepad, they player 2 uses keyboard. If no
+        // gamepads, player 1 uses keyboard and there's no player 2 input.
+
         const bool playerOneHasGamepad =
             m_gamepadStatesByPlayerIndex.find(0) != m_gamepadStatesByPlayerIndex.end();
 
-        if (!playerOneHasGamepad) {
+        const bool playerTwoHasGamepad =
+            m_gamepadStatesByPlayerIndex.find(1) != m_gamepadStatesByPlayerIndex.end();
+
+        if (!(playerOneHasGamepad && playerTwoHasGamepad)) {
+            uint8_t joystickIndex = playerOneHasGamepad ? 1 : 0;
 
             auto* state = SDL_GetKeyboardState(nullptr);
-            input.SetButton(0, 0, state[SDL_SCANCODE_A] != 0);
-            input.SetButton(0, 1, state[SDL_SCANCODE_S] != 0);
-            input.SetButton(0, 2, state[SDL_SCANCODE_D] != 0);
-            input.SetButton(0, 3, state[SDL_SCANCODE_F] != 0);
+            input.SetButton(joystickIndex, 0, state[SDL_SCANCODE_A] != 0);
+            input.SetButton(joystickIndex, 1, state[SDL_SCANCODE_S] != 0);
+            input.SetButton(joystickIndex, 2, state[SDL_SCANCODE_D] != 0);
+            input.SetButton(joystickIndex, 3, state[SDL_SCANCODE_F] != 0);
 
-            input.SetAnalogAxisX(
-                0, remapDigitalToAxisValue(state[SDL_SCANCODE_LEFT], state[SDL_SCANCODE_RIGHT]));
-            input.SetAnalogAxisY(
-                0, remapDigitalToAxisValue(state[SDL_SCANCODE_DOWN], state[SDL_SCANCODE_UP]));
+            input.SetAnalogAxisX(joystickIndex, remapDigitalToAxisValue(state[SDL_SCANCODE_LEFT],
+                                                                        state[SDL_SCANCODE_RIGHT]));
+            input.SetAnalogAxisY(joystickIndex, remapDigitalToAxisValue(state[SDL_SCANCODE_DOWN],
+                                                                        state[SDL_SCANCODE_UP]));
+        }
 
-        } else {
+        for (auto& p : m_gamepadStatesByPlayerIndex) {
+            uint8_t joystickIndex = static_cast<uint8_t>(p.first);
+            auto& gamepadState = p.second;
+            auto& buttonState = gamepadState.buttonDown;
 
-            for (auto& p : m_gamepadStatesByPlayerIndex) {
-                uint8_t joystickIndex = static_cast<uint8_t>(p.first);
-                auto& gamepadState = p.second;
-                auto& buttonState = gamepadState.buttonDown;
+            input.SetButton(joystickIndex, 0, buttonState[SDL_CONTROLLER_BUTTON_X]);
+            input.SetButton(joystickIndex, 1, buttonState[SDL_CONTROLLER_BUTTON_A]);
+            input.SetButton(joystickIndex, 2, buttonState[SDL_CONTROLLER_BUTTON_B]);
+            input.SetButton(joystickIndex, 3, buttonState[SDL_CONTROLLER_BUTTON_Y]);
 
-                input.SetButton(joystickIndex, 0, buttonState[SDL_CONTROLLER_BUTTON_X]);
-                input.SetButton(joystickIndex, 1, buttonState[SDL_CONTROLLER_BUTTON_A]);
-                input.SetButton(joystickIndex, 2, buttonState[SDL_CONTROLLER_BUTTON_B]);
-                input.SetButton(joystickIndex, 3, buttonState[SDL_CONTROLLER_BUTTON_Y]);
+            if (buttonState[SDL_CONTROLLER_BUTTON_DPAD_LEFT] ||
+                buttonState[SDL_CONTROLLER_BUTTON_DPAD_RIGHT]) {
+                input.SetAnalogAxisX(
+                    joystickIndex,
+                    remapDigitalToAxisValue(buttonState[SDL_CONTROLLER_BUTTON_DPAD_LEFT],
+                                            buttonState[SDL_CONTROLLER_BUTTON_DPAD_RIGHT]));
+            } else {
+                input.SetAnalogAxisX(
+                    joystickIndex,
+                    remapAxisValue(gamepadState.axisValue[SDL_CONTROLLER_AXIS_LEFTX]));
+            }
 
-                if (buttonState[SDL_CONTROLLER_BUTTON_DPAD_LEFT] ||
-                    buttonState[SDL_CONTROLLER_BUTTON_DPAD_RIGHT]) {
-                    input.SetAnalogAxisX(
-                        joystickIndex,
-                        remapDigitalToAxisValue(buttonState[SDL_CONTROLLER_BUTTON_DPAD_LEFT],
-                                                buttonState[SDL_CONTROLLER_BUTTON_DPAD_RIGHT]));
-                } else {
-                    input.SetAnalogAxisX(
-                        joystickIndex,
-                        remapAxisValue(gamepadState.axisValue[SDL_CONTROLLER_AXIS_LEFTX]));
-                }
-
-                if (buttonState[SDL_CONTROLLER_BUTTON_DPAD_DOWN] ||
-                    buttonState[SDL_CONTROLLER_BUTTON_DPAD_UP]) {
-                    input.SetAnalogAxisY(
-                        joystickIndex,
-                        remapDigitalToAxisValue(buttonState[SDL_CONTROLLER_BUTTON_DPAD_DOWN],
-                                                buttonState[SDL_CONTROLLER_BUTTON_DPAD_UP]));
-                } else {
-                    input.SetAnalogAxisY(
-                        joystickIndex,
-                        -remapAxisValue(gamepadState.axisValue[SDL_CONTROLLER_AXIS_LEFTY]));
-                }
+            if (buttonState[SDL_CONTROLLER_BUTTON_DPAD_DOWN] ||
+                buttonState[SDL_CONTROLLER_BUTTON_DPAD_UP]) {
+                input.SetAnalogAxisY(
+                    joystickIndex,
+                    remapDigitalToAxisValue(buttonState[SDL_CONTROLLER_BUTTON_DPAD_DOWN],
+                                            buttonState[SDL_CONTROLLER_BUTTON_DPAD_UP]));
+            } else {
+                input.SetAnalogAxisY(
+                    joystickIndex,
+                    -remapAxisValue(gamepadState.axisValue[SDL_CONTROLLER_AXIS_LEFTY]));
             }
         }
 
