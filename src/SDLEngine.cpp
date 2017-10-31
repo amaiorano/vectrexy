@@ -1,19 +1,15 @@
 #include "SDLEngine.h"
 
 #include "EngineClient.h"
+#include "GLRender.h"
+#include "StringHelpers.h"
 #include <SDL.h>
-#include <SDL_opengl.h>
 #include <algorithm>
 #include <chrono>
 #include <fstream>
 #include <iostream>
 #include <optional>
 #include <unordered_map>
-
-#include <GL/GLU.h>
-
-#include "Base.h" //@TODO: remove this?
-#include "StringHelpers.h"
 
 namespace {
     // Display window dimensions
@@ -31,39 +27,10 @@ namespace {
     SDL_GLContext g_glContext;
 
     void SetOpenGLVersion() {
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+        auto[major, minor] = GLRender::GetMajorMinorVersion();
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, major);
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, minor);
         // SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
-    }
-
-    void InitGL() {
-        glShadeModel(GL_SMOOTH);
-        glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-        glClearDepth(1.0f);
-        glEnable(GL_DEPTH_TEST);
-        glDepthFunc(GL_LEQUAL);
-        glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
-    }
-
-    int SetViewport(int width, int height) {
-        GLfloat ratio;
-
-        if (height == 0) {
-            height = 1;
-        }
-
-        ratio = GLfloat(width) / GLfloat(height);
-        glViewport(0, 0, GLsizei(width), GLsizei(height));
-        glMatrixMode(GL_PROJECTION);
-        glLoadIdentity();
-
-        double halfWidth = SCREEN_WIDTH /*static_cast<double>(width)*/ / 2.0;
-        double halfHeight = SCREEN_HEIGHT /*static_cast<double>(height)*/ / 2.0;
-        gluOrtho2D(-halfWidth, halfWidth, -halfHeight, halfHeight);
-        glMatrixMode(GL_MODELVIEW);
-        glLoadIdentity();
-
-        return true;
     }
 
     struct Options {
@@ -224,28 +191,6 @@ namespace {
 
 } // namespace
 
-void Display::Clear() {
-    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-}
-
-void Display::DrawLine(float x1, float y1, float x2, float y2) {
-    auto AlmostEqual = [](float a, float b, float epsilon = 0.01f) {
-        return abs(a - b) <= epsilon;
-    };
-
-    if (AlmostEqual(x1, x2) && AlmostEqual(y1, y2)) {
-        glBegin(GL_POINTS);
-        glVertex2f(x1, y1);
-        glEnd();
-    } else {
-        glBegin(GL_LINES);
-        glVertex2f(x1, y1);
-        glVertex2f(x2, y2);
-        glEnd();
-    }
-}
-
 void SDLEngine::RegisterClient(IEngineClient& client) {
     g_client = &client;
 }
@@ -278,8 +223,8 @@ bool SDLEngine::Run(int argc, char** argv) {
         return false;
     }
 
-    InitGL();
-    SetViewport(windowWidth, windowHeight);
+    GLRender::Initialize();
+    GLRender::SetViewport(windowWidth, windowHeight, SCREEN_WIDTH, SCREEN_HEIGHT);
 
     if (!g_client->Init(argc, argv)) {
         return false;
@@ -353,7 +298,7 @@ bool SDLEngine::Run(int argc, char** argv) {
         if (!g_client->Update(deltaTime, input))
             quit = true;
 
-        glLoadIdentity();
+        GLRender::PreRender();
         g_client->Render(deltaTime, display);
 
         SDL_GL_SwapWindow(g_window);
