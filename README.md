@@ -20,8 +20,8 @@ Here's an example of how to build (on Windows):
 git clone https://github.com/amaiorano/vectrexy.git
 cd vectrexy
 mkdir build && cd build
-cmake -G "Visual Studio 15 2017" ..
-vectrexy.sln
+cmake -G "Visual Studio 15 2017" -DGLEW_ROOT_DIR=C:\code\glew-2.1.0 -DSDL2=C:\code\SDL2-2.0.4 -DGLEW_USE_STATIC_LIBS=1 ..
+vectrexy.sln ..
 ```
 
 ## Contributing

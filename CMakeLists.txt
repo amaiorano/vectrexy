@@ -8,12 +8,14 @@ project (vectrexy)
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
 find_package(SDL2 REQUIRED)
-find_package(OpenGL)
+find_package(OpenGL REQUIRED)
+find_package(GLEW REQUIRED)
 
 file(GLOB SRC "src/*.*")
 add_executable(vectrexy ${SRC})
-include_directories(${SDL2_INCLUDE_DIR})
-target_link_libraries(vectrexy ${SDL2_LIBRARY} ${OPENGL_gl_LIBRARY} ${OPENGL_glu_LIBRARY})
+include_directories(${SDL2_INCLUDE_DIR} ${GLEW_INCLUDE_DIRS})
+target_link_libraries(vectrexy ${SDL2_LIBRARY} ${OPENGL_gl_LIBRARY} ${OPENGL_glu_LIBRARY} ${GLEW_LIBRARIES})
+target_compile_definitions(vectrexy PRIVATE ${GLEW_DEFINITIONS})
 
 # For VS, add post-build step to copy SDL2.dll to the output directory
 if(MSVC)
