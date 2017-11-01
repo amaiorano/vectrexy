@@ -8,39 +8,37 @@
 #include <gl/GLU.h>
 
 #include <fstream>
+#include <optional>
+#include <sstream>
 #include <string>
 #include <vector>
 
 namespace {
+    std::optional<std::string> FileToString(const char* file) {
+        std::ifstream is(file);
+        if (!is)
+            return {};
+        std::stringstream buffer;
+        buffer << is.rdbuf();
+        return buffer.str();
+    }
+
     GLuint LoadShaders(const char* vertShaderFile, const char* fragShaderFile) {
         // Create the shaders
         GLuint vertShaderId = glCreateShader(GL_VERTEX_SHADER);
         GLuint fragShaderId = glCreateShader(GL_FRAGMENT_SHADER);
 
         // Read the Vertex Shader code from the file
-        std::string vertShaderCode;
-        std::ifstream vertShaderStream(vertShaderFile, std::ios::in);
-        if (vertShaderStream.is_open()) {
-            std::string line = "";
-            while (getline(vertShaderStream, line))
-                vertShaderCode += "\n" + line;
-            vertShaderStream.close();
-        } else {
-            printf("Impossible to open %s. Are you in the right directory ? Don't forget to read "
-                   "the FAQ !\n",
-                   vertShaderFile);
-            getchar();
+        auto vertShaderCode = FileToString(vertShaderFile);
+        if (!vertShaderCode) {
+            FAIL_MSG("Failed to open %s", vertShaderFile);
             return 0;
         }
 
-        // Read the Fragment Shader code from the file
-        std::string fragShaderCode;
-        std::ifstream fragShaderStream(fragShaderFile, std::ios::in);
-        if (fragShaderStream.is_open()) {
-            std::string line = "";
-            while (getline(fragShaderStream, line))
-                fragShaderCode += "\n" + line;
-            fragShaderStream.close();
+        auto fragShaderCode = FileToString(fragShaderFile);
+        if (!fragShaderCode) {
+            FAIL_MSG("Failed to open %s", vertShaderFile);
+            return 0;
         }
 
         GLint result = GL_FALSE;
@@ -48,7 +46,7 @@ namespace {
 
         // Compile Vertex Shader
         printf("Compiling shader : %s\n", vertShaderFile);
-        char const* vertSourcePointer = vertShaderCode.c_str();
+        char const* vertSourcePointer = (*vertShaderCode).c_str();
         glShaderSource(vertShaderId, 1, &vertSourcePointer, NULL);
         glCompileShader(vertShaderId);
 
@@ -63,7 +61,7 @@ namespace {
 
         // Compile Fragment Shader
         printf("Compiling shader : %s\n", fragShaderFile);
-        char const* fragSourcePointer = fragShaderCode.c_str();
+        char const* fragSourcePointer = (*fragShaderCode).c_str();
         glShaderSource(fragShaderId, 1, &fragSourcePointer, NULL);
         glCompileShader(fragShaderId);
 
