@@ -12,7 +12,11 @@ find_package(OpenGL REQUIRED)
 find_package(GLEW REQUIRED)
 
 file(GLOB SRC "src/*.*")
-add_executable(vectrexy ${SRC})
+source_group("Source" FILES ${SRC})
+file(GLOB SHADER_SRC "shaders/*.*")
+source_group("Shaders" FILES ${SHADER_SRC})
+
+add_executable(vectrexy ${SRC} ${SHADER_SRC})
 include_directories(${SDL2_INCLUDE_DIR} ${GLEW_INCLUDE_DIRS})
 target_link_libraries(vectrexy ${SDL2_LIBRARY} ${OPENGL_gl_LIBRARY} ${OPENGL_glu_LIBRARY} ${GLEW_LIBRARIES})
 target_compile_definitions(vectrexy PRIVATE ${GLEW_DEFINITIONS})
