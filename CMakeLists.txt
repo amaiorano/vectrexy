@@ -5,11 +5,20 @@ project (vectrexy)
 # the FindSDL2.cmake module script.
 # NOTE: On Windows, set "SDL2" environment variable to the path to the SDL2 development libraries root
 #       which can be downloaded here: https://www.libsdl.org/download-2.0.php
+
+# Set module path to local cmake folder so find_package looks there first
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
+# On Windows, set "SDL2" environment variable to the path to the SDL2 development libraries root
+# which can be downloaded here: https://www.libsdl.org/download-2.0.php
 find_package(SDL2 REQUIRED)
+# OpenGL is usually available on all systems
 find_package(OpenGL REQUIRED)
+# Download GLEW and pass -DGLEW_ROOT_DIR=path/to/glew to CMake.
+# Optionally pass -DGLEW_USE_STATIC_LIBS=1 to link against static lib.
 find_package(GLEW REQUIRED)
+# Download GLM and pass -GLM_ROOT_DIR=path/to/glm to CMake.
+find_package(GLM REQUIRED)
 
 file(GLOB SRC "src/*.*")
 source_group("Source" FILES ${SRC})
@@ -17,7 +26,7 @@ file(GLOB SHADER_SRC "shaders/*.*")
 source_group("Shaders" FILES ${SHADER_SRC})
 
 add_executable(vectrexy ${SRC} ${SHADER_SRC})
-include_directories(${SDL2_INCLUDE_DIR} ${GLEW_INCLUDE_DIRS})
+include_directories(${SDL2_INCLUDE_DIR} ${GLEW_INCLUDE_DIRS} ${GLM_INCLUDE_DIRS})
 target_link_libraries(vectrexy ${SDL2_LIBRARY} ${OPENGL_gl_LIBRARY} ${OPENGL_glu_LIBRARY} ${GLEW_LIBRARIES})
 target_compile_definitions(vectrexy PRIVATE ${GLEW_DEFINITIONS})
 
