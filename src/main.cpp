@@ -51,22 +51,25 @@ private:
     void Render(double deltaTime, Display& display) override {
         m_elapsed += deltaTime;
 
-        //@HACK: clear lines and screen at approximately 50hz
-        if (m_elapsed >= (1.0 / 50.0)) {
-            m_elapsed = 0;
-            display.Clear();
-            for (const auto& line : m_via.m_lines) {
-                display.DrawLine(line.p0.x, line.p0.y, line.p1.x, line.p1.y);
-            }
-            m_via.m_lines.clear();
-        }
-
-#define DRAW_LINES_EVERY_RENDER 1 /* Useful for debugging vector drawing */
-#if DRAW_LINES_EVERY_RENDER
-        for (const auto& line : m_via.m_lines) {
-            display.DrawLine(line.p0.x, line.p0.y, line.p1.x, line.p1.y);
-        }
-#endif
+        display.DrawLines(m_via.m_lines);
+        m_via.m_lines.clear();
+        //
+        //        //@HACK: clear lines and screen at approximately 50hz
+        //        if (m_elapsed >= (1.0 / 50.0)) {
+        //            m_elapsed = 0;
+        //            display.Clear();
+        //            for (const auto& line : m_via.m_lines) {
+        //                display.DrawLine(line.p0.x, line.p0.y, line.p1.x, line.p1.y);
+        //            }
+        //            m_via.m_lines.clear();
+        //        }
+        //
+        //#define DRAW_LINES_EVERY_RENDER 1 /* Useful for debugging vector drawing */
+        //#if DRAW_LINES_EVERY_RENDER
+        //        for (const auto& line : m_via.m_lines) {
+        //            display.DrawLine(line.p0.x, line.p0.y, line.p1.x, line.p1.y);
+        //        }
+        //#endif
     }
 
     void Shutdown() override {}

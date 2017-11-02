@@ -223,8 +223,8 @@ bool SDLEngine::Run(int argc, char** argv) {
         return false;
     }
 
-    GLRender::Initialize();
-    GLRender::SetViewport(windowWidth, windowHeight, SCREEN_WIDTH, SCREEN_HEIGHT);
+    GLRender::Initialize(windowWidth, windowHeight); // SCREEN_WIDTH, SCREEN_HEIGHT);
+    GLRender::SetViewport(windowWidth, windowHeight);
 
     if (!g_client->Init(argc, argv)) {
         return false;
@@ -271,7 +271,7 @@ bool SDLEngine::Run(int argc, char** argv) {
 
         const auto currTime = std::chrono::high_resolution_clock::now();
         const std::chrono::duration<double> diff = currTime - lastTime;
-        const double deltaTime = std::min(diff.count(), 1 / 100.0);
+        const double frameTime = std::min(diff.count(), 1 / 100.0);
         lastTime = currTime;
 
         // FPS
@@ -279,7 +279,7 @@ bool SDLEngine::Run(int argc, char** argv) {
             static double frames = 0;
             static double elapsedTime = 0;
             frames += 1;
-            elapsedTime += deltaTime;
+            elapsedTime += frameTime;
             if (elapsedTime >= 1) {
                 double currFps = frames / elapsedTime;
                 static double avgFps = currFps;
@@ -295,11 +295,12 @@ bool SDLEngine::Run(int argc, char** argv) {
 
         auto input = UpdateInput();
 
-        if (!g_client->Update(deltaTime, input))
+        if (!g_client->Update(frameTime, input))
             quit = true;
 
         GLRender::PreRender();
-        g_client->Render(deltaTime, display);
+        g_client->Render(frameTime, display);
+        GLRender::RenderScene(frameTime);
 
         SDL_GL_SwapWindow(g_window);
     }
