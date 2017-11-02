@@ -16,10 +16,6 @@ namespace {
     const int DEFAULT_WINDOW_WIDTH = 600;
     inline int WindowHeightFromWidth(int width) { return static_cast<int>(width * 4.0f / 3.0f); }
 
-    // Vectrex screen dimensions
-    const int SCREEN_WIDTH = 256;
-    const int SCREEN_HEIGHT = 256;
-
     const char* WINDOW_TITLE = "Vectrexy";
 
     IEngineClient* g_client = nullptr;
@@ -223,7 +219,7 @@ bool SDLEngine::Run(int argc, char** argv) {
         return false;
     }
 
-    GLRender::Initialize(windowWidth, windowHeight); // SCREEN_WIDTH, SCREEN_HEIGHT);
+    GLRender::Initialize();
     GLRender::SetViewport(windowWidth, windowHeight);
 
     if (!g_client->Init(argc, argv)) {

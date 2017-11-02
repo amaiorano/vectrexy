@@ -17,8 +17,11 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/mat4x4.hpp>
 
+// Vectrex screen dimensions
+const int VECTREX_SCREEN_WIDTH = 256;
+const int VECTREX_SCREEN_HEIGHT = 256;
+
 namespace {
-    int g_screenWidth{}, g_screenHeight{};
     int g_windowWidth{}, g_windowHeight{};
     std::vector<glm::vec2> g_lineVA, g_pointVA;
 
@@ -28,9 +31,11 @@ namespace {
         GLuint textureToScreen{};
     } // namespace ShaderProgram
 
-    GLuint g_textureFB{};
-    GLuint g_renderedTexture0{};
-    GLuint g_renderedTexture1{};
+    const auto INVALID_RESOURCE_ID = ~0u;
+
+    GLuint g_textureFB{INVALID_RESOURCE_ID};
+    GLuint g_renderedTexture0{INVALID_RESOURCE_ID};
+    GLuint g_renderedTexture1{INVALID_RESOURCE_ID};
     int g_renderedTexture0Index{};
 
     glm::mat4x4 g_projectionMatrix{};
@@ -57,6 +62,13 @@ namespace {
         return textureId;
     }
 
+    void DeleteTexture(GLuint& texture) {
+        if (texture == INVALID_RESOURCE_ID)
+            return;
+        glDeleteTextures(1, &texture);
+        texture = INVALID_RESOURCE_ID;
+    }
+
     GLuint GenVBO(const std::vector<glm::vec2>& vertices) {
         GLuint vbo;
         glGenBuffers(1, &vbo);
@@ -67,8 +79,10 @@ namespace {
     }
 
     void DeleteVBO(GLuint& vbo) {
+        if (vbo == INVALID_RESOURCE_ID)
+            return;
         glDeleteBuffers(1, &vbo);
-        vbo = {};
+        vbo = INVALID_RESOURCE_ID;
     }
 
     void CheckFramebufferStatus() {
@@ -168,10 +182,7 @@ namespace {
 } // namespace
 
 namespace GLRender {
-    void Initialize(int screenWidth, int screenHeight) {
-        g_screenWidth = screenWidth;
-        g_screenHeight = screenHeight;
-
+    void Initialize() {
         // glShadeModel(GL_SMOOTH);
         glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
         // glClearDepth(1.0f);
@@ -185,10 +196,13 @@ namespace GLRender {
             FAIL_MSG("Failed to initialize GLEW");
         }
 
-        GLuint VertexArrayID;
-        glGenVertexArrays(1, &VertexArrayID);
-        glBindVertexArray(VertexArrayID);
+        // We don't actually use VAOs, but we must create one and bind it so that we can use VBOs
+        //@TODO: delete this on Shutdown
+        GLuint vertexArrayID;
+        glGenVertexArrays(1, &vertexArrayID);
+        glBindVertexArray(vertexArrayID);
 
+        // Load shaders
         ShaderProgram::renderToTexture =
             LoadShaders("shaders/DrawVectors.vert", "shaders/DrawVectors.frag");
 
@@ -198,23 +212,13 @@ namespace GLRender {
         ShaderProgram::textureToScreen =
             LoadShaders("shaders/Passthrough.vert", "shaders/DrawTexture.frag");
 
+        // Create resources
         g_textureFB = GenFrameBuffer();
-        // glBindFramebuffer(GL_FRAMEBUFFER, g_textureFB); // Needed?
-        g_renderedTexture0 = GenTexture(g_screenWidth, g_screenHeight);
-        g_renderedTexture1 = GenTexture(g_screenWidth, g_screenHeight);
-
         // Set output of fragment shader to color attachment 0
         glBindFramebuffer(GL_FRAMEBUFFER, g_textureFB);
         GLenum drawBuffers[1] = {GL_COLOR_ATTACHMENT0};
         glDrawBuffers(1, drawBuffers);
         CheckFramebufferStatus();
-
-        // Clear g_renderedTexture0 once
-        BindFramebufferAndTexture(g_textureFB, g_renderedTexture0);
-        // glBindFramebuffer(GL_FRAMEBUFFER, g_textureFB);
-        // glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, g_renderedTexture0, 0);
-        glViewport(0, 0, g_screenWidth, g_screenHeight);
-        glClear(GL_COLOR_BUFFER_BIT);
     }
 
     void Shutdown() {
@@ -233,23 +237,27 @@ namespace GLRender {
         g_windowWidth = windowWidth;
         g_windowHeight = windowHeight;
 
-        ratio = GLfloat(windowWidth) / GLfloat(windowHeight);
-        glViewport(0, 0, GLsizei(windowWidth), GLsizei(windowHeight));
+        ratio = GLfloat(g_windowWidth) / GLfloat(g_windowHeight);
+        glViewport(0, 0, GLsizei(g_windowWidth), GLsizei(g_windowHeight));
 
-        double halfWidth = 128;  // g_screenWidth / 2.0;
-        double halfHeight = 128; // g_screenHeight / 2.0;
+        double halfWidth = VECTREX_SCREEN_WIDTH / 2.0;
+        double halfHeight = VECTREX_SCREEN_HEIGHT / 2.0;
         g_projectionMatrix = glm::ortho(-halfWidth, halfWidth, -halfHeight, halfHeight);
 
-        // glMatrixMode(GL_PROJECTION);
-        // glLoadIdentity();
-        // double halfWidth = screenWidth / 2.0;
-        // double halfHeight = screenHeight / 2.0;
-        // gluOrtho2D(-halfWidth, halfWidth, -halfHeight, halfHeight);
-
-        // glMatrixMode(GL_MODELVIEW);
-        // glLoadIdentity();
-
         g_modelViewMatrix = {};
+
+        // (Re)create resources that depend on viewport size
+        DeleteTexture(g_renderedTexture0);
+        g_renderedTexture0 = GenTexture(g_windowWidth, g_windowHeight);
+        DeleteTexture(g_renderedTexture1);
+        g_renderedTexture1 = GenTexture(g_windowWidth, g_windowHeight);
+
+        // Clear g_renderedTexture0 once
+        BindFramebufferAndTexture(g_textureFB, g_renderedTexture0);
+        // glBindFramebuffer(GL_FRAMEBUFFER, g_textureFB);
+        // glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, g_renderedTexture0, 0);
+        glViewport(0, 0, g_windowWidth, g_windowHeight);
+        glClear(GL_COLOR_BUFFER_BIT);
 
         return true;
     }
@@ -273,7 +281,7 @@ namespace GLRender {
         {
             // Render to our framebuffer
             glBindFramebuffer(GL_FRAMEBUFFER, g_textureFB);
-            glViewport(0, 0, g_screenWidth, g_screenHeight);
+            glViewport(0, 0, g_windowWidth, g_windowHeight);
             glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, currRenderedTexture0, 0);
 
             // Clear the screen
@@ -325,7 +333,7 @@ namespace GLRender {
 
         {
             glBindFramebuffer(GL_FRAMEBUFFER, g_textureFB);
-            glViewport(0, 0, g_screenWidth, g_screenHeight);
+            glViewport(0, 0, g_windowWidth, g_windowHeight);
             glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, currRenderedTexture1, 0);
 
             glClear(GL_COLOR_BUFFER_BIT);
