@@ -22,77 +22,92 @@ const int VECTREX_SCREEN_WIDTH = 256;
 const int VECTREX_SCREEN_HEIGHT = 256;
 
 namespace {
-    int g_windowWidth{}, g_windowHeight{};
-    std::vector<glm::vec2> g_lineVA, g_pointVA;
+    // Wraps an OpenGL resource id and automatically calls the delete function on destruction
+    template <typename DeleteFunc>
+    class GLResource {
+    public:
+        const GLuint INVALID_RESOURCE_ID = ~0u;
 
-    namespace ShaderProgram {
-        GLuint renderToTexture{};
-        GLuint darkenTexture{};
-        GLuint textureToScreen{};
-    } // namespace ShaderProgram
+        GLResource()
+            : m_id(INVALID_RESOURCE_ID) {}
 
-    const auto INVALID_RESOURCE_ID = ~0u;
+        GLResource(GLuint id, DeleteFunc deleteFunc)
+            : m_id(id)
+            , m_deleteFunc(std::move(deleteFunc)) {}
 
-    GLuint g_textureFB{INVALID_RESOURCE_ID};
-    GLuint g_renderedTexture0{INVALID_RESOURCE_ID};
-    GLuint g_renderedTexture1{INVALID_RESOURCE_ID};
-    int g_renderedTexture0Index{};
+        ~GLResource() {
+            if (m_id != INVALID_RESOURCE_ID) {
+                m_deleteFunc(m_id);
+                m_id = INVALID_RESOURCE_ID;
+            }
+        }
 
-    glm::mat4x4 g_projectionMatrix{};
-    glm::mat4x4 g_modelViewMatrix{};
+        // Disable copy
+        GLResource(const GLResource&) = delete;
+        GLResource& operator=(const GLResource&) = delete;
 
-    GLuint GenFrameBuffer() {
-        GLuint fb;
-        glGenFramebuffers(1, &fb);
-        return fb;
+        // Enable move
+        GLResource(GLResource&& rhs)
+            : m_id(rhs.m_id)
+            , m_deleteFunc(rhs.m_deleteFunc) {
+            rhs.m_id = INVALID_RESOURCE_ID;
+        }
+        GLResource& operator=(GLResource&& rhs) {
+            if (this != &rhs)
+                std::swap(m_id, rhs.m_id);
+            return *this;
+        }
+
+        GLuint get() const {
+            assert(m_id != INVALID_RESOURCE_ID);
+            return m_id;
+        }
+        GLuint operator*() const { return get(); }
+
+    private:
+        GLuint m_id;
+        DeleteFunc m_deleteFunc;
+    };
+
+    auto MakeTextureResource() {
+        struct Deleter {
+            auto operator()(GLuint id) { glDeleteTextures(1, &id); }
+        };
+        GLuint id;
+        glGenTextures(1, &id);
+        return GLResource<decltype(Deleter{})>{id, Deleter{}};
     }
+    using TextureResource = decltype(MakeTextureResource());
 
-    GLuint GenTexture(GLsizei width, GLsizei height) {
-        GLuint textureId;
-        glGenTextures(1, &textureId);
-        // "Bind" the newly created texture : all future texture functions will modify this texture
-        glBindTexture(GL_TEXTURE_2D, textureId);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, width, height, 0, GL_RGB, GL_FLOAT, 0);
-        // By default, filtering is GL_LINEAR or GL_NEAREST_MIPMAP_LINEAR. We set to GL_NEAREST to
-        // avoid creating mipmaps and to make it less blurry.
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        return textureId;
+    auto MakeVertexArrayResource() {
+        struct Deleter {
+            auto operator()(GLuint id) { glDeleteVertexArrays(1, &id); }
+        };
+        GLuint id;
+        glGenVertexArrays(1, &id);
+        return GLResource<decltype(Deleter{})>{id, Deleter{}};
     }
+    using VertexArrayResource = decltype(MakeVertexArrayResource());
 
-    void DeleteTexture(GLuint& texture) {
-        if (texture == INVALID_RESOURCE_ID)
-            return;
-        glDeleteTextures(1, &texture);
-        texture = INVALID_RESOURCE_ID;
+    auto MakeFrameBufferResource() {
+        struct Deleter {
+            auto operator()(GLuint id) { glDeleteFramebuffers(1, &id); }
+        };
+        GLuint id;
+        glGenFramebuffers(1, &id);
+        return GLResource<decltype(Deleter{})>{id, Deleter{}};
     }
+    using FrameBufferResource = decltype(MakeFrameBufferResource());
 
-    GLuint GenVBO(const std::vector<glm::vec2>& vertices) {
-        GLuint vbo;
-        glGenBuffers(1, &vbo);
-        glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(glm::vec2), vertices.data(),
-                     GL_DYNAMIC_DRAW);
-        return vbo;
+    auto MakeBufferResource() {
+        struct Deleter {
+            auto operator()(GLuint id) { glDeleteBuffers(1, &id); }
+        };
+        GLuint id;
+        glGenBuffers(1, &id);
+        return GLResource<decltype(Deleter{})>{id, Deleter{}};
     }
-
-    void DeleteVBO(GLuint& vbo) {
-        if (vbo == INVALID_RESOURCE_ID)
-            return;
-        glDeleteBuffers(1, &vbo);
-        vbo = INVALID_RESOURCE_ID;
-    }
-
-    void CheckFramebufferStatus() {
-        ASSERT(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE);
-    }
-
-    void BindFramebufferAndTexture(GLuint fb, GLuint texture) {
-        glBindFramebuffer(GL_FRAMEBUFFER, fb);
-        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, texture, 0);
-    }
+    using BufferResource = decltype(MakeBufferResource());
 
     std::optional<std::string> FileToString(const char* file) {
         std::ifstream is(file);
@@ -101,6 +116,27 @@ namespace {
         std::stringstream buffer;
         buffer << is.rdbuf();
         return buffer.str();
+    }
+
+    void AllocateTexture(GLuint textureId, GLsizei width, GLsizei height) {
+        glBindTexture(GL_TEXTURE_2D, textureId);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, width, height, 0, GL_RGB, GL_FLOAT, 0);
+        // By default, filtering is GL_LINEAR or GL_NEAREST_MIPMAP_LINEAR. We set to GL_NEAREST to
+        // avoid creating mipmaps and to make it less blurry.
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    }
+
+    void SetVertexBufferData(GLuint vboId, const std::vector<glm::vec2>& vertices) {
+        glBindBuffer(GL_ARRAY_BUFFER, vboId);
+        glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(glm::vec2), vertices.data(),
+                     GL_DYNAMIC_DRAW);
+    }
+
+    void CheckFramebufferStatus() {
+        ASSERT(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE);
     }
 
     GLuint LoadShaders(const char* vertShaderFile, const char* fragShaderFile) {
@@ -179,6 +215,24 @@ namespace {
         return programId;
     }
 
+    // Globals
+    int g_windowWidth{}, g_windowHeight{};
+    std::vector<glm::vec2> g_lineVA, g_pointVA;
+
+    namespace ShaderProgram {
+        GLuint renderToTexture{};
+        GLuint darkenTexture{};
+        GLuint textureToScreen{};
+    } // namespace ShaderProgram
+
+    glm::mat4x4 g_projectionMatrix{};
+    glm::mat4x4 g_modelViewMatrix{};
+    VertexArrayResource g_topLevelVAO;
+    FrameBufferResource g_textureFB;
+    int g_renderedTexture0Index{};
+    TextureResource g_renderedTexture0;
+    TextureResource g_renderedTexture1;
+
 } // namespace
 
 namespace GLRender {
@@ -197,10 +251,8 @@ namespace GLRender {
         }
 
         // We don't actually use VAOs, but we must create one and bind it so that we can use VBOs
-        //@TODO: delete this on Shutdown
-        GLuint vertexArrayID;
-        glGenVertexArrays(1, &vertexArrayID);
-        glBindVertexArray(vertexArrayID);
+        g_topLevelVAO = MakeVertexArrayResource();
+        glBindVertexArray(*g_topLevelVAO);
 
         // Load shaders
         ShaderProgram::renderToTexture =
@@ -213,9 +265,9 @@ namespace GLRender {
             LoadShaders("shaders/Passthrough.vert", "shaders/DrawTexture.frag");
 
         // Create resources
-        g_textureFB = GenFrameBuffer();
+        g_textureFB = MakeFrameBufferResource();
         // Set output of fragment shader to color attachment 0
-        glBindFramebuffer(GL_FRAMEBUFFER, g_textureFB);
+        glBindFramebuffer(GL_FRAMEBUFFER, *g_textureFB);
         GLenum drawBuffers[1] = {GL_COLOR_ATTACHMENT0};
         glDrawBuffers(1, drawBuffers);
         CheckFramebufferStatus();
@@ -247,15 +299,14 @@ namespace GLRender {
         g_modelViewMatrix = {};
 
         // (Re)create resources that depend on viewport size
-        DeleteTexture(g_renderedTexture0);
-        g_renderedTexture0 = GenTexture(g_windowWidth, g_windowHeight);
-        DeleteTexture(g_renderedTexture1);
-        g_renderedTexture1 = GenTexture(g_windowWidth, g_windowHeight);
+        g_renderedTexture0 = MakeTextureResource();
+        AllocateTexture(*g_renderedTexture0, g_windowWidth, g_windowHeight);
+        g_renderedTexture1 = MakeTextureResource();
+        AllocateTexture(*g_renderedTexture1, g_windowWidth, g_windowHeight);
 
         // Clear g_renderedTexture0 once
-        BindFramebufferAndTexture(g_textureFB, g_renderedTexture0);
-        // glBindFramebuffer(GL_FRAMEBUFFER, g_textureFB);
-        // glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, g_renderedTexture0, 0);
+        glBindFramebuffer(GL_FRAMEBUFFER, *g_textureFB);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, *g_renderedTexture0, 0);
         glViewport(0, 0, g_windowWidth, g_windowHeight);
         glClear(GL_COLOR_BUFFER_BIT);
 
@@ -269,9 +320,9 @@ namespace GLRender {
     }
 
     void RenderScene(double frameTime) {
-        auto currRenderedTexture0 =
+        auto& currRenderedTexture0 =
             g_renderedTexture0Index == 0 ? g_renderedTexture0 : g_renderedTexture1;
-        auto currRenderedTexture1 =
+        auto& currRenderedTexture1 =
             g_renderedTexture0Index == 0 ? g_renderedTexture1 : g_renderedTexture0;
         g_renderedTexture0Index = (g_renderedTexture0Index + 1) % 2;
 
@@ -280,11 +331,11 @@ namespace GLRender {
         /////////////////////////////////////////////////////////////////
         {
             // Render to our framebuffer
-            glBindFramebuffer(GL_FRAMEBUFFER, g_textureFB);
+            glBindFramebuffer(GL_FRAMEBUFFER, *g_textureFB);
             glViewport(0, 0, g_windowWidth, g_windowHeight);
-            glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, currRenderedTexture0, 0);
+            glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, *currRenderedTexture0, 0);
 
-            // Clear the screen
+            // Purposely do not clear the target texture.
             // glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
             // Use our shader
@@ -295,14 +346,12 @@ namespace GLRender {
             auto mvp = g_projectionMatrix * g_modelViewMatrix;
             glUniformMatrix4fv(mvpUniform, 1, GL_FALSE, &mvp[0][0]);
 
-            // 1st attribute buffer : vertices
-
             auto DrawVertices = [](auto& VA, GLenum mode) {
-
-                GLuint vbo = GenVBO(VA);
+                auto vbo = MakeBufferResource();
+                SetVertexBufferData(*vbo, VA);
 
                 glEnableVertexAttribArray(0);
-                glBindBuffer(GL_ARRAY_BUFFER, vbo);
+                glBindBuffer(GL_ARRAY_BUFFER, *vbo);
                 glVertexAttribPointer(0,        // attribute
                                       2,        // size
                                       GL_FLOAT, // type
@@ -316,25 +365,19 @@ namespace GLRender {
                 VA.clear();
 
                 glDisableVertexAttribArray(0);
-                DeleteVBO(vbo);
             };
 
             DrawVertices(g_lineVA, GL_LINES);
             DrawVertices(g_pointVA, GL_POINTS);
-
-            // glDeleteVertexArrays(1, &VertexArrayID);
-
-            //@TODO: same as above for g_pointVA
         }
 
         /////////////////////////////////////////////////////////////////
         // PASS 2: darken texture
         /////////////////////////////////////////////////////////////////
-
         {
-            glBindFramebuffer(GL_FRAMEBUFFER, g_textureFB);
+            glBindFramebuffer(GL_FRAMEBUFFER, *g_textureFB);
             glViewport(0, 0, g_windowWidth, g_windowHeight);
-            glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, currRenderedTexture1, 0);
+            glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, *currRenderedTexture1, 0);
 
             glClear(GL_COLOR_BUFFER_BIT);
 
@@ -342,7 +385,7 @@ namespace GLRender {
 
             // Bind our texture in Texture Unit 0
             glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, currRenderedTexture0);
+            glBindTexture(GL_TEXTURE_2D, *currRenderedTexture0);
             GLuint texID = glGetUniformLocation(ShaderProgram::darkenTexture, "renderedTexture");
             GLuint frameTimeID = glGetUniformLocation(ShaderProgram::darkenTexture, "frameTime");
             GLuint darkenSpeedScaleID =
@@ -355,22 +398,19 @@ namespace GLRender {
             glUniform1f(frameTimeID, (float)(frameTime));
 
             //@TODO: create once
-            GLuint vbo = [] {
-                GLuint quadVbo;
+            auto vbo = MakeBufferResource();
+            {
                 // The fullscreen quad's FBO
                 static const GLfloat vertices[] = {
                     -1.0f, -1.0f, 0.0f, 1.0f, -1.0f, 0.0f, -1.0f, 1.0f, 0.0f,
                     -1.0f, 1.0f,  0.0f, 1.0f, -1.0f, 0.0f, 1.0f,  1.0f, 0.0f,
                 };
-                glGenBuffers(1, &quadVbo);
-                glBindBuffer(GL_ARRAY_BUFFER, quadVbo);
+                glBindBuffer(GL_ARRAY_BUFFER, *vbo);
                 glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-                return quadVbo;
-            }();
+            }
 
-            // 1rst attribute buffer : vertices
             glEnableVertexAttribArray(0);
-            glBindBuffer(GL_ARRAY_BUFFER, vbo);
+            glBindBuffer(GL_ARRAY_BUFFER, *vbo);
             glVertexAttribPointer(
                 0, // attribute 0. No particular reason for 0, but must match layout in the shader.
                 3, // size
@@ -380,11 +420,9 @@ namespace GLRender {
                 (void*)0  // array buffer offset
             );
 
-            // Draw the triangles !
             glDrawArrays(GL_TRIANGLES, 0, 6); // 2*3 indices starting at 0 -> 2 triangles
 
             glDisableVertexAttribArray(0);
-            DeleteVBO(vbo);
         }
 
         /////////////////////////////////////////////////////////////////
@@ -400,30 +438,28 @@ namespace GLRender {
 
             // Bind our texture in Texture Unit 0
             glActiveTexture(GL_TEXTURE0);
+            //@TODO: Use currRenderedTexture1!
             ////////////////////////glBindTexture(GL_TEXTURE_2D, currRenderedTexture1);
-            glBindTexture(GL_TEXTURE_2D, currRenderedTexture0);
+            glBindTexture(GL_TEXTURE_2D, *currRenderedTexture0);
 
             GLuint texID = glGetUniformLocation(ShaderProgram::textureToScreen, "renderedTexture");
             // Set our "renderedTexture1" sampler to use Texture Unit 0
             glUniform1i(texID, 0);
 
             //@TODO: create once
-            GLuint vbo = [] {
-                GLuint quadVbo;
+            auto vbo = MakeBufferResource();
+            {
                 // The fullscreen quad's FBO
                 static const GLfloat vertices[] = {
                     -1.0f, -1.0f, 0.0f, 1.0f, -1.0f, 0.0f, -1.0f, 1.0f, 0.0f,
                     -1.0f, 1.0f,  0.0f, 1.0f, -1.0f, 0.0f, 1.0f,  1.0f, 0.0f,
                 };
-                glGenBuffers(1, &quadVbo);
-                glBindBuffer(GL_ARRAY_BUFFER, quadVbo);
+                glBindBuffer(GL_ARRAY_BUFFER, *vbo);
                 glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-                return quadVbo;
-            }();
+            }
 
-            // 1st attribute buffer : vertices
             glEnableVertexAttribArray(0);
-            glBindBuffer(GL_ARRAY_BUFFER, vbo);
+            glBindBuffer(GL_ARRAY_BUFFER, *vbo);
             glVertexAttribPointer(0, // attribute 0. No particular reason for 0, but must match the
                                      // layout in the shader.
                                   3, // size
@@ -433,11 +469,9 @@ namespace GLRender {
                                   (void*)0  // array buffer offset
             );
 
-            // Draw the triangles !
             glDrawArrays(GL_TRIANGLES, 0, 6); // 2*3 indices starting at 0 -> 2 triangles
 
             glDisableVertexAttribArray(0);
-            DeleteVBO(vbo);
         }
     }
 } // namespace GLRender
