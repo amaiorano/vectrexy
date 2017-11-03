@@ -116,7 +116,7 @@ inline void AssertHandler(const char* file, int line, const char* condition, con
     AssertHandler(file, line, condition, msg ? FormattedString<>(msg, __VA_ARGS__) : nullptr)
 
 #define ASSERT(condition)                                                                          \
-    (void)((!!(condition)) || (ASSERT_HELPER(__FILE__, (int)__LINE__, #condition, nullptr), false))
+    (void)((!!(condition)) || (ASSERT_HELPER(__FILE__, (int)__LINE__, #condition, ""), false))
 
 #define ASSERT_MSG(condition, msg, ...)                                                            \
     (void)((!!(condition)) ||                                                                      \
