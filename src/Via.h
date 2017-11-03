@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Line.h"
 #include "MemoryBus.h"
 #include "MemoryMap.h"
 #include "ShiftRegister.h"
@@ -8,11 +9,6 @@
 #include <array>
 
 class Input;
-
-struct Line {
-    Vector2 p0;
-    Vector2 p1;
-};
 
 // Implementation of the 6522 Versatile Interface Adapter (VIA)
 // Used to control all of the Vectrex peripherals, such as keypads, vector generator, DAC, sound

@@ -2,11 +2,15 @@
 
 #include "Base.h"
 #include "BitOps.h"
+#include "Line.h"
+#include "Vector2.h"
 #include <array>
+#include <vector>
 
 class Display {
 public:
     void Clear();
+    void DrawLines(const std::vector<Line>& lines);
     void DrawLine(float x1, float y1, float x2, float y2);
 };
 
