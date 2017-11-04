@@ -294,7 +294,6 @@ bool SDLEngine::Run(int argc, char** argv) {
         if (!g_client->Update(frameTime, input))
             quit = true;
 
-        GLRender::PreRender();
         g_client->Render(frameTime, display);
         GLRender::RenderScene(frameTime);
 

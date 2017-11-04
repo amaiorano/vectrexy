@@ -313,12 +313,6 @@ namespace GLRender {
         return true;
     }
 
-    //@TODO: remove this function
-    void PreRender() {
-        // glMatrixMode(GL_MODELVIEW);
-        // glLoadIdentity();
-    }
-
     void RenderScene(double frameTime) {
         auto& currRenderedTexture0 =
             g_renderedTexture0Index == 0 ? g_renderedTexture0 : g_renderedTexture1;
