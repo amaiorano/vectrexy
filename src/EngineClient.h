@@ -11,7 +11,6 @@ class Display {
 public:
     void Clear();
     void DrawLines(const std::vector<Line>& lines);
-    void DrawLine(float x1, float y1, float x2, float y2);
 };
 
 class Input {

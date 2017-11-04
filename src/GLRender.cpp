@@ -401,7 +401,6 @@ namespace GLRender {
             );
 
             glDrawArrays(GL_TRIANGLES, 0, 6); // 2*3 indices starting at 0 -> 2 triangles
-
             glDisableVertexAttribArray(0);
         }
 
@@ -447,7 +446,6 @@ namespace GLRender {
             );
 
             glDrawArrays(GL_TRIANGLES, 0, 6); // 2*3 indices starting at 0 -> 2 triangles
-
             glDisableVertexAttribArray(0);
         }
     }
@@ -473,22 +471,5 @@ void Display::DrawLines(const std::vector<Line>& lines) {
             g_lineVA.push_back(p0);
             g_lineVA.push_back(p1);
         }
-    }
-}
-
-void Display::DrawLine(float x1, float y1, float x2, float y2) {
-    auto AlmostEqual = [](float a, float b, float epsilon = 0.01f) {
-        return abs(a - b) <= epsilon;
-    };
-
-    if (AlmostEqual(x1, x2) && AlmostEqual(y1, y2)) {
-        glBegin(GL_POINTS);
-        glVertex2f(x1, y1);
-        glEnd();
-    } else {
-        glBegin(GL_LINES);
-        glVertex2f(x1, y1);
-        glVertex2f(x2, y2);
-        glEnd();
     }
 }
