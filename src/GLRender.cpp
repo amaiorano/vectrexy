@@ -416,8 +416,9 @@ namespace GLRender {
 
             // Bind our texture in Texture Unit 0
             glActiveTexture(GL_TEXTURE0);
-            //@TODO: Use currRenderedTexture1!
-            ////////////////////////glBindTexture(GL_TEXTURE_2D, currRenderedTexture1);
+            // NOTE: We render texture 0 rather than 1 so that lines just drawn this frame will be
+            // at their full brightness for one frame before being rendered darkened.
+            // glBindTexture(GL_TEXTURE_2D, *currRenderedTexture1);
             glBindTexture(GL_TEXTURE_2D, *currRenderedTexture0);
 
             GLuint texID = glGetUniformLocation(ShaderProgram::textureToScreen, "renderedTexture");
