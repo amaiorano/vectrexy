@@ -16,11 +16,19 @@ The emulator is being developed mainly in [Visual Studio 2017](https://www.visua
 
 Here's an example of how to build (on Windows):
 
+First, download and install [vcpkg](https://github.com/Microsoft/vcpkg), then install dependent packages:
+```bash
+vcpkg install sdl2:x86-windows-static
+vcpkg install glew:x86-windows-static
+vcpkg install glm:x86-windows-static
+```
+
+Now you can clone and build vectrexy using CMake:
 ```bash
 git clone https://github.com/amaiorano/vectrexy.git
 cd vectrexy
 mkdir build && cd build
-cmake -G "Visual Studio 15 2017" -DSDL2=C:\code\SDL2-2.0.4 -DGLEW_ROOT_DIR=C:\code\glew-2.1.0 -DGLEW_USE_STATIC_LIBS=1 -DGLM_ROOT_DIR=C:\code\active\glm-0.9.8.5 ..
+cmake -DCMAKE_TOOLCHAIN_FILE=C:/code/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x86-windows-static ..
 vectrexy.sln ..
 ```
 
