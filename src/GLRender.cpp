@@ -135,6 +135,12 @@ namespace {
                      GL_DYNAMIC_DRAW);
     }
 
+    template <typename T, size_t N>
+    void SetVertexBufferData(GLuint vboId, T (&vertices)[N]) {
+        glBindBuffer(GL_ARRAY_BUFFER, vboId);
+        glBufferData(GL_ARRAY_BUFFER, N * sizeof(vertices[0]), &vertices[0], GL_DYNAMIC_DRAW);
+    }
+
     void CheckFramebufferStatus() {
         ASSERT(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE);
     }
@@ -377,15 +383,11 @@ namespace GLRender {
 
             //@TODO: create once
             auto vbo = MakeBufferResource();
-            {
-                // The fullscreen quad's FBO
-                static const GLfloat vertices[] = {
-                    -1.0f, -1.0f, 0.0f, 1.0f, -1.0f, 0.0f, -1.0f, 1.0f, 0.0f,
-                    -1.0f, 1.0f,  0.0f, 1.0f, -1.0f, 0.0f, 1.0f,  1.0f, 0.0f,
-                };
-                glBindBuffer(GL_ARRAY_BUFFER, *vbo);
-                glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-            }
+            static const GLfloat quad_vertices[] = {
+                -1.0f, -1.0f, 0.0f, 1.0f, -1.0f, 0.0f, -1.0f, 1.0f, 0.0f,
+                -1.0f, 1.0f,  0.0f, 1.0f, -1.0f, 0.0f, 1.0f,  1.0f, 0.0f,
+            };
+            SetVertexBufferData(*vbo, quad_vertices);
 
             glEnableVertexAttribArray(0);
             glBindBuffer(GL_ARRAY_BUFFER, *vbo);
@@ -427,15 +429,11 @@ namespace GLRender {
 
             //@TODO: create once
             auto vbo = MakeBufferResource();
-            {
-                // The fullscreen quad's FBO
-                static const GLfloat vertices[] = {
-                    -1.0f, -1.0f, 0.0f, 1.0f, -1.0f, 0.0f, -1.0f, 1.0f, 0.0f,
-                    -1.0f, 1.0f,  0.0f, 1.0f, -1.0f, 0.0f, 1.0f,  1.0f, 0.0f,
-                };
-                glBindBuffer(GL_ARRAY_BUFFER, *vbo);
-                glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-            }
+            static const GLfloat quad_vertices[] = {
+                -1.0f, -1.0f, 0.0f, 1.0f, -1.0f, 0.0f, -1.0f, 1.0f, 0.0f,
+                -1.0f, 1.0f,  0.0f, 1.0f, -1.0f, 0.0f, 1.0f,  1.0f, 0.0f,
+            };
+            SetVertexBufferData(*vbo, quad_vertices);
 
             glEnableVertexAttribArray(0);
             glBindBuffer(GL_ARRAY_BUFFER, *vbo);
