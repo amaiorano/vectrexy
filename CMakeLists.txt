@@ -20,6 +20,8 @@ find_package(GLEW REQUIRED)
 # Download GLM and pass -GLM_ROOT_DIR=path/to/glm to CMake.
 find_package(GLM REQUIRED)
 
+find_package(PNG REQUIRED)
+
 # SDL2 dependent libs, required when linking against SDL2 static lib
 if (MSVC)
 	set(SDL2_REQUIRED_LIBS winmm.lib version.lib imm32.lib)
@@ -31,9 +33,9 @@ file(GLOB SHADER_SRC "shaders/*.*")
 source_group("Shaders" FILES ${SHADER_SRC})
 
 add_executable(vectrexy ${SRC} ${SHADER_SRC})
-include_directories(${SDL2_INCLUDE_DIR} ${GLEW_INCLUDE_DIRS} ${GLM_INCLUDE_DIRS})
-target_link_libraries(vectrexy ${SDL2_LIBRARY} ${OPENGL_gl_LIBRARY} ${OPENGL_glu_LIBRARY} ${GLEW_LIBRARIES} ${SDL2_REQUIRED_LIBS})
-target_compile_definitions(vectrexy PRIVATE ${GLEW_DEFINITIONS})
+include_directories(${SDL2_INCLUDE_DIR} ${GLEW_INCLUDE_DIRS} ${GLM_INCLUDE_DIRS} ${PNG_INCLUDE_DIRS})
+target_link_libraries(vectrexy ${SDL2_LIBRARY} ${OPENGL_gl_LIBRARY} ${OPENGL_glu_LIBRARY} ${GLEW_LIBRARIES} ${SDL2_REQUIRED_LIBS} ${PNG_LIBRARIES})
+target_compile_definitions(vectrexy PRIVATE ${GLEW_DEFINITIONS} ${PNG_DEFINITIONS})
 
 # NOTE: Removing this as vcpkg already adds its own post-build copy step for dlls
 # For VS, add post-build step to copy SDL2.dll to the output directory

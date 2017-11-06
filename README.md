@@ -21,6 +21,7 @@ First, download and install [vcpkg](https://github.com/Microsoft/vcpkg), then in
 vcpkg install sdl2:x86-windows-static
 vcpkg install glew:x86-windows-static
 vcpkg install glm:x86-windows-static
+vcpkg install libpng:x86-windows-static
 ```
 
 Now you can clone and build vectrexy using CMake:

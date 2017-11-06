@@ -34,7 +34,19 @@
 
 // Disable warnings
 #if _MSC_VER
-#pragma warning(disable : 4201) // nonstandard extension used : nameless struct/union
+// nonstandard extension used : nameless struct/union
+#pragma warning(disable : 4201)
+#endif
+
+// Macros to push/pop warning disables (compiler specific)
+#if _MSC_VER
+#define MSC_PUSH_WARNING_DISABLE(warning_number)                                                   \
+    __pragma(warning(push)) __pragma(warning(disable : warning_number))
+
+#define MSC_POP_WARNING_DISABLE() __pragma(warning(pop))
+#else
+#define MSC_PUSH_WARNING_DISABLE(warning_number)
+#define MSC_POP_WARNING_DISABLE()
 #endif
 
 // Optimization control

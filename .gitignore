@@ -30,4 +30,5 @@ ipch/
 
 # Project-specific
 roms/
+overlays/
 options.txt

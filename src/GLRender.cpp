@@ -1,5 +1,6 @@
 #include "GLRender.h"
 #include "EngineClient.h"
+#include "ImageFileUtils.h"
 
 #include <gl/glew.h> // Must be included before gl.h
 
@@ -8,6 +9,7 @@
 #include <gl/GLU.h>
 
 #include <fstream>
+#include <iostream>
 #include <optional>
 #include <sstream>
 #include <string>
@@ -203,6 +205,27 @@ namespace {
         return programId;
     }
 
+    bool LoadPngTexture(GLuint textureId, const char* file) {
+        auto imgData = ImageFileUtils::loadPngImage(file);
+
+        if (!imgData) {
+            return false;
+        }
+
+        glBindTexture(GL_TEXTURE_2D, textureId);
+
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+        glTexImage2D(GL_TEXTURE_2D, 0, imgData->hasAlpha ? GL_RGBA : GL_RGB, imgData->width,
+                     imgData->height, 0, imgData->hasAlpha ? GL_RGBA : GL_RGB, GL_UNSIGNED_BYTE,
+                     imgData->data.get());
+        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST /*GL_LINEAR*/);
+        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST /*GL_LINEAR*/);
+
+        return true;
+    }
+
     // Globals
     int g_windowWidth{}, g_windowHeight{};
     std::vector<glm::vec2> g_lineVA, g_pointVA;
@@ -220,6 +243,7 @@ namespace {
     int g_renderedTexture0Index{};
     TextureResource g_renderedTexture0;
     TextureResource g_renderedTexture1;
+    TextureResource g_overlayTexture;
 
 } // namespace
 
@@ -259,6 +283,14 @@ namespace GLRender {
         GLenum drawBuffers[1] = {GL_COLOR_ATTACHMENT0};
         glDrawBuffers(1, drawBuffers);
         CheckFramebufferStatus();
+
+        // For now, always attempt to load the mine storm overlay
+        g_overlayTexture = MakeTextureResource();
+        glObjectLabel(GL_TEXTURE, *g_overlayTexture, -1, "g_overlayTexture");
+        const char* overlayFile = "overlays/mine.png";
+        if (!LoadPngTexture(*g_overlayTexture, overlayFile)) {
+            std::cerr << "Failed to load overlay: " << overlayFile << "\n";
+        }
     }
 
     void Shutdown() {
@@ -307,6 +339,9 @@ namespace GLRender {
         auto& currRenderedTexture1 =
             g_renderedTexture0Index == 0 ? g_renderedTexture1 : g_renderedTexture0;
         g_renderedTexture0Index = (g_renderedTexture0Index + 1) % 2;
+
+        glObjectLabel(GL_TEXTURE, *currRenderedTexture0, -1, "currRenderedTexture0");
+        glObjectLabel(GL_TEXTURE, *currRenderedTexture1, -1, "currRenderedTexture1");
 
         /////////////////////////////////////////////////////////////////
         // PASS 1: render to texture
@@ -413,16 +448,30 @@ namespace GLRender {
             // Use our shader
             glUseProgram(ShaderProgram::textureToScreen);
 
-            // Bind our texture in Texture Unit 0
-            glActiveTexture(GL_TEXTURE0);
-            // NOTE: We render texture 0 rather than 1 so that lines just drawn this frame will be
-            // at their full brightness for one frame before being rendered darkened.
-            // glBindTexture(GL_TEXTURE_2D, *currRenderedTexture1);
-            glBindTexture(GL_TEXTURE_2D, *currRenderedTexture0);
+            {
+                // Bind our texture in Texture Unit 0
+                glActiveTexture(GL_TEXTURE0);
+                // NOTE: We render texture 0 rather than 1 so that lines just drawn this frame will
+                // be at their full brightness for one frame before being rendered darkened.
+                // glBindTexture(GL_TEXTURE_2D, *currRenderedTexture1);
+                glBindTexture(GL_TEXTURE_2D, *currRenderedTexture0);
+                GLuint texLoc =
+                    glGetUniformLocation(ShaderProgram::textureToScreen, "renderedTexture");
+                // Set our "renderedTexture1" sampler to use Texture Unit 0
+                glUniform1i(texLoc, 0);
+            }
 
-            GLuint texID = glGetUniformLocation(ShaderProgram::textureToScreen, "renderedTexture");
-            // Set our "renderedTexture1" sampler to use Texture Unit 0
-            glUniform1i(texID, 0);
+            {
+                glActiveTexture(GL_TEXTURE1);
+                glBindTexture(GL_TEXTURE_2D, *g_overlayTexture);
+                GLuint texLoc =
+                    glGetUniformLocation(ShaderProgram::textureToScreen, "overlayTexture");
+                glUniform1i(texLoc, 1);
+                GLuint overlayAlphaLoc =
+                    glGetUniformLocation(ShaderProgram::textureToScreen, "overlayAlpha");
+                static volatile float overlayAlpha = 1.0f;
+                glUniform1f(overlayAlphaLoc, overlayAlpha);
+            }
 
             //@TODO: create once
             auto vbo = MakeBufferResource();
