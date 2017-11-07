@@ -26,19 +26,15 @@ namespace {
     template <typename DeleteFunc>
     class GLResource {
     public:
-        const GLuint INVALID_RESOURCE_ID = ~0u;
+        static const GLuint INVALID_RESOURCE_ID = ~0u;
 
-        GLResource()
-            : m_id(INVALID_RESOURCE_ID) {}
-
-        GLResource(GLuint id, DeleteFunc deleteFunc)
+        GLResource(GLuint id = INVALID_RESOURCE_ID, DeleteFunc deleteFunc = DeleteFunc{})
             : m_id(id)
             , m_deleteFunc(std::move(deleteFunc)) {}
 
         ~GLResource() {
             if (m_id != INVALID_RESOURCE_ID) {
                 m_deleteFunc(m_id);
-                m_id = INVALID_RESOURCE_ID;
             }
         }
 
@@ -53,8 +49,10 @@ namespace {
             rhs.m_id = INVALID_RESOURCE_ID;
         }
         GLResource& operator=(GLResource&& rhs) {
-            if (this != &rhs)
+            if (this != &rhs) {
                 std::swap(m_id, rhs.m_id);
+                std::swap(m_deleteFunc, m_deleteFunc);
+            }
             return *this;
         }
 
@@ -75,7 +73,7 @@ namespace {
         };
         GLuint id;
         glGenTextures(1, &id);
-        return GLResource<decltype(Deleter{})>{id, Deleter{}};
+        return GLResource<decltype(Deleter{})>{id};
     }
     using TextureResource = decltype(MakeTextureResource());
 
@@ -85,7 +83,7 @@ namespace {
         };
         GLuint id;
         glGenVertexArrays(1, &id);
-        return GLResource<decltype(Deleter{})>{id, Deleter{}};
+        return GLResource<decltype(Deleter{})>{id};
     }
     using VertexArrayResource = decltype(MakeVertexArrayResource());
 
@@ -95,7 +93,7 @@ namespace {
         };
         GLuint id;
         glGenFramebuffers(1, &id);
-        return GLResource<decltype(Deleter{})>{id, Deleter{}};
+        return GLResource<decltype(Deleter{})>{id};
     }
     using FrameBufferResource = decltype(MakeFrameBufferResource());
 
@@ -105,7 +103,7 @@ namespace {
         };
         GLuint id;
         glGenBuffers(1, &id);
-        return GLResource<decltype(Deleter{})>{id, Deleter{}};
+        return GLResource<decltype(Deleter{})>{id};
     }
     using BufferResource = decltype(MakeBufferResource());
 
