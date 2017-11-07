@@ -267,7 +267,8 @@ bool SDLEngine::Run(int argc, char** argv) {
 
         const auto currTime = std::chrono::high_resolution_clock::now();
         const std::chrono::duration<double> diff = currTime - lastTime;
-        const double frameTime = std::min(diff.count(), 1 / 100.0);
+        const double realFrameTime = diff.count();
+        const double frameTime = std::min(realFrameTime, 1 / 100.0);
         lastTime = currTime;
 
         // FPS
@@ -275,7 +276,7 @@ bool SDLEngine::Run(int argc, char** argv) {
             static double frames = 0;
             static double elapsedTime = 0;
             frames += 1;
-            elapsedTime += frameTime;
+            elapsedTime += realFrameTime;
             if (elapsedTime >= 1) {
                 double currFps = frames / elapsedTime;
                 static double avgFps = currFps;
