@@ -118,17 +118,6 @@ namespace {
         return buffer.str();
     }
 
-    void AllocateTexture(GLuint textureId, GLsizei width, GLsizei height) {
-        glBindTexture(GL_TEXTURE_2D, textureId);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, width, height, 0, GL_RGB, GL_FLOAT, 0);
-        // By default, filtering is GL_LINEAR or GL_NEAREST_MIPMAP_LINEAR. We set to GL_NEAREST to
-        // avoid creating mipmaps and to make it less blurry.
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    }
-
     void SetVertexBufferData(GLuint vboId, const std::vector<glm::vec2>& vertices) {
         glBindBuffer(GL_ARRAY_BUFFER, vboId);
         glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(glm::vec2), vertices.data(),
@@ -205,6 +194,28 @@ namespace {
         return programId;
     }
 
+    struct PixelData {
+        uint8_t* pixels{};
+        GLenum format{};
+        GLenum type{};
+    };
+    void AllocateTexture(GLuint textureId, GLsizei width, GLsizei height, GLint internalFormat,
+                         std::optional<PixelData> pixelData = {}) {
+
+        auto pd = pixelData.value_or(PixelData{nullptr, GL_RGBA, GL_UNSIGNED_BYTE});
+
+        glBindTexture(GL_TEXTURE_2D, textureId);
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+        glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, width, height, 0, pd.format, pd.type,
+                     pd.pixels);
+        // By default, filtering is GL_LINEAR or GL_NEAREST_MIPMAP_LINEAR. We set to GL_NEAREST to
+        // avoid creating mipmaps and to make it less blurry.
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    }
+
     bool LoadPngTexture(GLuint textureId, const char* file) {
         auto imgData = ImageFileUtils::loadPngImage(file);
 
@@ -212,17 +223,10 @@ namespace {
             return false;
         }
 
-        glBindTexture(GL_TEXTURE_2D, textureId);
-
-        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-        glTexImage2D(GL_TEXTURE_2D, 0, imgData->hasAlpha ? GL_RGBA : GL_RGB, imgData->width,
-                     imgData->height, 0, imgData->hasAlpha ? GL_RGBA : GL_RGB, GL_UNSIGNED_BYTE,
-                     imgData->data.get());
-        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
-        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST /*GL_LINEAR*/);
-        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST /*GL_LINEAR*/);
-
+        AllocateTexture(
+            textureId, imgData->width, imgData->height, imgData->hasAlpha ? GL_RGBA : GL_RGB,
+            PixelData{imgData->data.get(),
+                      static_cast<GLenum>(imgData->hasAlpha ? GL_RGBA : GL_RGB), GL_UNSIGNED_BYTE});
         return true;
     }
 
@@ -290,6 +294,12 @@ namespace GLRender {
         const char* overlayFile = "overlays/mine.png";
         if (!LoadPngTexture(*g_overlayTexture, overlayFile)) {
             std::cerr << "Failed to load overlay: " << overlayFile << "\n";
+
+            // If we fail, then allocate a min-sized transparent texture
+            std::vector<uint8_t> emptyTexture;
+            emptyTexture.resize(64 * 64 * 4);
+            AllocateTexture(*g_overlayTexture, 64, 64, GL_RGBA,
+                            PixelData{&emptyTexture[0], GL_RGBA, GL_UNSIGNED_BYTE});
         }
     }
 
@@ -320,9 +330,9 @@ namespace GLRender {
 
         // (Re)create resources that depend on viewport size
         g_renderedTexture0 = MakeTextureResource();
-        AllocateTexture(*g_renderedTexture0, g_windowWidth, g_windowHeight);
+        AllocateTexture(*g_renderedTexture0, g_windowWidth, g_windowHeight, GL_RGB32F);
         g_renderedTexture1 = MakeTextureResource();
-        AllocateTexture(*g_renderedTexture1, g_windowWidth, g_windowHeight);
+        AllocateTexture(*g_renderedTexture1, g_windowWidth, g_windowHeight, GL_RGB32F);
 
         // Clear g_renderedTexture0 once
         glBindFramebuffer(GL_FRAMEBUFFER, *g_textureFB);
