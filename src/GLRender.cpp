@@ -6,7 +6,12 @@
 
 #include <SDL_opengl.h> // Wraps OpenGL headers
 #include <SDL_opengl_glext.h>
+
 #include <gl/GLU.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/mat4x4.hpp>
+#include <imgui.h>
 
 #include <fstream>
 #include <iostream>
@@ -14,10 +19,6 @@
 #include <sstream>
 #include <string>
 #include <vector>
-
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/mat4x4.hpp>
 
 // Vectrex screen dimensions
 const int VECTREX_SCREEN_WIDTH = 256;
@@ -420,7 +421,8 @@ namespace GLRender {
             // Set our "renderedTexture0" sampler to use Texture Unit 0
             glUniform1i(texID, 0);
 
-            static volatile float darkenSpeedScale = 3.0;
+            static float darkenSpeedScale = 3.0;
+            ImGui::SliderFloat("darkenSpeedScale", &darkenSpeedScale, 0.0f, 10.0f);
             glUniform1f(darkenSpeedScaleID, darkenSpeedScale);
             glUniform1f(frameTimeID, (float)(frameTime));
 
@@ -479,7 +481,8 @@ namespace GLRender {
                 glUniform1i(texLoc, 1);
                 GLuint overlayAlphaLoc =
                     glGetUniformLocation(ShaderProgram::textureToScreen, "overlayAlpha");
-                static volatile float overlayAlpha = 1.0f;
+                static float overlayAlpha = 1.0f;
+                ImGui::SliderFloat("overlayAlpha", &overlayAlpha, 0.0f, 1.0f);
                 glUniform1f(overlayAlphaLoc, overlayAlpha);
             }
 
