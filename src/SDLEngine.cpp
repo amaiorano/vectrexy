@@ -22,6 +22,11 @@ namespace {
     SDL_Window* g_window = NULL;
     SDL_GLContext g_glContext;
 
+    template <typename T>
+    constexpr T MsToSec(T ms) {
+        return static_cast<T>(ms / 1000.0);
+    }
+
     void SetOpenGLVersion() {
         auto[major, minor] = GLRender::GetMajorMinorVersion();
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, major);
@@ -268,7 +273,7 @@ bool SDLEngine::Run(int argc, char** argv) {
         const auto currTime = std::chrono::high_resolution_clock::now();
         const std::chrono::duration<double> diff = currTime - lastTime;
         const double realFrameTime = diff.count();
-        const double frameTime = std::min(realFrameTime, 1 / 100.0);
+        const double frameTime = std::min(realFrameTime, MsToSec(100.0));
         lastTime = currTime;
 
         // FPS
