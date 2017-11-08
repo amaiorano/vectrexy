@@ -9,6 +9,7 @@ find_package(OpenGL REQUIRED)
 find_package(GLEW REQUIRED)
 find_package(GLM REQUIRED)
 find_package(PNG REQUIRED)
+find_package(Imgui REQUIRED)
 
 # SDL2 dependent libs, required when linking against SDL2 static lib
 if (MSVC)
@@ -20,14 +21,14 @@ if (MSVC)
 	set(MANIFEST_FILE cmake/dpiawarescaleing.manifest)
 endif()
 
-file(GLOB SRC "src/*.*")
+file(GLOB_RECURSE SRC "src/*.*")
 source_group("Source" FILES ${SRC})
 file(GLOB SHADER_SRC "shaders/*.*")
 source_group("Shaders" FILES ${SHADER_SRC})
 
 add_executable(vectrexy ${SRC} ${SHADER_SRC} ${MANIFEST_FILE})
-include_directories(${SDL2_INCLUDE_DIR} ${GLEW_INCLUDE_DIRS} ${GLM_INCLUDE_DIRS} ${PNG_INCLUDE_DIRS})
-target_link_libraries(vectrexy ${SDL2_LIBRARY} ${OPENGL_gl_LIBRARY} ${OPENGL_glu_LIBRARY} ${GLEW_LIBRARIES} ${SDL2_REQUIRED_LIBS} ${PNG_LIBRARIES})
+include_directories(${SDL2_INCLUDE_DIR} ${GLEW_INCLUDE_DIRS} ${GLM_INCLUDE_DIRS} ${PNG_INCLUDE_DIRS} ${IMGUI_INCLUDE_PATH})
+target_link_libraries(vectrexy ${SDL2_LIBRARY} ${OPENGL_gl_LIBRARY} ${OPENGL_glu_LIBRARY} ${GLEW_LIBRARIES} ${SDL2_REQUIRED_LIBS} ${PNG_LIBRARIES} ${IMGUI_LIBRARY})
 target_compile_definitions(vectrexy PRIVATE ${GLEW_DEFINITIONS} ${PNG_DEFINITIONS})
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")

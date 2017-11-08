@@ -3,6 +3,7 @@
 #include "EngineClient.h"
 #include "GLRender.h"
 #include "StringHelpers.h"
+#include "imgui_impl/imgui_impl_sdl_gl3.h"
 #include <SDL.h>
 #include <algorithm>
 #include <chrono>
@@ -224,6 +225,9 @@ bool SDLEngine::Run(int argc, char** argv) {
         return false;
     }
 
+    ImGui_ImplSdlGL3_Init(g_window);
+    ImGui::GetIO().FontGlobalScale = 2;
+
     GLRender::Initialize();
     GLRender::SetViewport(windowWidth, windowHeight);
 
@@ -241,6 +245,7 @@ bool SDLEngine::Run(int argc, char** argv) {
     SDL_Event sdlEvent;
     while (!quit) {
         while (SDL_PollEvent(&sdlEvent) != 0) {
+            ImGui_ImplSdlGL3_ProcessEvent(&sdlEvent);
             if (sdlEvent.type == SDL_QUIT) {
                 quit = true;
             }
@@ -295,6 +300,8 @@ bool SDLEngine::Run(int argc, char** argv) {
             }
         }
 
+        ImGui_ImplSdlGL3_NewFrame(g_window);
+
         auto input = UpdateInput();
 
         if (!g_client->Update(frameTime, input))
@@ -302,6 +309,7 @@ bool SDLEngine::Run(int argc, char** argv) {
 
         g_client->Render(frameTime, display);
         GLRender::RenderScene(frameTime);
+        ImGui::Render();
 
         SDL_GL_SwapWindow(g_window);
     }
