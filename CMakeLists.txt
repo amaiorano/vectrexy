@@ -15,12 +15,17 @@ if (MSVC)
 	set(SDL2_REQUIRED_LIBS winmm.lib version.lib imm32.lib)
 endif()
 
+# Enable DPI awareness on Windows 8+
+if (MSVC)
+	set(MANIFEST_FILE cmake/dpiawarescaleing.manifest)
+endif()
+
 file(GLOB SRC "src/*.*")
 source_group("Source" FILES ${SRC})
 file(GLOB SHADER_SRC "shaders/*.*")
 source_group("Shaders" FILES ${SHADER_SRC})
 
-add_executable(vectrexy ${SRC} ${SHADER_SRC})
+add_executable(vectrexy ${SRC} ${SHADER_SRC} ${MANIFEST_FILE})
 include_directories(${SDL2_INCLUDE_DIR} ${GLEW_INCLUDE_DIRS} ${GLM_INCLUDE_DIRS} ${PNG_INCLUDE_DIRS})
 target_link_libraries(vectrexy ${SDL2_LIBRARY} ${OPENGL_gl_LIBRARY} ${OPENGL_glu_LIBRARY} ${GLEW_LIBRARIES} ${SDL2_REQUIRED_LIBS} ${PNG_LIBRARIES})
 target_compile_definitions(vectrexy PRIVATE ${GLEW_DEFINITIONS} ${PNG_DEFINITIONS})
