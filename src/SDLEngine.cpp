@@ -226,7 +226,7 @@ bool SDLEngine::Run(int argc, char** argv) {
     }
 
     ImGui_ImplSdlGL3_Init(g_window);
-    ImGui::GetIO().FontGlobalScale = 2;
+    ImGui::GetIO().FontGlobalScale = 1;
 
     GLRender::Initialize();
     GLRender::SetViewport(windowWidth, windowHeight);
