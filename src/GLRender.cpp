@@ -231,8 +231,34 @@ namespace {
         return true;
     }
 
+    struct Viewport {
+        GLint x{}, y{};
+        GLsizei w{}, h{};
+    };
+    Viewport GetBestFitViewport(float targetAR, int windowWidth, int windowHeight) {
+        float windowWidthF = static_cast<float>(windowWidth);
+        float windowHeightF = static_cast<float>(windowHeight);
+        float windowAR = windowWidthF / windowHeightF;
+
+        bool fitToWindowHeight = targetAR <= windowAR;
+
+        const auto[targetWidth, targetHeight] = [&] {
+            if (fitToWindowHeight) {
+                // fit to window height
+                return std::make_tuple(targetAR * windowHeightF, windowHeightF);
+            } else {
+                // fit to window width
+                return std::make_tuple(windowWidthF, 1 / targetAR * windowWidthF);
+            }
+        }();
+
+        return {static_cast<GLint>((windowWidthF - targetWidth) / 2.0f),
+                static_cast<GLint>((windowHeightF - targetHeight) / 2.0f),
+                static_cast<GLsizei>(targetWidth), static_cast<GLsizei>(targetHeight)};
+    }
+
     // Globals
-    int g_windowWidth{}, g_windowHeight{};
+    Viewport g_windowViewport{}, g_overlayViewport{};
     std::vector<glm::vec2> g_lineVA, g_pointVA;
 
     namespace ShaderProgram {
@@ -311,18 +337,21 @@ namespace GLRender {
 
     std::tuple<int, int> GetMajorMinorVersion() { return {3, 3}; }
 
-    bool SetViewport(int windowWidth, int windowHeight) {
-        GLfloat ratio;
+    void SetViewport(const Viewport& vp) {
+        glViewport((GLint)vp.x, (GLint)vp.y, (GLsizei)vp.w, (GLsizei)vp.h);
+    }
 
+    bool SetViewport(int windowWidth, int windowHeight) {
         if (windowHeight == 0) {
             windowHeight = 1;
         }
 
-        g_windowWidth = windowWidth;
-        g_windowHeight = windowHeight;
+        // Overlay
+        float overlayAR = 936.f / 1200.f;
+        g_windowViewport = GetBestFitViewport(overlayAR, windowWidth, windowHeight);
+        g_overlayViewport = {0, 0, g_windowViewport.w, g_windowViewport.h};
 
-        ratio = GLfloat(g_windowWidth) / GLfloat(g_windowHeight);
-        glViewport(0, 0, GLsizei(g_windowWidth), GLsizei(g_windowHeight));
+        SetViewport(g_overlayViewport);
 
         double halfWidth = VECTREX_SCREEN_WIDTH / 2.0;
         double halfHeight = VECTREX_SCREEN_HEIGHT / 2.0;
@@ -332,14 +361,15 @@ namespace GLRender {
 
         // (Re)create resources that depend on viewport size
         g_renderedTexture0 = MakeTextureResource();
-        AllocateTexture(*g_renderedTexture0, g_windowWidth, g_windowHeight, GL_RGB32F);
+        AllocateTexture(*g_renderedTexture0, g_overlayViewport.w, g_overlayViewport.h, GL_RGB32F);
         g_renderedTexture1 = MakeTextureResource();
-        AllocateTexture(*g_renderedTexture1, g_windowWidth, g_windowHeight, GL_RGB32F);
+        AllocateTexture(*g_renderedTexture1, g_overlayViewport.w, g_overlayViewport.h, GL_RGB32F);
 
         // Clear g_renderedTexture0 once
         glBindFramebuffer(GL_FRAMEBUFFER, *g_textureFB);
         glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, *g_renderedTexture0, 0);
-        glViewport(0, 0, g_windowWidth, g_windowHeight);
+        // glViewport(0, 0, g_windowWidth, g_windowHeight);
+        SetViewport(g_overlayViewport);
         glClear(GL_COLOR_BUFFER_BIT);
 
         glEnable(GL_BLEND);
@@ -364,7 +394,8 @@ namespace GLRender {
         {
             // Render to our framebuffer
             glBindFramebuffer(GL_FRAMEBUFFER, *g_textureFB);
-            glViewport(0, 0, g_windowWidth, g_windowHeight);
+            // glViewport(0, 0, g_windowWidth, g_windowHeight);
+            SetViewport(g_overlayViewport);
             glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, *currRenderedTexture0, 0);
 
             // Purposely do not clear the target texture.
@@ -408,7 +439,8 @@ namespace GLRender {
         /////////////////////////////////////////////////////////////////
         {
             glBindFramebuffer(GL_FRAMEBUFFER, *g_textureFB);
-            glViewport(0, 0, g_windowWidth, g_windowHeight);
+            // glViewport(0, 0, g_windowWidth, g_windowHeight);
+            SetViewport(g_overlayViewport);
             glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, *currRenderedTexture1, 0);
 
             glClear(GL_COLOR_BUFFER_BIT);
@@ -475,7 +507,8 @@ namespace GLRender {
         /////////////////////////////////////////////////////////////////
         {
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
-            glViewport(0, 0, g_windowWidth, g_windowHeight);
+            // glViewport(0, 0, g_windowWidth, g_windowHeight);
+            SetViewport(g_windowViewport);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
             auto RenderTexture = [&](GLuint textureId, float scaleX, float scaleY) {
@@ -562,42 +595,6 @@ namespace GLRender {
 
             RenderTexture(*currRenderedTexture0, scaleX, scaleY);
             RenderTexture(*g_overlayTexture, 1.0f, 1.0f);
-
-            //{
-            //    glActiveTexture(GL_TEXTURE1);
-            //    glBindTexture(GL_TEXTURE_2D, *g_overlayTexture);
-            //    GLuint texLoc =
-            //        glGetUniformLocation(ShaderProgram::textureToScreen, "overlayTexture");
-            //    glUniform1i(texLoc, 1);
-            //    GLuint overlayAlphaLoc =
-            //        glGetUniformLocation(ShaderProgram::textureToScreen, "overlayAlpha");
-            //    static float overlayAlpha = 1.0f;
-            //    ImGui::SliderFloat("overlayAlpha", &overlayAlpha, 0.0f, 1.0f);
-            //    glUniform1f(overlayAlphaLoc, overlayAlpha);
-            //}
-
-            ////@TODO: create once
-            // auto vbo = MakeBufferResource();
-            // static const GLfloat quad_vertices[] = {
-            //    -1.0f, -1.0f, 0.0f, 1.0f, -1.0f, 0.0f, -1.0f, 1.0f, 0.0f,
-            //    -1.0f, 1.0f,  0.0f, 1.0f, -1.0f, 0.0f, 1.0f,  1.0f, 0.0f,
-            //};
-            // SetVertexBufferData(*vbo, quad_vertices);
-
-            // glEnableVertexAttribArray(0);
-            // glBindBuffer(GL_ARRAY_BUFFER, *vbo);
-            // glVertexAttribPointer(0, // attribute 0. No particular reason for 0, but must match
-            // the
-            //                         // layout in the shader.
-            //                      3, // size
-            //                      GL_FLOAT, // type
-            //                      GL_FALSE, // normalized?
-            //                      0,        // stride
-            //                      (void*)0  // array buffer offset
-            //);
-
-            // glDrawArrays(GL_TRIANGLES, 0, 6); // 2*3 indices starting at 0 -> 2 triangles
-            // glDisableVertexAttribArray(0);
         }
     }
 } // namespace GLRender

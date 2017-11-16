@@ -213,7 +213,7 @@ bool SDLEngine::Run(int argc, char** argv) {
     const int windowHeight = WindowHeightFromWidth(windowWidth);
 
     g_window = SDL_CreateWindow(WINDOW_TITLE, windowX, windowY, windowWidth, windowHeight,
-                                SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
+                                SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
     if (g_window == NULL) {
         std::cout << "Cannot create window with error " << SDL_GetError() << std::endl;
         return false;
@@ -251,6 +251,14 @@ bool SDLEngine::Run(int argc, char** argv) {
             }
 
             switch (sdlEvent.type) {
+            case SDL_WINDOWEVENT:
+                switch (sdlEvent.window.event) {
+                case SDL_WINDOWEVENT_SIZE_CHANGED:
+                    GLRender::SetViewport(sdlEvent.window.data1, sdlEvent.window.data2);
+                    break;
+                }
+                break;
+
             case SDL_CONTROLLERDEVICEADDED:
                 AddController(sdlEvent.cdevice.which);
                 break;
