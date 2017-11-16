@@ -229,7 +229,7 @@ bool SDLEngine::Run(int argc, char** argv) {
     ImGui::GetIO().FontGlobalScale = 1;
 
     GLRender::Initialize();
-    GLRender::SetViewport(windowWidth, windowHeight);
+    GLRender::OnWindowResized(windowWidth, windowHeight);
 
     if (!g_client->Init(argc, argv)) {
         return false;
@@ -254,7 +254,7 @@ bool SDLEngine::Run(int argc, char** argv) {
             case SDL_WINDOWEVENT:
                 switch (sdlEvent.window.event) {
                 case SDL_WINDOWEVENT_SIZE_CHANGED:
-                    GLRender::SetViewport(sdlEvent.window.data1, sdlEvent.window.data2);
+                    GLRender::OnWindowResized(sdlEvent.window.data1, sdlEvent.window.data2);
                     break;
                 }
                 break;

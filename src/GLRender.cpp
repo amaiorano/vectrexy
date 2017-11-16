@@ -131,6 +131,12 @@ namespace {
         glBufferData(GL_ARRAY_BUFFER, N * sizeof(vertices[0]), &vertices[0], GL_DYNAMIC_DRAW);
     }
 
+    template <typename T, size_t N>
+    void SetVertexBufferData(GLuint vboId, const std::array<T, N>& vertices) {
+        glBindBuffer(GL_ARRAY_BUFFER, vboId);
+        glBufferData(GL_ARRAY_BUFFER, N * sizeof(vertices[0]), &vertices[0], GL_DYNAMIC_DRAW);
+    }
+
     void CheckFramebufferStatus() {
         ASSERT(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE);
     }
@@ -211,8 +217,10 @@ namespace {
                      pd.pixels);
         // By default, filtering is GL_LINEAR or GL_NEAREST_MIPMAP_LINEAR. We set to GL_NEAREST to
         // avoid creating mipmaps and to make it less blurry.
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR /*GL_NEAREST*/);
+        // auto filtering = GL_LINEAR;
+        auto filtering = GL_NEAREST;
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filtering);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filtering);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     }
@@ -258,13 +266,18 @@ namespace {
     }
 
     // Globals
-    Viewport g_windowViewport{}, g_overlayViewport{};
+    float CRT_SCALE_X = 0.93f;
+    float CRT_SCALE_Y = 0.76f;
+    int g_windowWidth{}, g_windowHeight{};
+
+    Viewport g_windowViewport{}, g_overlayViewport{}, g_crtViewport{};
     std::vector<glm::vec2> g_lineVA, g_pointVA;
 
     namespace ShaderProgram {
         GLuint renderToTexture{};
         GLuint darkenTexture{};
-        GLuint textureToScreen{};
+        GLuint gameScreenToCrtTexture{};
+        GLuint drawScreen{};
     } // namespace ShaderProgram
 
     glm::mat4x4 g_projectionMatrix{};
@@ -274,6 +287,7 @@ namespace {
     int g_renderedTexture0Index{};
     TextureResource g_renderedTexture0;
     TextureResource g_renderedTexture1;
+    TextureResource g_crtTexture;
     TextureResource g_overlayTexture;
 
 } // namespace
@@ -298,14 +312,18 @@ namespace GLRender {
         glBindVertexArray(*g_topLevelVAO);
 
         // Load shaders
+        //@TODO: Use PassThrough.vert for renderToTexture as well (don't forget to pass UVs along)
         ShaderProgram::renderToTexture =
             LoadShaders("shaders/DrawVectors.vert", "shaders/DrawVectors.frag");
 
         ShaderProgram::darkenTexture =
             LoadShaders("shaders/PassThrough.vert", "shaders/DarkenTexture.frag");
 
-        ShaderProgram::textureToScreen =
+        ShaderProgram::gameScreenToCrtTexture =
             LoadShaders("shaders/Passthrough.vert", "shaders/DrawTexture.frag");
+
+        ShaderProgram::drawScreen =
+            LoadShaders("shaders/Passthrough.vert", "shaders/DrawScreen.frag");
 
         // Create resources
         g_textureFB = MakeFrameBufferResource();
@@ -341,15 +359,19 @@ namespace GLRender {
         glViewport((GLint)vp.x, (GLint)vp.y, (GLsizei)vp.w, (GLsizei)vp.h);
     }
 
-    bool SetViewport(int windowWidth, int windowHeight) {
+    bool OnWindowResized(int windowWidth, int windowHeight) {
         if (windowHeight == 0) {
             windowHeight = 1;
         }
+        g_windowWidth = windowWidth;
+        g_windowHeight = windowHeight;
 
         // Overlay
         float overlayAR = 936.f / 1200.f;
         g_windowViewport = GetBestFitViewport(overlayAR, windowWidth, windowHeight);
         g_overlayViewport = {0, 0, g_windowViewport.w, g_windowViewport.h};
+        g_crtViewport = {0, 0, static_cast<GLsizei>(g_overlayViewport.w * CRT_SCALE_X),
+                         static_cast<GLsizei>(g_overlayViewport.h * CRT_SCALE_Y)};
 
         SetViewport(g_overlayViewport);
 
@@ -361,24 +383,36 @@ namespace GLRender {
 
         // (Re)create resources that depend on viewport size
         g_renderedTexture0 = MakeTextureResource();
-        AllocateTexture(*g_renderedTexture0, g_overlayViewport.w, g_overlayViewport.h, GL_RGB32F);
+        AllocateTexture(*g_renderedTexture0, g_crtViewport.w, g_crtViewport.h, GL_RGB32F);
         g_renderedTexture1 = MakeTextureResource();
-        AllocateTexture(*g_renderedTexture1, g_overlayViewport.w, g_overlayViewport.h, GL_RGB32F);
+        AllocateTexture(*g_renderedTexture1, g_crtViewport.w, g_crtViewport.h, GL_RGB32F);
+        g_crtTexture = MakeTextureResource();
+        AllocateTexture(*g_crtTexture, g_overlayViewport.w, g_overlayViewport.h, GL_RGB);
 
         // Clear g_renderedTexture0 once
         glBindFramebuffer(GL_FRAMEBUFFER, *g_textureFB);
         glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, *g_renderedTexture0, 0);
-        // glViewport(0, 0, g_windowWidth, g_windowHeight);
         SetViewport(g_overlayViewport);
         glClear(GL_COLOR_BUFFER_BIT);
-
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
         return true;
     }
 
     void RenderScene(double frameTime) {
+        // Force resize on crt scale change
+        {
+            static float scaleX = CRT_SCALE_X;
+            static float scaleY = CRT_SCALE_Y;
+            ImGui::SliderFloat("scaleX", &scaleX, 0.0f, 1.0f);
+            ImGui::SliderFloat("scaleY", &scaleY, 0.0f, 1.0f);
+
+            if (scaleX != CRT_SCALE_X || scaleY != CRT_SCALE_Y) {
+                CRT_SCALE_X = scaleX;
+                CRT_SCALE_Y = scaleY;
+                OnWindowResized(g_windowWidth, g_windowHeight);
+            }
+        }
+
         auto& currRenderedTexture0 =
             g_renderedTexture0Index == 0 ? g_renderedTexture0 : g_renderedTexture1;
         auto& currRenderedTexture1 =
@@ -388,14 +422,22 @@ namespace GLRender {
         glObjectLabel(GL_TEXTURE, *currRenderedTexture0, -1, "currRenderedTexture0");
         glObjectLabel(GL_TEXTURE, *currRenderedTexture1, -1, "currRenderedTexture1");
 
+        auto MakeClipSpaceQuad = [](float scaleX = 1.f, float scaleY = 1.f) {
+            std::array<glm::vec3, 6> quad_vertices{
+                glm::vec3{-scaleX, -scaleY, 0.0f}, glm::vec3{scaleX, -scaleY, 0.0f},
+                glm::vec3{-scaleX, scaleY, 0.0f},  glm::vec3{-scaleX, scaleY, 0.0f},
+                glm::vec3{scaleX, -scaleY, 0.0f},  glm::vec3{scaleX, scaleY, 0.0f}};
+            return quad_vertices;
+        };
+
         /////////////////////////////////////////////////////////////////
         // PASS 1: render to texture
         /////////////////////////////////////////////////////////////////
         {
             // Render to our framebuffer
             glBindFramebuffer(GL_FRAMEBUFFER, *g_textureFB);
-            // glViewport(0, 0, g_windowWidth, g_windowHeight);
-            SetViewport(g_overlayViewport);
+            SetViewport(g_crtViewport); //@TODO: maybe get Viewport from texture
+                                        // dimensions? ({0,0,texW,textH})
             glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, *currRenderedTexture0, 0);
 
             // Purposely do not clear the target texture.
@@ -404,9 +446,8 @@ namespace GLRender {
             // Use our shader
             glUseProgram(ShaderProgram::renderToTexture);
 
+            const auto mvp = g_projectionMatrix * g_modelViewMatrix;
             GLuint mvpUniform = glGetUniformLocation(ShaderProgram::renderToTexture, "MVP");
-
-            auto mvp = g_projectionMatrix * g_modelViewMatrix;
             glUniformMatrix4fv(mvpUniform, 1, GL_FALSE, &mvp[0][0]);
 
             auto DrawVertices = [](auto& VA, GLenum mode) {
@@ -439,8 +480,7 @@ namespace GLRender {
         /////////////////////////////////////////////////////////////////
         {
             glBindFramebuffer(GL_FRAMEBUFFER, *g_textureFB);
-            // glViewport(0, 0, g_windowWidth, g_windowHeight);
-            SetViewport(g_overlayViewport);
+            SetViewport(g_crtViewport);
             glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, *currRenderedTexture1, 0);
 
             glClear(GL_COLOR_BUFFER_BIT);
@@ -464,10 +504,7 @@ namespace GLRender {
 
             //@TODO: create once
             auto vbo = MakeBufferResource();
-            static const GLfloat quad_vertices[] = {
-                -1.0f, -1.0f, 0.0f, 1.0f, -1.0f, 0.0f, -1.0f, 1.0f, 0.0f,
-                -1.0f, 1.0f,  0.0f, 1.0f, -1.0f, 0.0f, 1.0f,  1.0f, 0.0f,
-            };
+            auto quad_vertices = MakeClipSpaceQuad();
             SetVertexBufferData(*vbo, quad_vertices);
 
             glEnableVertexAttribArray(0);
@@ -503,100 +540,130 @@ namespace GLRender {
         }
 
         /////////////////////////////////////////////////////////////////
-        // PASS 3: render to screen
+        // PASS 3: render game screen texture to crt texture that is
+        //         larger (same size as overlay texture)
+        /////////////////////////////////////////////////////////////////
+        {
+            glBindFramebuffer(GL_FRAMEBUFFER, *g_textureFB);
+            SetViewport(g_overlayViewport);
+            glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, *g_crtTexture, 0);
+
+            glClear(GL_COLOR_BUFFER_BIT);
+
+            glUseProgram(ShaderProgram::gameScreenToCrtTexture);
+
+            // Bind our texture in Texture Unit 0
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, *currRenderedTexture0);
+            GLuint texID = glGetUniformLocation(ShaderProgram::darkenTexture, "renderedTexture");
+            // Set our "renderedTexture0" sampler to use Texture Unit 0
+            glUniform1i(texID, 0);
+
+            auto vbo = MakeBufferResource();
+            auto quad_vertices = MakeClipSpaceQuad(CRT_SCALE_X, CRT_SCALE_Y);
+            SetVertexBufferData(*vbo, quad_vertices);
+
+            glEnableVertexAttribArray(0);
+            glBindBuffer(GL_ARRAY_BUFFER, *vbo);
+            glVertexAttribPointer(
+                0, // attribute 0. No particular reason for 0, but must match layout in the shader.
+                3, // size
+                GL_FLOAT, // type
+                GL_FALSE, // normalized?
+                0,        // stride
+                (void*)0  // array buffer offset
+            );
+
+            glm::vec2 quad_uvs[] = {{0, 0}, {1, 0}, {0, 1}, {0, 1}, {1, 0}, {1, 1}};
+            auto uvBuffer = MakeBufferResource();
+            SetVertexBufferData(*uvBuffer, quad_uvs);
+
+            // 2nd attribute buffer : UVs
+            glEnableVertexAttribArray(1);
+            glBindBuffer(GL_ARRAY_BUFFER, *uvBuffer);
+            glVertexAttribPointer(1,        // attribute
+                                  2,        // size
+                                  GL_FLOAT, // type
+                                  GL_FALSE, // normalized?
+                                  0,        // stride
+                                  (void*)0  // array buffer offset
+            );
+
+            glDrawArrays(GL_TRIANGLES, 0, 6); // 2*3 indices starting at 0 -> 2 triangles
+
+            glDisableVertexAttribArray(0);
+            glDisableVertexAttribArray(1);
+        }
+
+        /////////////////////////////////////////////////////////////////
+        // PASS 4: render to screen
         /////////////////////////////////////////////////////////////////
         {
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
-            // glViewport(0, 0, g_windowWidth, g_windowHeight);
             SetViewport(g_windowViewport);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            auto RenderTexture = [&](GLuint textureId, float scaleX, float scaleY) {
+            // Use our shader
+            glUseProgram(ShaderProgram::drawScreen);
 
-                // Use our shader
-                glUseProgram(ShaderProgram::textureToScreen);
+            //@TODO: function SetTextureUniform
+            {
+                glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_2D, *g_crtTexture);
+                GLuint texLoc = glGetUniformLocation(ShaderProgram::drawScreen, "crtTexture");
+                glUniform1i(texLoc, 0);
+            }
+            {
+                glActiveTexture(GL_TEXTURE1);
+                glBindTexture(GL_TEXTURE_2D, *g_overlayTexture);
+                GLuint texLoc = glGetUniformLocation(ShaderProgram::drawScreen, "overlayTexture");
+                glUniform1i(texLoc, 1);
+            }
 
-                {
-                    // Bind our texture in Texture Unit 0
-                    glActiveTexture(GL_TEXTURE0);
-                    // NOTE: We render texture 0 rather than 1 so that lines just drawn this frame
-                    // will be at their full brightness for one frame before being rendered
-                    // darkened. glBindTexture(GL_TEXTURE_2D, *currRenderedTexture1);
-                    glBindTexture(GL_TEXTURE_2D, textureId); // *currRenderedTexture0);
-                    GLuint texLoc =
-                        glGetUniformLocation(ShaderProgram::textureToScreen, "renderedTexture");
-                    // Set our "renderedTexture1" sampler to use Texture Unit 0
-                    glUniform1i(texLoc, 0);
-                }
+            {
+                GLuint overlayAlphaLoc =
+                    glGetUniformLocation(ShaderProgram::drawScreen, "overlayAlpha");
+                static float overlayAlpha = 1.0f;
+                ImGui::SliderFloat("overlayAlpha", &overlayAlpha, 0.0f, 1.0f);
+                glUniform1f(overlayAlphaLoc, overlayAlpha);
+            }
 
-                //@TODO: create once
-                auto vbo = MakeBufferResource();
-                GLfloat quad_vertices[] = {
-                    -1.0f, -1.0f, 0.0f, 1.0f, -1.0f, 0.0f, -1.0f, 1.0f, 0.0f,
-                    -1.0f, 1.0f,  0.0f, 1.0f, -1.0f, 0.0f, 1.0f,  1.0f, 0.0f,
-                };
+            auto vbo = MakeBufferResource();
+            auto quad_vertices = MakeClipSpaceQuad();
+            SetVertexBufferData(*vbo, quad_vertices);
 
-                // std::transform(std::begin(quad_vertices), std::end(quad_vertices),
-                //               std::begin(quad_vertices),
-                //               [scale](GLfloat vert) { return vert * scale; });
+            glEnableVertexAttribArray(0);
+            glBindBuffer(GL_ARRAY_BUFFER, *vbo);
+            glVertexAttribPointer(0, // attribute 0. No particular reason for 0, but must match the
+                                     // layout in the shader.
+                                  3, // size
+                                  GL_FLOAT, // type
+                                  GL_FALSE, // normalized?
+                                  0,        // stride
+                                  (void*)0  // array buffer offset
+            );
 
-                for (int i = 0; i < sizeof(quad_vertices) / sizeof(quad_vertices[0]); ++i) {
-                    switch (i % 3) {
-                    case 0:
-                        quad_vertices[i] = quad_vertices[i] * scaleX;
-                        break;
-                    case 1:
-                        quad_vertices[i] = quad_vertices[i] * scaleY;
-                        break;
-                    default:
-                        break;
-                    }
-                }
+            glm::vec2 quad_uvs[] = {{0, 0}, {1, 0}, {0, 1}, {0, 1}, {1, 0}, {1, 1}};
+            auto uvBuffer = MakeBufferResource();
+            SetVertexBufferData(*uvBuffer, quad_uvs);
 
-                SetVertexBufferData(*vbo, quad_vertices);
+            // 2nd attribute buffer : UVs
+            glEnableVertexAttribArray(1);
+            glBindBuffer(GL_ARRAY_BUFFER, *uvBuffer);
+            glVertexAttribPointer(1,        // attribute
+                                  2,        // size
+                                  GL_FLOAT, // type
+                                  GL_FALSE, // normalized?
+                                  0,        // stride
+                                  (void*)0  // array buffer offset
+            );
 
-                glEnableVertexAttribArray(0);
-                glBindBuffer(GL_ARRAY_BUFFER, *vbo);
-                glVertexAttribPointer(
-                    0,        // attribute 0. No particular reason for 0, but must match the
-                              // layout in the shader.
-                    3,        // size
-                    GL_FLOAT, // type
-                    GL_FALSE, // normalized?
-                    0,        // stride
-                    (void*)0  // array buffer offset
-                );
+            glDrawArrays(GL_TRIANGLES, 0, 6); // 2*3 indices starting at 0 -> 2 triangles
 
-                glm::vec2 quad_uvs[] = {{0, 0}, {1, 0}, {0, 1}, {0, 1}, {1, 0}, {1, 1}};
-                auto uvBuffer = MakeBufferResource();
-                SetVertexBufferData(*uvBuffer, quad_uvs);
-
-                // 2nd attribute buffer : UVs
-                glEnableVertexAttribArray(1);
-                glBindBuffer(GL_ARRAY_BUFFER, *uvBuffer);
-                glVertexAttribPointer(1,        // attribute
-                                      2,        // size
-                                      GL_FLOAT, // type
-                                      GL_FALSE, // normalized?
-                                      0,        // stride
-                                      (void*)0  // array buffer offset
-                );
-
-                glDrawArrays(GL_TRIANGLES, 0, 6); // 2*3 indices starting at 0 -> 2 triangles
-
-                glDisableVertexAttribArray(0);
-                glDisableVertexAttribArray(1);
-            };
-
-            static float scaleX = 0.92f;
-            static float scaleY = 0.75f;
-            ImGui::SliderFloat("scaleX", &scaleX, 0.0f, 1.0f);
-            ImGui::SliderFloat("scaleY", &scaleY, 0.0f, 1.0f);
-
-            RenderTexture(*currRenderedTexture0, scaleX, scaleY);
-            RenderTexture(*g_overlayTexture, 1.0f, 1.0f);
+            glDisableVertexAttribArray(0);
+            glDisableVertexAttribArray(1);
         }
-    }
+    } // namespace GLRender
 } // namespace GLRender
 
 void Display::Clear() {
