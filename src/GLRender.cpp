@@ -336,8 +336,7 @@ namespace GLRender {
         // For now, always attempt to load the mine storm overlay
         g_overlayTexture = MakeTextureResource();
         glObjectLabel(GL_TEXTURE, *g_overlayTexture, -1, "g_overlayTexture");
-        // const char* overlayFile = "overlays/mine.png";
-        const char* overlayFile = "overlays/Armor Attack by GCE (1982).png";
+        const char* overlayFile = "overlays/mine.png";
         if (!LoadPngTexture(*g_overlayTexture, overlayFile)) {
             std::cerr << "Failed to load overlay: " << overlayFile << "\n";
 
