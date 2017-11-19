@@ -39,6 +39,7 @@ namespace {
         std::optional<int> windowX;
         std::optional<int> windowY;
         std::optional<int> windowWidth;
+        std::optional<float> imguiFontScale;
     };
 
     Options LoadOptionsFile(const char* file) {
@@ -66,6 +67,8 @@ namespace {
                 options.windowY = std::stoi(tokens[1]);
             else if (tokens[0] == "windowWidth")
                 options.windowWidth = std::stoi(tokens[1]);
+            else if (tokens[0] == "imguiFontScale")
+                options.imguiFontScale = std::stof(tokens[1]);
             else {
                 std::cerr << "Unknown option: " << tokens[0] << std::endl;
             }
@@ -226,7 +229,7 @@ bool SDLEngine::Run(int argc, char** argv) {
     }
 
     ImGui_ImplSdlGL3_Init(g_window);
-    ImGui::GetIO().FontGlobalScale = 1;
+    ImGui::GetIO().FontGlobalScale = options.imguiFontScale.value_or(1.f);
 
     GLRender::Initialize();
     GLRender::OnWindowResized(windowWidth, windowHeight);
