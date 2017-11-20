@@ -2,7 +2,7 @@
 
 in vec2 UV;
 
-layout(location = 0) out vec3 color;
+out vec3 color;
 
 uniform sampler2D renderedTexture;
 uniform float frameTime;

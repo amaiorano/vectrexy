@@ -387,6 +387,7 @@ namespace GLRender {
         AllocateTexture(*g_renderedTexture1, g_crtViewport.w, g_crtViewport.h, GL_RGB32F);
         g_crtTexture = MakeTextureResource();
         AllocateTexture(*g_crtTexture, g_overlayViewport.w, g_overlayViewport.h, GL_RGB);
+        glObjectLabel(GL_TEXTURE, *g_crtTexture, -1, "g_crtTexture");
 
         // Clear g_renderedTexture0 once
         glBindFramebuffer(GL_FRAMEBUFFER, *g_textureFB);
