@@ -194,6 +194,42 @@ namespace {
         return input;
     }
 
+    class Keyboard {
+    public:
+        struct KeyState {
+            bool down = false;
+            bool pressed = false;
+        };
+
+        void OnKeyStateChange(const SDL_KeyboardEvent& keyboardEvent) {
+            auto& keyState = m_keyStates[keyboardEvent.keysym.scancode];
+            if (keyboardEvent.type == SDL_KEYDOWN) {
+                keyState.pressed = !keyState.down;
+                keyState.down = true;
+            } else {
+                keyState.down = false;
+            }
+        }
+
+        void PostFrameUpdateKeyStates() {
+            for (auto& keyState : m_keyStates) {
+                keyState.pressed = false;
+            }
+        }
+
+        const KeyState& GetKeyState(SDL_Scancode scancode) { return m_keyStates[scancode]; }
+
+    private:
+        std::array<KeyState, SDL_NUM_SCANCODES> m_keyStates;
+    };
+    Keyboard g_keyboard;
+
+    void UpdatePauseState(bool& pause) {
+        if (g_keyboard.GetKeyState(SDL_SCANCODE_P).pressed) {
+            pause = !pause;
+        }
+    }
+
 } // namespace
 
 void SDLEngine::RegisterClient(IEngineClient& client) {
@@ -283,13 +319,18 @@ bool SDLEngine::Run(int argc, char** argv) {
                 GetGamepadStateByInstanceId(sdlEvent.cdevice.which).axisValue[caxis.axis] =
                     caxis.value;
             } break;
+
+            case SDL_KEYDOWN:
+            case SDL_KEYUP:
+                g_keyboard.OnKeyStateChange(sdlEvent.key);
+                break;
             }
         }
 
+        // Update time
         const auto currTime = std::chrono::high_resolution_clock::now();
         const std::chrono::duration<double> diff = currTime - lastTime;
         const double realFrameTime = diff.count();
-        const double frameTime = std::min(realFrameTime, MsToSec(100.0));
         lastTime = currTime;
 
         // FPS
@@ -311,6 +352,20 @@ bool SDLEngine::Run(int argc, char** argv) {
             }
         }
 
+        // Compute frame time
+        const double frameTime = [&] {
+            // Clamp
+            double frameTime = std::min(realFrameTime, MsToSec(100.0));
+
+            // Reset to 0 if paused
+            static bool pause = false;
+            UpdatePauseState(pause);
+            if (pause)
+                frameTime = 0.0;
+
+            return frameTime;
+        }();
+
         ImGui_ImplSdlGL3_NewFrame(g_window);
 
         auto input = UpdateInput();
@@ -323,6 +378,8 @@ bool SDLEngine::Run(int argc, char** argv) {
         ImGui::Render();
 
         SDL_GL_SwapWindow(g_window);
+
+        g_keyboard.PostFrameUpdateKeyStates();
     }
 
     g_client->Shutdown();

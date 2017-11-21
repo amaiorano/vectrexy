@@ -413,11 +413,13 @@ namespace GLRender {
             }
         }
 
+        if (frameTime > 0)
+            g_renderedTexture0Index = (g_renderedTexture0Index + 1) % 2;
+
         auto& currRenderedTexture0 =
             g_renderedTexture0Index == 0 ? g_renderedTexture0 : g_renderedTexture1;
         auto& currRenderedTexture1 =
             g_renderedTexture0Index == 0 ? g_renderedTexture1 : g_renderedTexture0;
-        g_renderedTexture0Index = (g_renderedTexture0Index + 1) % 2;
 
         glObjectLabel(GL_TEXTURE, *currRenderedTexture0, -1, "currRenderedTexture0");
         glObjectLabel(GL_TEXTURE, *currRenderedTexture1, -1, "currRenderedTexture1");
