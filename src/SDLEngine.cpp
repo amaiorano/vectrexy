@@ -230,6 +230,8 @@ namespace {
         }
     }
 
+    void UpdateTurboMode(bool& turbo) { turbo = g_keyboard.GetKeyState(SDL_SCANCODE_GRAVE).down; }
+
 } // namespace
 
 void SDLEngine::RegisterClient(IEngineClient& client) {
@@ -362,6 +364,11 @@ bool SDLEngine::Run(int argc, char** argv) {
             UpdatePauseState(pause);
             if (pause)
                 frameTime = 0.0;
+
+            static bool turbo = false;
+            UpdateTurboMode(turbo);
+            if (turbo)
+                frameTime *= 10;
 
             return frameTime;
         }();
