@@ -19,7 +19,6 @@
 #include <vector>
 
 namespace {
-
     template <typename T>
     T HexStringToIntegral(const char* s) {
         std::stringstream converter(s);
@@ -668,19 +667,26 @@ bool Debugger::Update(double deltaTime, const Input& input) {
     auto ExecuteInstruction = [&] {
         ++m_instructionCount;
         try {
-            //@TODO: RAII or ScopedExit to make sure we call the PostOpWriteTraceInfo and pushback
-            // so that if ExecuteInstruction throws, we have the instruction in our trace.
             InstructionTraceInfo traceInfo;
             if (m_traceEnabled) {
                 PreOpWriteTraceInfo(traceInfo, m_cpu->Registers(), *m_memoryBus);
             }
-            cycles_t elapsedCycles = m_cpu->ExecuteInstruction();
+
+            cycles_t elapsedCycles = 0;
+
+            // In case exception is thrown below, we still want to add the current instruction trace
+            // info, so wrap the call in a ScopedExit
+            auto onExit = MakeScopedExit([&] {
+                if (m_traceEnabled) {
+                    PostOpWriteTraceInfo(traceInfo, m_cpu->Registers(), elapsedCycles);
+                    g_instructionTraceBuffer.PushBackMoveFront(traceInfo);
+                }
+            });
+
+            elapsedCycles = m_cpu->ExecuteInstruction();
             m_via->Update(elapsedCycles, input);
-            if (m_traceEnabled) {
-                PostOpWriteTraceInfo(traceInfo, m_cpu->Registers(), elapsedCycles);
-                g_instructionTraceBuffer.PushBackMoveFront(traceInfo);
-            }
             return elapsedCycles;
+
         } catch (std::exception& ex) {
             printf("Exception caught:\n%s\n", ex.what());
         } catch (...) {

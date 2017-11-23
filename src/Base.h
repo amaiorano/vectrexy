@@ -116,6 +116,19 @@ struct FormattedString {
     char buffer[MaxLength];
 };
 
+// ScopedExit RAII class for invoking function (usually lambda expression) on destruction
+template <typename Func>
+struct ScopedExit {
+    ScopedExit(Func func)
+        : m_func(std::move(func)) {}
+    ~ScopedExit() { m_func(); }
+    Func m_func;
+};
+template <typename Func>
+auto MakeScopedExit(Func func) {
+    return ScopedExit<Func>(std::move(func));
+}
+
 // ASSERT macro
 inline void AssertHandler(const char* file, int line, const char* condition, const char* msg) {
     throw std::logic_error(
