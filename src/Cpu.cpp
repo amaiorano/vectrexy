@@ -626,7 +626,7 @@ public:
         CC.Negative = CalcNegative(value);
         CC.Carry = TestBits01(origValue, BITS(7));
         // Overflow (sign change) happens if bit 7 or 6 was set, but not both
-        CC.Overflow = (origValue >> 7) ^ (origValue >> 6);
+        CC.Overflow = (origValue >> 7) ^ ((origValue >> 6) & 1);
     }
 
     template <int page, uint8_t opCode>
