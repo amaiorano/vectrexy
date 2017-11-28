@@ -103,7 +103,10 @@ namespace {
     struct Instruction {
         const CpuOp* cpuOp;
         int page;
-        std::array<uint8_t, 3> operands;
+        std::array<uint8_t, 5> opBytes; // Max 2 byte opcode + 3 byte operands
+        size_t firstOperandIndex = 0;
+
+        uint8_t GetOperand(size_t index) const { return opBytes[firstOperandIndex + index]; }
     };
 
     struct InstructionTraceInfo {
@@ -128,27 +131,28 @@ namespace {
     };
 
     Instruction ReadInstruction(uint16_t opAddr, const MemoryBus& memoryBus) {
+        Instruction instruction{};
+
+        // Always read max opBytes size even if not all the bytes are for this instruction. We can't
+        // really know up front how many bytes an op will take because indexed instructions
+        // sometimes read an extra operand byte (determined dynamically).
+        for (auto& byte : instruction.opBytes)
+            byte = memoryBus.Read(opAddr++);
+
         int cpuOpPage = 0;
-        uint8_t opCodeByte = memoryBus.Read(opAddr++);
-        if (IsOpCodePage1(opCodeByte)) {
+        size_t opCodeIndex = 0;
+        if (IsOpCodePage1(instruction.opBytes[opCodeIndex])) {
             cpuOpPage = 1;
-            opCodeByte = memoryBus.Read(opAddr++);
-        } else if (IsOpCodePage2(opCodeByte)) {
+            ++opCodeIndex;
+        } else if (IsOpCodePage2(instruction.opBytes[opCodeIndex])) {
             cpuOpPage = 2;
-            opCodeByte = memoryBus.Read(opAddr++);
+            ++opCodeIndex;
         }
 
-        const auto& cpuOp = LookupCpuOpRuntime(cpuOpPage, opCodeByte);
-        Instruction result = {&cpuOp, cpuOpPage};
-
-        // Always read max operand bytes, even if they're not used. We would want to only read as
-        // many operands as stipulated by the opcode's size - 1 (or 2 if not on page 0), but
-        // unfortunately, indexed instructions sometimes read an extra operand byte, determined
-        // dynamically. So for disassembling purposes, we just read 3 bytes and call it a day.
-        for (auto& operand : result.operands) {
-            operand = memoryBus.Read(opAddr++);
-        }
-        return result;
+        instruction.cpuOp = &LookupCpuOpRuntime(cpuOpPage, instruction.opBytes[opCodeIndex]);
+        instruction.page = cpuOpPage;
+        instruction.firstOperandIndex = opCodeIndex + 1;
+        return instruction;
     }
 
     void PreOpWriteTraceInfo(InstructionTraceInfo& traceInfo, const CpuRegisters& cpuRegisters,
@@ -172,7 +176,7 @@ namespace {
 
         const auto& cpuOp = instruction.cpuOp;
         ASSERT(cpuOp->addrMode == AddressingMode::Inherent);
-        uint8_t postbyte = instruction.operands[0];
+        uint8_t postbyte = instruction.GetOperand(0);
         uint8_t src = (postbyte >> 4) & 0b111;
         uint8_t dst = postbyte & 0b111;
         if (postbyte & BITS(3)) {
@@ -192,7 +196,7 @@ namespace {
 
         const auto& cpuOp = instruction.cpuOp;
         ASSERT(cpuOp->addrMode == AddressingMode::Immediate);
-        auto value = instruction.operands[0];
+        auto value = instruction.GetOperand(0);
         std::vector<std::string> registers;
         if (value & BITS(0))
             registers.push_back("CC");
@@ -233,7 +237,7 @@ namespace {
         };
 
         uint16_t EA = 0;
-        uint8_t postbyte = instruction.operands[0];
+        uint8_t postbyte = instruction.GetOperand(0);
         bool supportsIndirect = true;
         std::string operands;
 
@@ -310,7 +314,7 @@ namespace {
                 break;
             case 0b1000: { // (+/- 7 bit offset),R
                 auto& reg = RegisterSelect(postbyte);
-                uint8_t postbyte2 = instruction.operands[1];
+                uint8_t postbyte2 = instruction.GetOperand(1);
                 auto offset = S16(postbyte2);
                 EA = reg + offset;
 
@@ -318,8 +322,8 @@ namespace {
                 comment = FormattedString<>("%d,$%04x", offset, reg);
             } break;
             case 0b1001: { // (+/- 15 bit offset),R
-                uint8_t postbyte2 = instruction.operands[1];
-                uint8_t postbyte3 = instruction.operands[2];
+                uint8_t postbyte2 = instruction.GetOperand(1);
+                uint8_t postbyte3 = instruction.GetOperand(2);
                 auto& reg = RegisterSelect(postbyte);
                 auto offset = CombineToS16(postbyte2, postbyte3);
                 EA = reg + offset;
@@ -339,7 +343,7 @@ namespace {
                 comment = FormattedString<>("%d,$%04x", offset, reg);
             } break;
             case 0b1100: { // (+/- 7 bit offset),PC
-                uint8_t postbyte2 = instruction.operands[1];
+                uint8_t postbyte2 = instruction.GetOperand(1);
                 auto offset = S16(postbyte2);
                 EA = cpuRegisters.PC + offset;
 
@@ -347,8 +351,8 @@ namespace {
                 comment = FormattedString<>("%d,$%04x", offset, cpuRegisters.PC);
             } break;
             case 0b1101: { // (+/- 15 bit offset),PC
-                uint8_t postbyte2 = instruction.operands[1];
-                uint8_t postbyte3 = instruction.operands[2];
+                uint8_t postbyte2 = instruction.GetOperand(1);
+                uint8_t postbyte3 = instruction.GetOperand(2);
                 auto offset = CombineToS16(postbyte2, postbyte3);
                 EA = cpuRegisters.PC + offset;
 
@@ -359,8 +363,8 @@ namespace {
                 FAIL_MSG("Illegal");
                 break;
             case 0b1111: { // [address] (Indirect-only)
-                uint8_t postbyte2 = instruction.operands[1];
-                uint8_t postbyte3 = instruction.operands[2];
+                uint8_t postbyte2 = instruction.GetOperand(1);
+                uint8_t postbyte3 = instruction.GetOperand(2);
                 EA = CombineToS16(postbyte2, postbyte3);
             } break;
             default:
@@ -383,17 +387,17 @@ namespace {
         std::string description;
     };
 
-    DisassembledOp DisassembleOp(const InstructionTraceInfo& traceInfo, const MemoryBus& memoryBus,
+    DisassembledOp DisassembleOp(const InstructionTraceInfo& traceInfo,
                                  const Debugger::SymbolTable& symbolTable) {
         const auto& instruction = traceInfo.instruction;
         const auto& cpuRegisters = traceInfo.preOpCpuRegisters;
         const auto& cpuOp = instruction.cpuOp;
-        uint16_t opAddr = cpuRegisters.PC;
 
-        std::string hexInstruction;
         // Output instruction in hex
-        for (uint16_t i = 0; i < cpuOp->size; ++i)
-            hexInstruction += FormattedString<>("%02x", memoryBus.Read(opAddr + i));
+        std::string hexInstruction;
+        for (uint16_t i = 0; i < cpuOp->size; ++i) {
+            hexInstruction += FormattedString<>("%02x", instruction.opBytes[i]);
+        }
 
         std::string disasmInstruction, comment;
 
@@ -426,27 +430,27 @@ namespace {
 
             case AddressingMode::Immediate: {
                 if (cpuOp->size == 2) {
-                    auto value = instruction.operands[0];
+                    auto value = instruction.GetOperand(0);
                     disasmInstruction = FormattedString<>("%s #$%02x", cpuOp->name, value);
                     comment = FormattedString<>("(%d)", value);
                 } else {
-                    auto value = CombineToU16(instruction.operands[0], instruction.operands[1]);
+                    auto value = CombineToU16(instruction.GetOperand(0), instruction.GetOperand(1));
                     disasmInstruction = FormattedString<>("%s #$%04x", cpuOp->name, value);
                     comment = FormattedString<>("(%d)", value);
                 }
             } break;
 
             case AddressingMode::Extended: {
-                auto msb = instruction.operands[0];
-                auto lsb = instruction.operands[1];
+                auto msb = instruction.GetOperand(0);
+                auto lsb = instruction.GetOperand(1);
                 uint16_t EA = CombineToU16(msb, lsb);
                 disasmInstruction = FormattedString<>("%s $%04x", cpuOp->name, EA);
             } break;
 
             case AddressingMode::Direct: {
-                uint16_t EA = CombineToU16(cpuRegisters.DP, instruction.operands[0]);
+                uint16_t EA = CombineToU16(cpuRegisters.DP, instruction.GetOperand(0));
                 disasmInstruction =
-                    FormattedString<>("%s $%02x", cpuOp->name, instruction.operands[0]);
+                    FormattedString<>("%s $%02x", cpuOp->name, instruction.GetOperand(0));
                 comment = FormattedString<>("DP:(PC) = $%02x", EA);
             } break;
 
@@ -459,7 +463,7 @@ namespace {
                 // Branch instruction with 8 or 16 bit signed relative offset
                 uint16_t nextPC = cpuRegisters.PC + cpuOp->size;
                 if (cpuOp->size == 2) {
-                    auto offset = static_cast<int8_t>(instruction.operands[0]);
+                    auto offset = static_cast<int8_t>(instruction.GetOperand(0));
                     disasmInstruction =
                         FormattedString<>("%s $%02x", cpuOp->name, U16(offset) & 0x00FF);
                     comment =
@@ -468,7 +472,7 @@ namespace {
                     // Could be a long branch from page 0 (3 bytes) or page 1 (4 bytes)
                     ASSERT(cpuOp->size >= 3);
                     auto offset = static_cast<int16_t>(
-                        CombineToU16(instruction.operands[0], instruction.operands[1]));
+                        CombineToU16(instruction.GetOperand(0), instruction.GetOperand(1)));
                     disasmInstruction = FormattedString<>("%s $%04x", cpuOp->name, offset);
                     comment =
                         FormattedString<>("(%d), PC + offset = $%04x", offset, nextPC + offset);
@@ -547,9 +551,8 @@ namespace {
                r.DP, GetCCString(cpuRegisters).c_str());
     }
 
-    void PrintOp(const InstructionTraceInfo& traceInfo, const MemoryBus& memoryBus,
-                 const Debugger::SymbolTable& symbolTable) {
-        auto op = DisassembleOp(traceInfo, memoryBus, symbolTable);
+    void PrintOp(const InstructionTraceInfo& traceInfo, const Debugger::SymbolTable& symbolTable) {
+        auto op = DisassembleOp(traceInfo, symbolTable);
 
         using namespace Platform;
         ScopedConsoleColor scc(ConsoleColor::Gray);
@@ -677,12 +680,7 @@ bool Debugger::Update(double deltaTime, const Input& input) {
 
     auto PrintOp = [&](const InstructionTraceInfo& traceInfo) {
         if (m_traceEnabled) {
-            //@TODO: Don't pass memoryBus to PrintOp; instead make it print the hex instruction
-            // directly from the Instruction struct in the trace info. We can then also remove these
-            // lines that disable/enable callbacks here.
-            m_memoryBus->SetCallbacksEnabled(false);
-            ::PrintOp(traceInfo, *m_memoryBus, m_symbolTable);
-            m_memoryBus->SetCallbacksEnabled(true);
+            ::PrintOp(traceInfo, m_symbolTable);
         }
     };
 
