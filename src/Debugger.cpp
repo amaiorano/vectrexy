@@ -111,6 +111,20 @@ namespace {
         CpuRegisters preOpCpuRegisters;
         CpuRegisters postOpCpuRegisters{};
         cycles_t elapsedCycles{};
+
+        static const size_t MaxMemoryAccesses = 16;
+        struct MemoryAccess {
+            uint16_t address{};
+            uint16_t value{};
+            bool read{};
+        };
+        std::array<MemoryAccess, MaxMemoryAccesses> memoryAccesses;
+        size_t numMemoryAccesses = 0;
+
+        void AddMemoryAccess(uint16_t address, uint16_t value, bool read) {
+            assert(numMemoryAccesses < memoryAccesses.size());
+            memoryAccesses[numMemoryAccesses++] = {address, value, read};
+        }
     };
 
     Instruction ReadInstruction(uint16_t opAddr, const MemoryBus& memoryBus) {
@@ -152,10 +166,8 @@ namespace {
     }
 
     void DisassembleOp_EXG_TFR(const Instruction& instruction, const CpuRegisters& cpuRegisters,
-                               const MemoryBus& memoryBus, std::string& disasmInstruction,
-                               std::string& comment) {
+                               std::string& disasmInstruction, std::string& comment) {
         (void)cpuRegisters;
-        (void)memoryBus;
         (void)comment;
 
         const auto& cpuOp = instruction.cpuOp;
@@ -175,10 +187,8 @@ namespace {
     }
 
     void DisassembleOp_PSH_PUL(const Instruction& instruction, const CpuRegisters& cpuRegisters,
-                               const MemoryBus& memoryBus, std::string& disasmInstruction,
-                               std::string& comment) {
+                               std::string& disasmInstruction, std::string& comment) {
         (void)cpuRegisters;
-        (void)memoryBus;
 
         const auto& cpuOp = instruction.cpuOp;
         ASSERT(cpuOp->addrMode == AddressingMode::Immediate);
@@ -207,7 +217,7 @@ namespace {
     }
 
     void DisassembleIndexedInstruction(const Instruction& instruction,
-                                       const CpuRegisters& cpuRegisters, const MemoryBus& memoryBus,
+                                       const CpuRegisters& cpuRegisters,
                                        std::string& disasmInstruction, std::string& comment) {
         auto RegisterSelect = [&cpuRegisters](uint8_t postbyte) -> const uint16_t& {
             switch ((postbyte >> 5) & 0b11) {
@@ -360,15 +370,10 @@ namespace {
         }
 
         if (supportsIndirect && (postbyte & BITS(4))) {
-            uint8_t msb = memoryBus.Read(EA);
-            uint8_t lsb = memoryBus.Read(EA + 1);
-            EA = CombineToU16(msb, lsb);
             operands = FormattedString<>("[$%04x]", EA);
         }
 
         disasmInstruction = std::string(instruction.cpuOp->name) + " " + operands;
-        comment +=
-            FormattedString<>(", EA = $%04x = %s", EA, TryMemoryBusRead(memoryBus, EA).c_str());
     }
 
     struct DisassembledOp {
@@ -398,14 +403,14 @@ namespace {
         switch (cpuOp->opCode) {
         case 0x1E: // EXG
         case 0x1F: // TFR
-            DisassembleOp_EXG_TFR(instruction, cpuRegisters, memoryBus, disasmInstruction, comment);
+            DisassembleOp_EXG_TFR(instruction, cpuRegisters, disasmInstruction, comment);
             break;
 
         case 0x34: // PSHS
         case 0x35: // PULS
         case 0x36: // PSHU
         case 0x37: // PULU
-            DisassembleOp_PSH_PUL(instruction, cpuRegisters, memoryBus, disasmInstruction, comment);
+            DisassembleOp_PSH_PUL(instruction, cpuRegisters, disasmInstruction, comment);
             break;
 
         default:
@@ -436,20 +441,18 @@ namespace {
                 auto lsb = instruction.operands[1];
                 uint16_t EA = CombineToU16(msb, lsb);
                 disasmInstruction = FormattedString<>("%s $%04x", cpuOp->name, EA);
-                comment = FormattedString<>("%s", TryMemoryBusRead(memoryBus, EA).c_str());
             } break;
 
             case AddressingMode::Direct: {
                 uint16_t EA = CombineToU16(cpuRegisters.DP, instruction.operands[0]);
                 disasmInstruction =
                     FormattedString<>("%s $%02x", cpuOp->name, instruction.operands[0]);
-                comment = FormattedString<>("DP:(PC) = $%02x = %s", EA,
-                                            TryMemoryBusRead(memoryBus, EA).c_str());
+                comment = FormattedString<>("DP:(PC) = $%02x", EA);
             } break;
 
             case AddressingMode::Indexed: {
-                DisassembleIndexedInstruction(instruction, cpuRegisters, memoryBus,
-                                              disasmInstruction, comment);
+                DisassembleIndexedInstruction(instruction, cpuRegisters, disasmInstruction,
+                                              comment);
             } break;
 
             case AddressingMode::Relative: {
@@ -502,6 +505,18 @@ namespace {
             }
             return s;
         };
+
+        // Append memory accesses to comment section (if any)
+        {
+            // Skip the opcode + operand bytes - @TODO: we probably shouldn't be storing these in
+            // the first place
+            const size_t skipBytes = traceInfo.instruction.cpuOp->size;
+            for (size_t i = skipBytes; i < traceInfo.numMemoryAccesses; ++i) {
+                auto& ma = traceInfo.memoryAccesses[i];
+                comment +=
+                    FormattedString<>(" $%04x%s$%x", ma.address, ma.read ? "->" : "<-", ma.value);
+            }
+        }
 
         disasmInstruction = AppendSymbols(disasmInstruction);
         comment = AppendSymbols(comment);
@@ -603,6 +618,7 @@ namespace {
     // Global variables
     const size_t MaxTraceInstructions = 100'000;
     CircularBuffer<InstructionTraceInfo> g_instructionTraceBuffer(MaxTraceInstructions);
+    InstructionTraceInfo* g_currTraceInfo = nullptr;
 
 } // namespace
 
@@ -627,16 +643,26 @@ void Debugger::Init(MemoryBus& memoryBus, Cpu& cpu, Via& via) {
     m_traceEnabled = true;
 
     m_memoryBus->RegisterCallbacks(
-        [&](uint16_t address) {
+        // OnRead
+        [&](uint16_t address, uint8_t value) {
+            if (m_traceEnabled && g_currTraceInfo) {
+                g_currTraceInfo->AddMemoryAccess(address, value, true);
+            }
+
             if (auto bp = m_breakpoints.Get(address)) {
                 if (bp->enabled && (bp->type == Breakpoint::Type::Read ||
                                     bp->type == Breakpoint::Type::ReadWrite)) {
                     m_breakIntoDebugger = true;
-                    printf("Watchpoint hit at $%04x (read)\n", address);
+                    printf("Watchpoint hit at $%04x (read value $%02x)\n", address, value);
                 }
             }
         },
+        // OnWrite
         [&](uint16_t address, uint8_t value) {
+            if (m_traceEnabled && g_currTraceInfo) {
+                g_currTraceInfo->AddMemoryAccess(address, value, false);
+            }
+
             if (auto bp = m_breakpoints.Get(address)) {
                 if (bp->enabled && (bp->type == Breakpoint::Type::Write ||
                                     bp->type == Breakpoint::Type::ReadWrite)) {
@@ -651,7 +677,12 @@ bool Debugger::Update(double deltaTime, const Input& input) {
 
     auto PrintOp = [&](const InstructionTraceInfo& traceInfo) {
         if (m_traceEnabled) {
+            //@TODO: Don't pass memoryBus to PrintOp; instead make it print the hex instruction
+            // directly from the Instruction struct in the trace info. We can then also remove these
+            // lines that disable/enable callbacks here.
+            m_memoryBus->SetCallbacksEnabled(false);
             ::PrintOp(traceInfo, *m_memoryBus, m_symbolTable);
+            m_memoryBus->SetCallbacksEnabled(true);
         }
     };
 
@@ -669,6 +700,7 @@ bool Debugger::Update(double deltaTime, const Input& input) {
         try {
             InstructionTraceInfo traceInfo;
             if (m_traceEnabled) {
+                g_currTraceInfo = &traceInfo;
                 PreOpWriteTraceInfo(traceInfo, m_cpu->Registers(), *m_memoryBus);
             }
 
@@ -680,6 +712,7 @@ bool Debugger::Update(double deltaTime, const Input& input) {
                 if (m_traceEnabled) {
                     PostOpWriteTraceInfo(traceInfo, m_cpu->Registers(), elapsedCycles);
                     g_instructionTraceBuffer.PushBackMoveFront(traceInfo);
+                    g_currTraceInfo = nullptr;
                 }
             });
 

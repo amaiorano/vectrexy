@@ -24,7 +24,7 @@ public:
     }
 
     //@TODO: Move this callback stuff out of here, perhaps in some DebuggerMemoryBus class.
-    using OnReadCallback = std::function<void(uint16_t)>;
+    using OnReadCallback = std::function<void(uint16_t, uint8_t)>;
     using OnWriteCallback = std::function<void(uint16_t, uint8_t)>;
     void RegisterCallbacks(OnReadCallback onReadCallback, OnWriteCallback onWriteCallback) {
         m_onReadCallback = onReadCallback;
@@ -34,10 +34,12 @@ public:
     void SetCallbacksEnabled(bool enabled) { m_callbacksEnabled = enabled; }
 
     uint8_t Read(uint16_t address) const {
-        if (m_callbacksEnabled && m_onReadCallback)
-            m_onReadCallback(address);
+        uint8_t value = FindDeviceInfo(address).device->Read(address);
 
-        return FindDeviceInfo(address).device->Read(address);
+        if (m_callbacksEnabled && m_onReadCallback)
+            m_onReadCallback(address, value);
+
+        return value;
     }
 
     void Write(uint16_t address, uint8_t value) {
