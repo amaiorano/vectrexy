@@ -82,8 +82,7 @@ namespace {
         return options;
     }
 
-    // @TODO: rename to just "Gamepad"
-    struct GamepadState {
+    struct Gamepad {
         struct ButtonState {
             bool down = false;
             bool pressed = false;
@@ -117,17 +116,15 @@ namespace {
         std::array<ButtonState, SDL_CONTROLLER_BUTTON_MAX> m_buttonStates;
         std::array<int32_t, SDL_CONTROLLER_AXIS_MAX> m_axisValue = {0};
     };
-    std::unordered_map<int, GamepadState> m_gamepadStatesByPlayerIndex;
 
-    std::unordered_map<int, int> g_controllerIndexToInstanceId;
+    std::unordered_map<int, Gamepad> g_playerIndexToGamepad;
+    std::unordered_map<int, int> g_instanceIdToPlayerIndex;
 
-    GamepadState& GetGamepadStateByInstanceId(int instanceId) {
-        assert(g_controllerIndexToInstanceId.find(instanceId) !=
-               g_controllerIndexToInstanceId.end());
-        int index = g_controllerIndexToInstanceId[instanceId];
-
-        auto iter = m_gamepadStatesByPlayerIndex.find(index);
-        assert(iter != m_gamepadStatesByPlayerIndex.end());
+    Gamepad& GetGamepadByInstanceId(int instanceId) {
+        assert(g_instanceIdToPlayerIndex.find(instanceId) != g_instanceIdToPlayerIndex.end());
+        int playerIndex = g_instanceIdToPlayerIndex[instanceId];
+        auto iter = g_playerIndexToGamepad.find(playerIndex);
+        assert(iter != g_playerIndexToGamepad.end());
         return iter->second;
     }
 
@@ -142,8 +139,8 @@ namespace {
             if (controller) {
                 auto joy = SDL_GameControllerGetJoystick(controller);
                 auto instanceId = SDL_JoystickInstanceID(joy);
-                g_controllerIndexToInstanceId[index] = instanceId;
-                m_gamepadStatesByPlayerIndex.insert({index, {}});
+                g_instanceIdToPlayerIndex[instanceId] = index;
+                g_playerIndexToGamepad[index] = {};
             }
         }
     }
@@ -152,10 +149,10 @@ namespace {
         auto controller = SDL_GameControllerFromInstanceID(instanceId);
         SDL_GameControllerClose(controller);
 
-        int index = g_controllerIndexToInstanceId[instanceId];
-        auto iter = m_gamepadStatesByPlayerIndex.find(index);
-        assert(iter != m_gamepadStatesByPlayerIndex.end());
-        m_gamepadStatesByPlayerIndex.erase(iter);
+        int index = g_instanceIdToPlayerIndex[instanceId];
+        auto iter = g_playerIndexToGamepad.find(index);
+        assert(iter != g_playerIndexToGamepad.end());
+        g_playerIndexToGamepad.erase(iter);
     }
 
     Input UpdateInput() {
@@ -173,10 +170,10 @@ namespace {
         // gamepads, player 1 uses keyboard and there's no player 2 input.
 
         const bool playerOneHasGamepad =
-            m_gamepadStatesByPlayerIndex.find(0) != m_gamepadStatesByPlayerIndex.end();
+            g_playerIndexToGamepad.find(0) != g_playerIndexToGamepad.end();
 
         const bool playerTwoHasGamepad =
-            m_gamepadStatesByPlayerIndex.find(1) != m_gamepadStatesByPlayerIndex.end();
+            g_playerIndexToGamepad.find(1) != g_playerIndexToGamepad.end();
 
         if (!(playerOneHasGamepad && playerTwoHasGamepad)) {
             uint8_t joystickIndex = playerOneHasGamepad ? 1 : 0;
@@ -193,7 +190,7 @@ namespace {
                                                                         state[SDL_SCANCODE_UP]));
         }
 
-        for (auto& p : m_gamepadStatesByPlayerIndex) {
+        for (auto& p : g_playerIndexToGamepad) {
             uint8_t joystickIndex = static_cast<uint8_t>(p.first);
             auto& gamepad = p.second;
 
@@ -349,13 +346,13 @@ bool SDLEngine::Run(int argc, char** argv) {
             case SDL_CONTROLLERBUTTONUP: {
                 const auto& cbutton = sdlEvent.cbutton;
                 const bool buttonDown = sdlEvent.type == SDL_CONTROLLERBUTTONDOWN;
-                GetGamepadStateByInstanceId(sdlEvent.cbutton.which)
+                GetGamepadByInstanceId(sdlEvent.cbutton.which)
                     .OnButtonStateChange(cbutton.button, buttonDown);
             } break;
 
             case SDL_CONTROLLERAXISMOTION: {
                 const auto& caxis = sdlEvent.caxis;
-                GetGamepadStateByInstanceId(sdlEvent.cdevice.which)
+                GetGamepadByInstanceId(sdlEvent.cdevice.which)
                     .OnAxisStateChange(caxis.axis, caxis.value);
             } break;
 
@@ -437,7 +434,7 @@ bool SDLEngine::Run(int argc, char** argv) {
         SDL_GL_SwapWindow(g_window);
 
         g_keyboard.PostFrameUpdateKeyStates();
-        for (auto& kvp : m_gamepadStatesByPlayerIndex) {
+        for (auto& kvp : g_playerIndexToGamepad) {
             kvp.second.PostFrameUpdateStates();
         }
     }
