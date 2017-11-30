@@ -2,6 +2,7 @@
 
 #include "Base.h"
 #include "Breakpoints.h"
+#include "EngineClient.h"
 #include <map>
 #include <optional>
 #include <string>
@@ -9,12 +10,11 @@
 class MemoryBus;
 class Cpu;
 class Via;
-class Input;
 
 class Debugger {
 public:
     void Init(MemoryBus& memoryBus, Cpu& cpu, Via& via);
-    bool Update(double deltaTime, const Input& input);
+    bool Update(double deltaTime, const Input& input, const EmuEvents& emuEvents);
 
     using SymbolTable = std::multimap<uint16_t, std::string>;
 

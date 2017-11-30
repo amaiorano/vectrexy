@@ -41,8 +41,8 @@ private:
         return true;
     }
 
-    bool Update(double deltaTime, const Input& input) override {
-        if (!m_debugger.Update(deltaTime, input))
+    bool Update(double deltaTime, const Input& input, const EmuEvents& emuEvents) override {
+        if (!m_debugger.Update(deltaTime, input, emuEvents))
             return false;
 
         return true;

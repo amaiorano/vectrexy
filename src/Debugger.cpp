@@ -678,7 +678,7 @@ void Debugger::Init(MemoryBus& memoryBus, Cpu& cpu, Via& via) {
         });
 }
 
-bool Debugger::Update(double deltaTime, const Input& input) {
+bool Debugger::Update(double deltaTime, const Input& input, const EmuEvents& emuEvents) {
 
     auto PrintOp = [&](const InstructionTraceInfo& traceInfo) {
         if (m_traceEnabled) {
@@ -728,6 +728,14 @@ bool Debugger::Update(double deltaTime, const Input& input) {
         m_breakIntoDebugger = true;
         return static_cast<cycles_t>(0);
     };
+
+    for (auto& event : emuEvents) {
+        switch (event.type) {
+        case EmuEvent::Type::BreakIntoDebugger:
+            m_breakIntoDebugger = true;
+            break;
+        }
+    }
 
     // Set default console colors
     Platform::ScopedConsoleColor defaultColor(Platform::ConsoleColor::White,

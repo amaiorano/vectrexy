@@ -41,10 +41,17 @@ private:
     std::array<int8_t, 4> m_joystickAnalogState = {0};
 };
 
+class EmuEvent {
+public:
+    enum class Type { BreakIntoDebugger };
+    Type type;
+};
+using EmuEvents = std::vector<EmuEvent>;
+
 class IEngineClient {
 public:
     virtual bool Init(int argc, char** argv) = 0;
-    virtual bool Update(double deltaTime, const Input& input) = 0;
+    virtual bool Update(double deltaTime, const Input& input, const EmuEvents& emuEvents) = 0;
     virtual void Render(double deltaTime, Display& display) = 0;
     virtual void Shutdown() = 0;
 };

@@ -12,6 +12,12 @@
 #include <optional>
 #include <unordered_map>
 
+//@TODO: Move to some header
+template <typename Container, typename Pred>
+bool find_if(Container container, Pred pred) {
+    return std::find_if(std::begin(container), std::end(container), pred) != std::end(container);
+}
+
 namespace {
     // Display window dimensions
     const int DEFAULT_WINDOW_WIDTH = 600;
@@ -219,6 +225,8 @@ namespace {
 
         const KeyState& GetKeyState(SDL_Scancode scancode) { return m_keyStates[scancode]; }
 
+        void ResetKeyState(SDL_Scancode scancode) { m_keyStates[scancode] = {}; }
+
     private:
         std::array<KeyState, SDL_NUM_SCANCODES> m_keyStates;
     };
@@ -377,7 +385,20 @@ bool SDLEngine::Run(int argc, char** argv) {
 
         auto input = UpdateInput();
 
-        if (!g_client->Update(frameTime, input))
+        auto emuEvents = EmuEvents{};
+        if (g_keyboard.GetKeyState(SDL_SCANCODE_LCTRL).down &&
+            g_keyboard.GetKeyState(SDL_SCANCODE_C).down) {
+            emuEvents.push_back({EmuEvent::Type::BreakIntoDebugger});
+
+            // @HACK: Because the SDL window ends up losing focus to the console window, we don't
+            // get the KEY_UP events for these keys right away, so "continuing" from the console
+            // ends up breaking back into it again. We avoid this by explicitly clearing the state
+            // of these keys.
+            g_keyboard.ResetKeyState(SDL_SCANCODE_LCTRL);
+            g_keyboard.ResetKeyState(SDL_SCANCODE_C);
+        }
+
+        if (!g_client->Update(frameTime, input, emuEvents))
             quit = true;
 
         g_client->Render(frameTime, display);
