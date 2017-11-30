@@ -82,9 +82,40 @@ namespace {
         return options;
     }
 
+    // @TODO: rename to just "Gamepad"
     struct GamepadState {
-        std::array<bool, SDL_CONTROLLER_BUTTON_MAX> buttonDown = {false};
-        std::array<int32_t, SDL_CONTROLLER_AXIS_MAX> axisValue = {0};
+        struct ButtonState {
+            bool down = false;
+            bool pressed = false;
+        };
+
+        void OnButtonStateChange(int buttonIndex, bool down) {
+            auto& state = m_buttonStates[buttonIndex];
+            if (down) {
+                state.pressed = !state.down;
+                state.down = true;
+            } else {
+                state.down = false;
+            }
+        }
+
+        void OnAxisStateChange(int axisIndex, int32_t value) { m_axisValue[axisIndex] = value; }
+
+        void PostFrameUpdateStates() {
+            for (auto& state : m_buttonStates) {
+                state.pressed = false;
+            }
+        }
+
+        const ButtonState& GetButtonState(int buttonIndex) const {
+            return m_buttonStates[buttonIndex];
+        }
+
+        const int32_t& GetAxisValue(int axisValue) const { return m_axisValue[axisValue]; }
+
+    private:
+        std::array<ButtonState, SDL_CONTROLLER_BUTTON_MAX> m_buttonStates;
+        std::array<int32_t, SDL_CONTROLLER_AXIS_MAX> m_axisValue = {0};
     };
     std::unordered_map<int, GamepadState> m_gamepadStatesByPlayerIndex;
 
@@ -138,7 +169,7 @@ namespace {
             return static_cast<int8_t>((value / 32767.0f) * 127);
         };
 
-        // Prefer gamepads for both players. If one gamepad, they player 2 uses keyboard. If no
+        // Prefer gamepads for both players. If one gamepad, then player 2 uses keyboard. If no
         // gamepads, player 1 uses keyboard and there's no player 2 input.
 
         const bool playerOneHasGamepad =
@@ -164,36 +195,34 @@ namespace {
 
         for (auto& p : m_gamepadStatesByPlayerIndex) {
             uint8_t joystickIndex = static_cast<uint8_t>(p.first);
-            auto& gamepadState = p.second;
-            auto& buttonState = gamepadState.buttonDown;
+            auto& gamepad = p.second;
 
-            input.SetButton(joystickIndex, 0, buttonState[SDL_CONTROLLER_BUTTON_X]);
-            input.SetButton(joystickIndex, 1, buttonState[SDL_CONTROLLER_BUTTON_A]);
-            input.SetButton(joystickIndex, 2, buttonState[SDL_CONTROLLER_BUTTON_B]);
-            input.SetButton(joystickIndex, 3, buttonState[SDL_CONTROLLER_BUTTON_Y]);
+            input.SetButton(joystickIndex, 0, gamepad.GetButtonState(SDL_CONTROLLER_BUTTON_X).down);
+            input.SetButton(joystickIndex, 1, gamepad.GetButtonState(SDL_CONTROLLER_BUTTON_A).down);
+            input.SetButton(joystickIndex, 2, gamepad.GetButtonState(SDL_CONTROLLER_BUTTON_B).down);
+            input.SetButton(joystickIndex, 3, gamepad.GetButtonState(SDL_CONTROLLER_BUTTON_Y).down);
 
-            if (buttonState[SDL_CONTROLLER_BUTTON_DPAD_LEFT] ||
-                buttonState[SDL_CONTROLLER_BUTTON_DPAD_RIGHT]) {
+            if (gamepad.GetButtonState(SDL_CONTROLLER_BUTTON_DPAD_LEFT).down ||
+                gamepad.GetButtonState(SDL_CONTROLLER_BUTTON_DPAD_RIGHT).down) {
                 input.SetAnalogAxisX(
                     joystickIndex,
-                    remapDigitalToAxisValue(buttonState[SDL_CONTROLLER_BUTTON_DPAD_LEFT],
-                                            buttonState[SDL_CONTROLLER_BUTTON_DPAD_RIGHT]));
+                    remapDigitalToAxisValue(
+                        gamepad.GetButtonState(SDL_CONTROLLER_BUTTON_DPAD_LEFT).down,
+                        gamepad.GetButtonState(SDL_CONTROLLER_BUTTON_DPAD_RIGHT).down));
             } else {
                 input.SetAnalogAxisX(
-                    joystickIndex,
-                    remapAxisValue(gamepadState.axisValue[SDL_CONTROLLER_AXIS_LEFTX]));
+                    joystickIndex, remapAxisValue(gamepad.GetAxisValue(SDL_CONTROLLER_AXIS_LEFTX)));
             }
 
-            if (buttonState[SDL_CONTROLLER_BUTTON_DPAD_DOWN] ||
-                buttonState[SDL_CONTROLLER_BUTTON_DPAD_UP]) {
+            if (gamepad.GetButtonState(SDL_CONTROLLER_BUTTON_DPAD_DOWN).down ||
+                gamepad.GetButtonState(SDL_CONTROLLER_BUTTON_DPAD_UP).down) {
                 input.SetAnalogAxisY(
-                    joystickIndex,
-                    remapDigitalToAxisValue(buttonState[SDL_CONTROLLER_BUTTON_DPAD_DOWN],
-                                            buttonState[SDL_CONTROLLER_BUTTON_DPAD_UP]));
+                    joystickIndex, remapDigitalToAxisValue(
+                                       gamepad.GetButtonState(SDL_CONTROLLER_BUTTON_DPAD_DOWN).down,
+                                       gamepad.GetButtonState(SDL_CONTROLLER_BUTTON_DPAD_UP).down));
             } else {
-                input.SetAnalogAxisY(
-                    joystickIndex,
-                    -remapAxisValue(gamepadState.axisValue[SDL_CONTROLLER_AXIS_LEFTY]));
+                input.SetAnalogAxisY(joystickIndex, -remapAxisValue(gamepad.GetAxisValue(
+                                                        SDL_CONTROLLER_AXIS_LEFTY)));
             }
         }
 
@@ -320,14 +349,14 @@ bool SDLEngine::Run(int argc, char** argv) {
             case SDL_CONTROLLERBUTTONUP: {
                 const auto& cbutton = sdlEvent.cbutton;
                 const bool buttonDown = sdlEvent.type == SDL_CONTROLLERBUTTONDOWN;
-                GetGamepadStateByInstanceId(sdlEvent.cbutton.which).buttonDown[cbutton.button] =
-                    buttonDown;
+                GetGamepadStateByInstanceId(sdlEvent.cbutton.which)
+                    .OnButtonStateChange(cbutton.button, buttonDown);
             } break;
 
             case SDL_CONTROLLERAXISMOTION: {
                 const auto& caxis = sdlEvent.caxis;
-                GetGamepadStateByInstanceId(sdlEvent.cdevice.which).axisValue[caxis.axis] =
-                    caxis.value;
+                GetGamepadStateByInstanceId(sdlEvent.cdevice.which)
+                    .OnAxisStateChange(caxis.axis, caxis.value);
             } break;
 
             case SDL_KEYDOWN:
@@ -408,6 +437,9 @@ bool SDLEngine::Run(int argc, char** argv) {
         SDL_GL_SwapWindow(g_window);
 
         g_keyboard.PostFrameUpdateKeyStates();
+        for (auto& kvp : m_gamepadStatesByPlayerIndex) {
+            kvp.second.PostFrameUpdateStates();
+        }
     }
 
     g_client->Shutdown();
