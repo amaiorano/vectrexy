@@ -259,12 +259,35 @@ namespace {
     Keyboard g_keyboard;
 
     void UpdatePauseState(bool& pause) {
+        bool togglePause = false;
+
         if (g_keyboard.GetKeyState(SDL_SCANCODE_P).pressed) {
-            pause = !pause;
+            togglePause = true;
         }
+
+        for (auto& kvp : g_playerIndexToGamepad) {
+            auto& gamepad = kvp.second;
+            if (gamepad.GetButtonState(SDL_CONTROLLER_BUTTON_START).pressed)
+                togglePause = true;
+        }
+
+        if (togglePause)
+            pause = !pause;
     }
 
-    void UpdateTurboMode(bool& turbo) { turbo = g_keyboard.GetKeyState(SDL_SCANCODE_GRAVE).down; }
+    void UpdateTurboMode(bool& turbo) {
+        turbo = false;
+
+        if (g_keyboard.GetKeyState(SDL_SCANCODE_GRAVE).down) {
+            turbo = true;
+        }
+
+        for (auto& kvp : g_playerIndexToGamepad) {
+            auto& gamepad = kvp.second;
+            if (gamepad.GetAxisValue(SDL_CONTROLLER_AXIS_RIGHTX) > 16000)
+                turbo = true;
+        }
+    }
 
 } // namespace
 
