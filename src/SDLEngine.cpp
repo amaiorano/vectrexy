@@ -46,7 +46,7 @@ namespace {
     }
 
     Platform::WindowHandle GetMainWindowHandle() {
-        SDL_SysWMinfo info;
+        SDL_SysWMinfo info{};
         SDL_GetWindowWMInfo(g_window, &info);
 #if defined(SDL_VIDEO_DRIVER_WINDOWS)
         return info.info.win.window;
