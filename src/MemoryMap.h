@@ -23,11 +23,9 @@ namespace MemoryMap {
         // Maps input address to [0, range.first + logicalSize]
         //@TODO: Better name (Normalize? Wrap?)
         uint16_t MapAddress(uint16_t address) const {
-            ASSERT(MemoryMap::IsInRange(address, range));
+            ASSERT(IsInRange(address, range));
             return (address - range.first) % logicalSize;
         }
-
-        bool IsInRange(uint16_t address) const { return MemoryMap::IsInRange(address, range); }
     };
 
     // Cartridge ROM space
