@@ -55,3 +55,6 @@ public:
     virtual void Render(double frameTime, Display& display) = 0;
     virtual void Shutdown() = 0;
 };
+
+// Set focus on the main window
+void SetFocusMainWindow();

@@ -783,6 +783,7 @@ bool Debugger::Update(double frameTime, const Input& input, const EmuEvents& emu
             // end up breaking immediately on it again (we won't actually continue)
             ExecuteInstruction();
             ContinueExecution();
+            SetFocusMainWindow();
 
         } else if (tokens[0] == "step" || tokens[0] == "s") {
             // "Step into"

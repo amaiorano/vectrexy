@@ -2,6 +2,7 @@
 
 #include "EngineClient.h"
 #include "GLRender.h"
+#include "Platform.h"
 #include "StringHelpers.h"
 #include "imgui_impl/imgui_impl_sdl_gl3.h"
 #include <SDL.h>
@@ -11,6 +12,16 @@
 #include <iostream>
 #include <optional>
 #include <unordered_map>
+
+// Include SDL_syswm.h for SDL_GetWindowWMInfo
+// This includes windows.h on Windows platforms, we have to do the usual dance of disabling certain
+// warnings and undef'ing certain macros
+// @TODO: #include "PlatformHeaders.h" that abstracts this?
+MSC_PUSH_WARNING_DISABLE(4121)
+#include <SDL_syswm.h>
+#undef min
+#undef max
+MSC_POP_WARNING_DISABLE()
 
 //@TODO: Move to some header
 template <typename Container, typename Pred>
@@ -32,6 +43,14 @@ namespace {
     template <typename T>
     constexpr T MsToSec(T ms) {
         return static_cast<T>(ms / 1000.0);
+    }
+
+    Platform::WindowHandle GetMainWindowHandle() {
+        SDL_SysWMinfo info;
+        SDL_GetWindowWMInfo(g_window, &info);
+#if defined(SDL_VIDEO_DRIVER_WINDOWS)
+        return info.info.win.window;
+#endif
     }
 
     void SetOpenGLVersion() {
@@ -291,6 +310,11 @@ namespace {
 
 } // namespace
 
+// Implement EngineClient free-standing functions
+void SetFocusMainWindow() {
+    Platform::SetFocus(GetMainWindowHandle());
+}
+
 void SDLEngine::RegisterClient(IEngineClient& client) {
     g_client = &client;
 }
@@ -438,6 +462,7 @@ bool SDLEngine::Run(int argc, char** argv) {
         if (g_keyboard.GetKeyState(SDL_SCANCODE_LCTRL).down &&
             g_keyboard.GetKeyState(SDL_SCANCODE_C).down) {
             emuEvents.push_back({EmuEvent::Type::BreakIntoDebugger});
+            Platform::SetConsoleFocus();
 
             // @HACK: Because the SDL window ends up losing focus to the console window, we don't
             // get the KEY_UP events for these keys right away, so "continuing" from the console

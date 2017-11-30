@@ -19,6 +19,21 @@ namespace {
 } // namespace
 
 namespace Platform {
+    void SetFocus(WindowHandle windowHandle) {
+        HWND hwnd = std::any_cast<HWND>(windowHandle);
+        auto foreThread = GetWindowThreadProcessId(GetForegroundWindow(), 0);
+        auto appThread = GetCurrentThreadId();
+        if (foreThread != appThread) {
+            AttachThreadInput(foreThread, appThread, true);
+            BringWindowToTop(hwnd);
+            AttachThreadInput(foreThread, appThread, false);
+        } else {
+            BringWindowToTop(hwnd);
+        }
+    }
+
+    void SetConsoleFocus() { Platform::SetFocus(::GetConsoleWindow()); }
+
     void SetConsoleTitle(const char* title) { ::SetConsoleTitleA(title); }
 
     void SetConsoleCtrlHandler(std::function<bool()> handler) {
@@ -56,6 +71,5 @@ namespace Platform {
         WORD background = (info.wAttributes & 0b1111'0000) >> 4;
         return {static_cast<ConsoleColor>(foreground), static_cast<ConsoleColor>(background)};
     }
-
 } // namespace Platform
 #endif

@@ -1,9 +1,16 @@
 #pragma once
 
+#include <any>
 #include <functional>
 #include <tuple>
 
 namespace Platform {
+    // Every platform has their own window handle type, so we use std::any and cast internally
+    using WindowHandle = std::any;
+
+    void SetFocus(WindowHandle windowHandle);
+
+    void SetConsoleFocus();
 
     void SetConsoleTitle(const char* title);
 
