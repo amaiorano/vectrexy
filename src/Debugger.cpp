@@ -515,10 +515,12 @@ namespace {
             // Skip the opcode + operand bytes - @TODO: we probably shouldn't be storing these in
             // the first place
             const size_t skipBytes = traceInfo.instruction.cpuOp->size;
+            const bool initialSpace = !comment.empty();
             for (size_t i = skipBytes; i < traceInfo.numMemoryAccesses; ++i) {
                 auto& ma = traceInfo.memoryAccesses[i];
-                comment +=
-                    FormattedString<>(" $%04x%s$%x", ma.address, ma.read ? "->" : "<-", ma.value);
+                const char* separator = i == skipBytes ? (initialSpace ? " " : "") : " ";
+                comment += FormattedString<>("%s$%04x%s$%x", separator, ma.address,
+                                             ma.read ? "->" : "<-", ma.value);
             }
         }
 
