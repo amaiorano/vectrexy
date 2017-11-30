@@ -41,17 +41,17 @@ private:
         return true;
     }
 
-    bool Update(double deltaTime, const Input& input, const EmuEvents& emuEvents) override {
-        if (!m_debugger.Update(deltaTime, input, emuEvents))
+    bool Update(double frameTime, const Input& input, const EmuEvents& emuEvents) override {
+        if (!m_debugger.Update(frameTime, input, emuEvents))
             return false;
 
         return true;
     }
 
-    void Render(double deltaTime, Display& display) override {
+    void Render(double frameTime, Display& display) override {
         display.DrawLines(m_via.m_lines);
 
-        if (deltaTime > 0)
+        if (frameTime > 0)
             m_via.m_lines.clear();
     }
 

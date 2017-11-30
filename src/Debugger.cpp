@@ -678,7 +678,7 @@ void Debugger::Init(MemoryBus& memoryBus, Cpu& cpu, Via& via) {
         });
 }
 
-bool Debugger::Update(double deltaTime, const Input& input, const EmuEvents& emuEvents) {
+bool Debugger::Update(double frameTime, const Input& input, const EmuEvents& emuEvents) {
 
     auto PrintOp = [&](const InstructionTraceInfo& traceInfo) {
         if (m_traceEnabled) {
@@ -954,7 +954,7 @@ bool Debugger::Update(double deltaTime, const Input& input, const EmuEvents& emu
     } else { // Not broken into debugger (running)
 
         const double cpuHz = 6'000'000.0 / 4.0; // Frequency of the CPU (cycles/second)
-        const double cpuCyclesThisFrame = cpuHz * deltaTime;
+        const double cpuCyclesThisFrame = cpuHz * frameTime;
 
         // Execute as many instructions that can fit in this time slice (plus one more at most)
         m_cpuCyclesLeft += cpuCyclesThisFrame;

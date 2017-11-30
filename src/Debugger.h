@@ -14,7 +14,7 @@ class Via;
 class Debugger {
 public:
     void Init(MemoryBus& memoryBus, Cpu& cpu, Via& via);
-    bool Update(double deltaTime, const Input& input, const EmuEvents& emuEvents);
+    bool Update(double frameTime, const Input& input, const EmuEvents& emuEvents);
 
     using SymbolTable = std::multimap<uint16_t, std::string>;
 

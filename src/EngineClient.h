@@ -51,7 +51,7 @@ using EmuEvents = std::vector<EmuEvent>;
 class IEngineClient {
 public:
     virtual bool Init(int argc, char** argv) = 0;
-    virtual bool Update(double deltaTime, const Input& input, const EmuEvents& emuEvents) = 0;
-    virtual void Render(double deltaTime, Display& display) = 0;
+    virtual bool Update(double frameTime, const Input& input, const EmuEvents& emuEvents) = 0;
+    virtual void Render(double frameTime, Display& display) = 0;
     virtual void Shutdown() = 0;
 };
