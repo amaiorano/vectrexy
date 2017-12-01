@@ -21,21 +21,21 @@
 
 namespace {
     namespace internal {
-        FILE* g_logStream = stdout;
+        FILE* g_printStream = stdout;
     }
 
-    struct ScopedOverrideLogStream {
-        ScopedOverrideLogStream() {}
-        ScopedOverrideLogStream(FILE* stream) { SetLogStream(stream); }
-        ~ScopedOverrideLogStream() {
+    struct ScopedOverridePrintStream {
+        ScopedOverridePrintStream() {}
+        ScopedOverridePrintStream(FILE* stream) { SetPrintStream(stream); }
+        ~ScopedOverridePrintStream() {
             if (m_oldStream)
-                internal::g_logStream = m_oldStream;
+                internal::g_printStream = m_oldStream;
         }
 
-        void SetLogStream(FILE* stream) {
+        void SetPrintStream(FILE* stream) {
             assert(m_oldStream == nullptr);
-            m_oldStream = internal::g_logStream;
-            internal::g_logStream = stream;
+            m_oldStream = internal::g_printStream;
+            internal::g_printStream = stream;
         }
 
     private:
@@ -43,8 +43,8 @@ namespace {
     };
 
     template <typename... Args>
-    void logf(const char* format, Args... args) {
-        fprintf(internal::g_logStream, format, args...);
+    void Printf(const char* format, Args... args) {
+        fprintf(internal::g_printStream, format, args...);
     }
 
     template <typename T>
@@ -569,16 +569,16 @@ namespace {
 
     void PrintRegisters(const CpuRegisters& cpuRegisters) {
         const auto& r = cpuRegisters;
-        logf("A=$%02x (%d) B=$%02x (%d) D=$%04x (%d) X=$%04x (%d) "
-             "Y=$%04x (%d) U=$%04x S=$%04x DP=$%02x PC=$%04x CC=%s",
-             r.A, r.A, r.B, r.B, r.D, r.D, r.X, r.X, r.Y, r.Y, r.U, r.S, r.DP, r.PC,
-             GetCCString(cpuRegisters).c_str());
+        Printf("A=$%02x (%d) B=$%02x (%d) D=$%04x (%d) X=$%04x (%d) "
+               "Y=$%04x (%d) U=$%04x S=$%04x DP=$%02x PC=$%04x CC=%s",
+               r.A, r.A, r.B, r.B, r.D, r.D, r.X, r.X, r.Y, r.Y, r.U, r.S, r.DP, r.PC,
+               GetCCString(cpuRegisters).c_str());
     }
 
     void PrintRegistersCompact(const CpuRegisters& cpuRegisters) {
         const auto& r = cpuRegisters;
-        logf("A$%02x|B$%02x|X$%04x|Y$%04x|U$%04x|S$%04x|DP$%02x|%s", r.A, r.B, r.X, r.Y, r.U, r.S,
-             r.DP, GetCCString(cpuRegisters).c_str());
+        Printf("A$%02x|B$%02x|X$%04x|Y$%04x|U$%04x|S$%04x|DP$%02x|%s", r.A, r.B, r.X, r.Y, r.U, r.S,
+               r.DP, GetCCString(cpuRegisters).c_str());
     }
 
     void PrintOp(const InstructionTraceInfo& traceInfo, const Debugger::SymbolTable& symbolTable) {
@@ -586,41 +586,41 @@ namespace {
 
         using namespace Platform;
         ScopedConsoleColor scc(ConsoleColor::Gray);
-        logf("[$%04x] ", traceInfo.preOpCpuRegisters.PC);
+        Printf("[$%04x] ", traceInfo.preOpCpuRegisters.PC);
         SetConsoleColor(ConsoleColor::LightYellow);
-        logf("%-10s ", op.hexInstruction.c_str());
+        Printf("%-10s ", op.hexInstruction.c_str());
         SetConsoleColor(ConsoleColor::LightAqua);
-        logf("%-32s ", op.disasmInstruction.c_str());
+        Printf("%-32s ", op.disasmInstruction.c_str());
         SetConsoleColor(ConsoleColor::LightGreen);
-        logf("%-40s ", op.comment.c_str());
+        Printf("%-40s ", op.comment.c_str());
         SetConsoleColor(ConsoleColor::LightPurple);
-        logf("%2llu ", traceInfo.elapsedCycles);
+        Printf("%2llu ", traceInfo.elapsedCycles);
         PrintRegistersCompact(traceInfo.postOpCpuRegisters);
-        logf("\n");
+        Printf("\n");
     }
 
     void PrintHelp() {
-        logf("s[tep] [count]          step instruction [count] times\n"
-             "c[ontinue]              continue running\n"
-             "u[ntil] <address>       run until address is reached\n"
-             "info reg[isters]        display register values\n"
-             "p[rint] <address>       display value add address\n"
-             "set <address>=<value>   set value at address\n"
-             "info break              display breakpoints\n"
-             "b[reak] <address>       set instruction breakpoint at address\n"
-             "[ |r|a]watch <address>  set write/read/both watchpoint at address\n"
-             "delete <index>          delete breakpoint at index\n"
-             "disable <index>         disable breakpoint at index\n"
-             "enable <index>          enable breakpoint at index\n"
-             "loadsymbols <file>      load file with symbol/address definitions\n"
-             "toggle ...              toggle input option\n"
-             "  color                   colored output (slow)\n"
-             "  trace                   disassembly trace\n"
-             "t[race] [...]           display trace output\n"
-             "  -n <num_lines>          display num_lines worth\n"
-             "  -f <file_name>          output trace to file_name\n"
-             "q[uit]                  quit\n"
-             "h[elp]                  display this help text\n");
+        Printf("s[tep] [count]          step instruction [count] times\n"
+               "c[ontinue]              continue running\n"
+               "u[ntil] <address>       run until address is reached\n"
+               "info reg[isters]        display register values\n"
+               "p[rint] <address>       display value add address\n"
+               "set <address>=<value>   set value at address\n"
+               "info break              display breakpoints\n"
+               "b[reak] <address>       set instruction breakpoint at address\n"
+               "[ |r|a]watch <address>  set write/read/both watchpoint at address\n"
+               "delete <index>          delete breakpoint at index\n"
+               "disable <index>         disable breakpoint at index\n"
+               "enable <index>          enable breakpoint at index\n"
+               "loadsymbols <file>      load file with symbol/address definitions\n"
+               "toggle ...              toggle input option\n"
+               "  color                   colored output (slow)\n"
+               "  trace                   disassembly trace\n"
+               "t[race] [...]           display trace output\n"
+               "  -n <num_lines>          display num_lines worth\n"
+               "  -f <file_name>          output trace to file_name\n"
+               "q[uit]                  quit\n"
+               "h[elp]                  display this help text\n");
     }
 
     bool LoadUserSymbolsFile(const char* file, Debugger::SymbolTable& symbolTable) {
@@ -689,7 +689,7 @@ void Debugger::Init(MemoryBus& memoryBus, Cpu& cpu, Via& via) {
                 if (bp->enabled && (bp->type == Breakpoint::Type::Read ||
                                     bp->type == Breakpoint::Type::ReadWrite)) {
                     BreakIntoDebugger();
-                    logf("Watchpoint hit at $%04x (read value $%02x)\n", address, value);
+                    Printf("Watchpoint hit at $%04x (read value $%02x)\n", address, value);
                 }
             }
         },
@@ -703,7 +703,7 @@ void Debugger::Init(MemoryBus& memoryBus, Cpu& cpu, Via& via) {
                 if (bp->enabled && (bp->type == Breakpoint::Type::Write ||
                                     bp->type == Breakpoint::Type::ReadWrite)) {
                     BreakIntoDebugger();
-                    logf("Watchpoint hit at $%04x (write value $%02x)\n", address, value);
+                    Printf("Watchpoint hit at $%04x (write value $%02x)\n", address, value);
                 }
             }
         });
@@ -762,9 +762,9 @@ bool Debugger::Update(double frameTime, const Input& input, const EmuEvents& emu
             return elapsedCycles;
 
         } catch (std::exception& ex) {
-            logf("Exception caught:\n%s\n", ex.what());
+            Printf("Exception caught:\n%s\n", ex.what());
         } catch (...) {
-            logf("Unknown exception caught\n");
+            Printf("Unknown exception caught\n");
         }
         BreakIntoDebugger();
         return static_cast<cycles_t>(0);
@@ -783,7 +783,7 @@ bool Debugger::Update(double frameTime, const Input& input, const EmuEvents& emu
                                               Platform::ConsoleColor::Black);
 
     if (m_breakIntoDebugger) {
-        logf("$%04x (%s)>", m_cpu->Registers().PC, m_lastCommand.c_str());
+        Printf("$%04x (%s)>", m_cpu->Registers().PC, m_lastCommand.c_str());
 
         std::string inputCommand;
         const auto& stream = std::getline(std::cin, inputCommand);
@@ -852,7 +852,7 @@ bool Debugger::Update(double frameTime, const Input& input, const EmuEvents& emu
             if (tokens.size() > 1) {
                 uint16_t address = StringToIntegral<uint16_t>(tokens[1]);
                 if (auto bp = m_breakpoints.Add(Breakpoint::Type::Instruction, address)) {
-                    logf("Added breakpoint at $%04x\n", address);
+                    Printf("Added breakpoint at $%04x\n", address);
                     validCommand = true;
                 }
             }
@@ -867,7 +867,7 @@ bool Debugger::Update(double frameTime, const Input& input, const EmuEvents& emu
                                                                       : Breakpoint::Type::ReadWrite;
 
                 if (auto bp = m_breakpoints.Add(type, address)) {
-                    logf("Added watchpoint at $%04x\n", address);
+                    Printf("Added watchpoint at $%04x\n", address);
                     validCommand = true;
                 }
             }
@@ -877,10 +877,10 @@ bool Debugger::Update(double frameTime, const Input& input, const EmuEvents& emu
             if (tokens.size() > 1) {
                 int breakpointIndex = std::stoi(tokens[1]);
                 if (auto bp = m_breakpoints.RemoveAtIndex(breakpointIndex)) {
-                    logf("Deleted breakpoint %d at $%04x\n", breakpointIndex, bp->address);
+                    Printf("Deleted breakpoint %d at $%04x\n", breakpointIndex, bp->address);
                     validCommand = true;
                 } else {
-                    logf("Invalid breakpoint specified\n");
+                    Printf("Invalid breakpoint specified\n");
                 }
             }
 
@@ -890,10 +890,10 @@ bool Debugger::Update(double frameTime, const Input& input, const EmuEvents& emu
                 size_t breakpointIndex = std::stoi(tokens[1]);
                 if (auto bp = m_breakpoints.GetAtIndex(breakpointIndex)) {
                     bp->enabled = true;
-                    logf("Enabled breakpoint %d at $%04x\n", breakpointIndex, bp->address);
+                    Printf("Enabled breakpoint %d at $%04x\n", breakpointIndex, bp->address);
                     validCommand = true;
                 } else {
-                    logf("Invalid breakpoint specified\n");
+                    Printf("Invalid breakpoint specified\n");
                 }
             }
 
@@ -903,26 +903,27 @@ bool Debugger::Update(double frameTime, const Input& input, const EmuEvents& emu
                 size_t breakpointIndex = std::stoi(tokens[1]);
                 if (auto bp = m_breakpoints.GetAtIndex(breakpointIndex)) {
                     bp->enabled = false;
-                    logf("Disabled breakpoint %d at $%04x\n", breakpointIndex, bp->address);
+                    Printf("Disabled breakpoint %d at $%04x\n", breakpointIndex, bp->address);
                     validCommand = true;
                 } else {
-                    logf("Invalid breakpoint specified\n");
+                    Printf("Invalid breakpoint specified\n");
                 }
             }
 
         } else if (tokens[0] == "info") {
             if (tokens.size() > 1 && (tokens[1] == "registers" || tokens[1] == "reg")) {
                 PrintRegisters(m_cpu->Registers());
-                logf("\n");
+                Printf("\n");
             } else if (tokens.size() > 1 && (tokens[1] == "break")) {
-                logf("Breakpoints:\n");
+                Printf("Breakpoints:\n");
                 Platform::ScopedConsoleColor scc;
                 for (size_t i = 0; i < m_breakpoints.Num(); ++i) {
                     auto bp = m_breakpoints.GetAtIndex(i);
                     Platform::SetConsoleColor(bp->enabled ? Platform::ConsoleColor::LightGreen
                                                           : Platform::ConsoleColor::LightRed);
-                    logf("%3d: $%04x\t%-20s%s\n", i, bp->address,
-                         Breakpoint::TypeToString(bp->type), bp->enabled ? "Enabled" : "Disabled");
+                    Printf("%3d: $%04x\t%-20s%s\n", i, bp->address,
+                           Breakpoint::TypeToString(bp->type),
+                           bp->enabled ? "Enabled" : "Disabled");
                 }
             } else {
                 validCommand = false;
@@ -932,7 +933,7 @@ bool Debugger::Update(double frameTime, const Input& input, const EmuEvents& emu
             if (tokens.size() > 1) {
                 uint16_t address = StringToIntegral<uint16_t>(tokens[1]);
                 uint8_t value = m_memoryBus->Read(address);
-                logf("$%04x = $%02x (%d)\n", address, value, value);
+                Printf("$%04x = $%02x (%d)\n", address, value, value);
             } else {
                 validCommand = false;
             }
@@ -955,7 +956,7 @@ bool Debugger::Update(double frameTime, const Input& input, const EmuEvents& emu
 
         } else if (tokens[0] == "loadsymbols") {
             if (tokens.size() > 1 && LoadUserSymbolsFile(tokens[1].c_str(), m_symbolTable)) {
-                logf("Loaded symbols from %s\n", tokens[1].c_str());
+                Printf("Loaded symbols from %s\n", tokens[1].c_str());
             } else {
                 validCommand = false;
             }
@@ -965,10 +966,10 @@ bool Debugger::Update(double frameTime, const Input& input, const EmuEvents& emu
                 if (tokens[1] == "color") {
                     m_colorEnabled = !m_colorEnabled;
                     SetColorEnabled(m_colorEnabled);
-                    logf("Color %s\n", m_colorEnabled ? "enabled" : "disabled");
+                    Printf("Color %s\n", m_colorEnabled ? "enabled" : "disabled");
                 } else if (tokens[1] == "trace") {
                     m_traceEnabled = !m_traceEnabled;
-                    logf("Trace %s\n", m_traceEnabled ? "enabled" : "disabled");
+                    Printf("Trace %s\n", m_traceEnabled ? "enabled" : "disabled");
                 }
             } else {
                 validCommand = false;
@@ -997,14 +998,14 @@ bool Debugger::Update(double frameTime, const Input& input, const EmuEvents& emu
 
             if (validCommand) {
                 FileStream fileStream;
-                ScopedOverrideLogStream ScopedOverrideLogStream;
+                ScopedOverridePrintStream ScopedOverridePrintStream;
 
                 if (outFileName) {
                     if (!fileStream.Open(outFileName, "w+"))
-                        logf("Failed to create trace file\n");
+                        Printf("Failed to create trace file\n");
                     else {
-                        logf("Writing trace to %s\n", outFileName);
-                        ScopedOverrideLogStream.SetLogStream(fileStream.Get());
+                        Printf("Writing trace to %s\n", outFileName);
+                        ScopedOverridePrintStream.SetPrintStream(fileStream.Get());
                     }
                 }
 
@@ -1023,7 +1024,7 @@ bool Debugger::Update(double frameTime, const Input& input, const EmuEvents& emu
         if (validCommand) {
             m_lastCommand = inputCommand;
         } else {
-            logf("Invalid command: %s\n", inputCommand.c_str());
+            Printf("Invalid command: %s\n", inputCommand.c_str());
         }
     } else { // Not broken into debugger (running)
 
@@ -1039,7 +1040,7 @@ bool Debugger::Update(double frameTime, const Input& input, const EmuEvents& emu
                         m_breakpoints.Remove(m_cpu->Registers().PC);
                         BreakIntoDebugger();
                     } else if (bp->enabled) {
-                        logf("Breakpoint hit at %04x\n", bp->address);
+                        Printf("Breakpoint hit at %04x\n", bp->address);
                         BreakIntoDebugger();
                     }
                 }
