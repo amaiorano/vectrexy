@@ -633,7 +633,7 @@ void Debugger::Init(MemoryBus& memoryBus, Cpu& cpu, Via& via) {
     m_via = &via;
 
     Platform::SetConsoleCtrlHandler([this] {
-        m_breakIntoDebugger = true;
+        BreakIntoDebugger();
         return true;
     });
 
@@ -657,7 +657,7 @@ void Debugger::Init(MemoryBus& memoryBus, Cpu& cpu, Via& via) {
             if (auto bp = m_breakpoints.Get(address)) {
                 if (bp->enabled && (bp->type == Breakpoint::Type::Read ||
                                     bp->type == Breakpoint::Type::ReadWrite)) {
-                    m_breakIntoDebugger = true;
+                    BreakIntoDebugger();
                     printf("Watchpoint hit at $%04x (read value $%02x)\n", address, value);
                 }
             }
@@ -671,11 +671,21 @@ void Debugger::Init(MemoryBus& memoryBus, Cpu& cpu, Via& via) {
             if (auto bp = m_breakpoints.Get(address)) {
                 if (bp->enabled && (bp->type == Breakpoint::Type::Write ||
                                     bp->type == Breakpoint::Type::ReadWrite)) {
-                    m_breakIntoDebugger = true;
+                    BreakIntoDebugger();
                     printf("Watchpoint hit at $%04x (write value $%02x)\n", address, value);
                 }
             }
         });
+}
+
+void Debugger::BreakIntoDebugger() {
+    m_breakIntoDebugger = true;
+    SetFocusConsole();
+}
+
+void Debugger::ResumeFromDebugger() {
+    m_breakIntoDebugger = false;
+    SetFocusMainWindow();
 }
 
 bool Debugger::Update(double frameTime, const Input& input, const EmuEvents& emuEvents) {
@@ -725,14 +735,14 @@ bool Debugger::Update(double frameTime, const Input& input, const EmuEvents& emu
         } catch (...) {
             printf("Unknown exception caught\n");
         }
-        m_breakIntoDebugger = true;
+        BreakIntoDebugger();
         return static_cast<cycles_t>(0);
     };
 
     for (auto& event : emuEvents) {
         switch (event.type) {
         case EmuEvent::Type::BreakIntoDebugger:
-            m_breakIntoDebugger = true;
+            BreakIntoDebugger();
             break;
         }
     }
@@ -742,8 +752,6 @@ bool Debugger::Update(double frameTime, const Input& input, const EmuEvents& emu
                                               Platform::ConsoleColor::Black);
 
     if (m_breakIntoDebugger) {
-        auto ContinueExecution = [&] { m_breakIntoDebugger = false; };
-
         printf("$%04x (%s)>", m_cpu->Registers().PC, m_lastCommand.c_str());
 
         std::string inputCommand;
@@ -782,8 +790,7 @@ bool Debugger::Update(double frameTime, const Input& input, const EmuEvents& emu
             // First 'step' current instruction, otherwise if we have a breakpoint on it we will
             // end up breaking immediately on it again (we won't actually continue)
             ExecuteInstruction();
-            ContinueExecution();
-            SetFocusMainWindow();
+            ResumeFromDebugger();
 
         } else if (tokens[0] == "step" || tokens[0] == "s") {
             // "Step into"
@@ -793,7 +800,7 @@ bool Debugger::Update(double frameTime, const Input& input, const EmuEvents& emu
             if (tokens.size() > 1) {
                 m_numInstructionsToExecute = StringToIntegral<int64_t>(tokens[1]) - 1;
                 if (m_numInstructionsToExecute.value() > 0) {
-                    ContinueExecution();
+                    ResumeFromDebugger();
                 }
             } else {
                 PrintLastOp();
@@ -804,7 +811,7 @@ bool Debugger::Update(double frameTime, const Input& input, const EmuEvents& emu
                 uint16_t address = StringToIntegral<uint16_t>(tokens[1]);
                 auto bp = m_breakpoints.Add(Breakpoint::Type::Instruction, address);
                 bp->autoDelete = true;
-                ContinueExecution();
+                ResumeFromDebugger();
             } else {
                 validCommand = false;
             }
@@ -964,10 +971,10 @@ bool Debugger::Update(double frameTime, const Input& input, const EmuEvents& emu
                 if (bp->type == Breakpoint::Type::Instruction) {
                     if (bp->autoDelete) {
                         m_breakpoints.Remove(m_cpu->Registers().PC);
-                        m_breakIntoDebugger = true;
+                        BreakIntoDebugger();
                     } else if (bp->enabled) {
                         printf("Breakpoint hit at %04x\n", bp->address);
-                        m_breakIntoDebugger = true;
+                        BreakIntoDebugger();
                     }
                 }
             }
@@ -984,7 +991,7 @@ bool Debugger::Update(double frameTime, const Input& input, const EmuEvents& emu
 
             if (m_numInstructionsToExecute && (--m_numInstructionsToExecute.value() == 0)) {
                 m_numInstructionsToExecute = {};
-                m_breakIntoDebugger = true;
+                BreakIntoDebugger();
             }
 
             if (m_breakIntoDebugger) {

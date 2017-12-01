@@ -315,6 +315,10 @@ void SetFocusMainWindow() {
     Platform::SetFocus(GetMainWindowHandle());
 }
 
+void SetFocusConsole() {
+    Platform::SetConsoleFocus();
+}
+
 void SDLEngine::RegisterClient(IEngineClient& client) {
     g_client = &client;
 }
@@ -462,7 +466,6 @@ bool SDLEngine::Run(int argc, char** argv) {
         if (g_keyboard.GetKeyState(SDL_SCANCODE_LCTRL).down &&
             g_keyboard.GetKeyState(SDL_SCANCODE_C).down) {
             emuEvents.push_back({EmuEvent::Type::BreakIntoDebugger});
-            Platform::SetConsoleFocus();
 
             // @HACK: Because the SDL window ends up losing focus to the console window, we don't
             // get the KEY_UP events for these keys right away, so "continuing" from the console

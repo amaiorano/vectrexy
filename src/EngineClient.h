@@ -58,3 +58,4 @@ public:
 
 // Set focus on the main window
 void SetFocusMainWindow();
+void SetFocusConsole();

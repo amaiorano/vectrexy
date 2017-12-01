@@ -19,6 +19,9 @@ public:
     using SymbolTable = std::multimap<uint16_t, std::string>;
 
 private:
+    void BreakIntoDebugger();
+    void ResumeFromDebugger();
+
     MemoryBus* m_memoryBus = nullptr;
     Cpu* m_cpu = nullptr;
     Via* m_via = nullptr;
