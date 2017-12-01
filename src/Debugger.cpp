@@ -585,9 +585,10 @@ namespace {
                "disable <index>         disable breakpoint at index\n"
                "enable <index>          enable breakpoint at index\n"
                "loadsymbols <file>      load file with symbol/address definitions\n"
-               "trace                   toggle disassembly trace\n"
-               "color                   toggle colored output (slow)\n"
-               "t <num_ops>             print last <num_ops> trace lines\n"
+               "toggle ...\n"
+               "  color                 toggle colored output (slow)\n"
+               "  trace                 toggle disassembly trace\n"
+               "t[race] [num_ops]       print last <num_ops> trace lines\n"
                "q[uit]                  quit\n"
                "h[elp]                  display this help text\n");
     }
@@ -930,11 +931,21 @@ bool Debugger::Update(double frameTime, const Input& input, const EmuEvents& emu
                 validCommand = false;
             }
 
-        } else if (tokens[0] == "trace") {
-            m_traceEnabled = !m_traceEnabled;
-            printf("Trace %s\n", m_traceEnabled ? "enabled" : "disabled");
+        } else if (tokens[0] == "toggle") {
+            if (tokens.size() > 1) {
+                if (tokens[1] == "color") {
+                    m_colorEnabled = !m_colorEnabled;
+                    SetColorEnabled(m_colorEnabled);
+                    printf("Color %s\n", m_colorEnabled ? "enabled" : "disabled");
+                } else if (tokens[1] == "trace") {
+                    m_traceEnabled = !m_traceEnabled;
+                    printf("Trace %s\n", m_traceEnabled ? "enabled" : "disabled");
+                }
+            } else {
+                validCommand = false;
+            }
 
-        } else if (tokens[0] == "t") {
+        } else if (tokens[0] == "trace" || tokens[0] == "t") {
             int n = tokens.size() > 1 ? StringToIntegral<size_t>(tokens[1]) : 10;
 
             std::vector<InstructionTraceInfo> buffer(n);
@@ -943,11 +954,6 @@ bool Debugger::Update(double frameTime, const Input& input, const EmuEvents& emu
                 const auto& traceInfo = buffer[i];
                 PrintOp(traceInfo);
             }
-
-        } else if (tokens[0] == "color") {
-            m_colorEnabled = !m_colorEnabled;
-            SetColorEnabled(m_colorEnabled);
-            printf("Color %s\n", m_colorEnabled ? "enabled" : "disabled");
 
         } else {
             validCommand = false;
@@ -958,7 +964,6 @@ bool Debugger::Update(double frameTime, const Input& input, const EmuEvents& emu
         } else {
             printf("Invalid command: %s\n", inputCommand.c_str());
         }
-
     } else { // Not broken into debugger (running)
 
         const double cpuHz = 6'000'000.0 / 4.0; // Frequency of the CPU (cycles/second)
