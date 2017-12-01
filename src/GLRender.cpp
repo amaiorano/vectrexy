@@ -145,7 +145,7 @@ namespace {
         auto CheckStatus = [](GLuint id, GLenum pname) {
             assert(pname == GL_COMPILE_STATUS || pname == GL_LINK_STATUS);
             GLint result = GL_FALSE;
-            int infoLogLength;
+            int infoLogLength{};
             glGetShaderiv(id, pname, &result);
             glGetShaderiv(id, GL_INFO_LOG_LENGTH, &infoLogLength);
             if (infoLogLength > 0) {
@@ -250,7 +250,7 @@ namespace {
 
         bool fitToWindowHeight = targetAR <= windowAR;
 
-        const auto[targetWidth, targetHeight] = [&] {
+        const auto [targetWidth, targetHeight] = [&] {
             if (fitToWindowHeight) {
                 // fit to window height
                 return std::make_tuple(targetAR * windowHeightF, windowHeightF);
