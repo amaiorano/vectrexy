@@ -67,6 +67,9 @@ public:
         return m_file != nullptr;
     }
 
+    FILE* Get() { return m_file; }
+    const FILE* Get() const { return m_file; }
+
 protected:
     void CloseImpl() override {
         if (m_file) {
