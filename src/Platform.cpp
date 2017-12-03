@@ -44,6 +44,8 @@ namespace Platform {
         assert(succeeded);
     }
 
+    std::function<bool()> GetConsoleCtrlHandler() { return g_consoleCtrlHandler; }
+
     static bool g_consoleColorEnabled = true;
 
     void SetConsoleColoringEnabled(bool enabled) {

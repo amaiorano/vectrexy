@@ -20,6 +20,19 @@
 #include <vector>
 
 namespace {
+    struct ScopedConsoleCtrlHandler {
+        template <typename Handler>
+        ScopedConsoleCtrlHandler(Handler handler) {
+            m_oldHandler = Platform::GetConsoleCtrlHandler();
+            Platform::SetConsoleCtrlHandler(handler);
+        }
+
+        ~ScopedConsoleCtrlHandler() { Platform::SetConsoleCtrlHandler(m_oldHandler); }
+
+    private:
+        decltype(Platform::GetConsoleCtrlHandler()) m_oldHandler;
+    };
+
     namespace internal {
         FILE* g_printStream = stdout;
     }
@@ -1009,11 +1022,21 @@ bool Debugger::Update(double frameTime, const Input& input, const EmuEvents& emu
                     }
                 }
 
+                // Allow Ctrl+C to break out of printing ops (can be very long)
+                bool bKeepPrinting = true;
+                auto scopedConsoleCtrlHandler = ScopedConsoleCtrlHandler([&bKeepPrinting] {
+                    bKeepPrinting = false;
+                    return true;
+                });
+
                 std::vector<InstructionTraceInfo> buffer(numLines);
                 auto numInstructions = g_instructionTraceBuffer.PeekBack(buffer.data(), numLines);
                 buffer.resize(numInstructions);
                 for (auto& traceInfo : buffer) {
                     PrintOp(traceInfo);
+
+                    if (!bKeepPrinting)
+                        break;
                 }
             }
 
