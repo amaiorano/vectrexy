@@ -250,7 +250,7 @@ namespace {
 
         bool fitToWindowHeight = targetAR <= windowAR;
 
-        const auto [targetWidth, targetHeight] = [&] {
+        const auto[targetWidth, targetHeight] = [&] {
             if (fitToWindowHeight) {
                 // fit to window height
                 return std::make_tuple(targetAR * windowHeightF, windowHeightF);
@@ -275,6 +275,8 @@ namespace {
 
     namespace ShaderProgram {
         GLuint renderToTexture{};
+        GLuint glow{};
+        GLuint copyTexture{};
         GLuint darkenTexture{};
         GLuint gameScreenToCrtTexture{};
         GLuint drawScreen{};
@@ -287,6 +289,7 @@ namespace {
     int g_renderedTexture0Index{};
     TextureResource g_renderedTexture0;
     TextureResource g_renderedTexture1;
+    TextureResource g_glowTexture;
     TextureResource g_crtTexture;
     TextureResource g_overlayTexture;
 
@@ -315,6 +318,11 @@ namespace GLRender {
         //@TODO: Use PassThrough.vert for renderToTexture as well (don't forget to pass UVs along)
         ShaderProgram::renderToTexture =
             LoadShaders("shaders/DrawVectors.vert", "shaders/DrawVectors.frag");
+
+        ShaderProgram::glow = LoadShaders("shaders/PassThrough.vert", "shaders/Glow.frag");
+
+        ShaderProgram::copyTexture =
+            LoadShaders("shaders/PassThrough.vert", "shaders/CopyTexture.frag");
 
         ShaderProgram::darkenTexture =
             LoadShaders("shaders/PassThrough.vert", "shaders/DarkenTexture.frag");
@@ -385,6 +393,9 @@ namespace GLRender {
         AllocateTexture(*g_renderedTexture0, g_crtViewport.w, g_crtViewport.h, GL_RGB32F);
         g_renderedTexture1 = MakeTextureResource();
         AllocateTexture(*g_renderedTexture1, g_crtViewport.w, g_crtViewport.h, GL_RGB32F);
+        g_glowTexture = MakeTextureResource();
+        glObjectLabel(GL_TEXTURE, *g_glowTexture, -1, "g_glowTexture");
+        AllocateTexture(*g_glowTexture, g_crtViewport.w, g_crtViewport.h, GL_RGB32F);
         g_crtTexture = MakeTextureResource();
         AllocateTexture(*g_crtTexture, g_overlayViewport.w, g_overlayViewport.h, GL_RGB);
         glObjectLabel(GL_TEXTURE, *g_crtTexture, -1, "g_crtTexture");
@@ -430,6 +441,45 @@ namespace GLRender {
                 glm::vec3{-scaleX, scaleY, 0.0f},  glm::vec3{-scaleX, scaleY, 0.0f},
                 glm::vec3{scaleX, -scaleY, 0.0f},  glm::vec3{scaleX, scaleY, 0.0f}};
             return quad_vertices;
+        };
+
+        auto DrawFullScreenQuad = [MakeClipSpaceQuad](float scaleX = 1.f, float scaleY = 1.f) {
+
+            //@TODO: create once
+            auto vbo = MakeBufferResource();
+            auto quad_vertices = MakeClipSpaceQuad(scaleX, scaleY);
+            SetVertexBufferData(*vbo, quad_vertices);
+
+            glEnableVertexAttribArray(0);
+            glBindBuffer(GL_ARRAY_BUFFER, *vbo);
+            glVertexAttribPointer(0, // attribute 0. No particular reason for 0, but must match
+                                     // layout in the shader.
+                                  3, // size
+                                  GL_FLOAT, // type
+                                  GL_FALSE, // normalized?
+                                  0,        // stride
+                                  (void*)0  // array buffer offset
+            );
+
+            glm::vec2 quad_uvs[] = {{0, 0}, {1, 0}, {0, 1}, {0, 1}, {1, 0}, {1, 1}};
+            auto uvBuffer = MakeBufferResource();
+            SetVertexBufferData(*uvBuffer, quad_uvs);
+
+            // 2nd attribute buffer : UVs
+            glEnableVertexAttribArray(1);
+            glBindBuffer(GL_ARRAY_BUFFER, *uvBuffer);
+            glVertexAttribPointer(1,        // attribute
+                                  2,        // size
+                                  GL_FLOAT, // type
+                                  GL_FALSE, // normalized?
+                                  0,        // stride
+                                  (void*)0  // array buffer offset
+            );
+
+            glDrawArrays(GL_TRIANGLES, 0, 6); // 2*3 indices starting at 0 -> 2 triangles
+
+            glDisableVertexAttribArray(0);
+            glDisableVertexAttribArray(1);
         };
 
         /////////////////////////////////////////////////////////////////
@@ -504,42 +554,70 @@ namespace GLRender {
             glUniform1f(darkenSpeedScaleID, darkenSpeedScale);
             glUniform1f(frameTimeID, (float)(frameTime));
 
-            //@TODO: create once
-            auto vbo = MakeBufferResource();
-            auto quad_vertices = MakeClipSpaceQuad();
-            SetVertexBufferData(*vbo, quad_vertices);
-
-            glEnableVertexAttribArray(0);
-            glBindBuffer(GL_ARRAY_BUFFER, *vbo);
-            glVertexAttribPointer(
-                0, // attribute 0. No particular reason for 0, but must match layout in the shader.
-                3, // size
-                GL_FLOAT, // type
-                GL_FALSE, // normalized?
-                0,        // stride
-                (void*)0  // array buffer offset
-            );
-
-            glm::vec2 quad_uvs[] = {{0, 0}, {1, 0}, {0, 1}, {0, 1}, {1, 0}, {1, 1}};
-            auto uvBuffer = MakeBufferResource();
-            SetVertexBufferData(*uvBuffer, quad_uvs);
-
-            // 2nd attribute buffer : UVs
-            glEnableVertexAttribArray(1);
-            glBindBuffer(GL_ARRAY_BUFFER, *uvBuffer);
-            glVertexAttribPointer(1,        // attribute
-                                  2,        // size
-                                  GL_FLOAT, // type
-                                  GL_FALSE, // normalized?
-                                  0,        // stride
-                                  (void*)0  // array buffer offset
-            );
-
-            glDrawArrays(GL_TRIANGLES, 0, 6); // 2*3 indices starting at 0 -> 2 triangles
-
-            glDisableVertexAttribArray(0);
-            glDisableVertexAttribArray(1);
+            DrawFullScreenQuad();
         }
+
+        // GLOW
+        {
+            static float radius = 3.0f;
+            ImGui::SliderFloat("glowRadius", &radius, 0.0f, 5.0f);
+
+            static std::array<float, 5> glowKernelValues = {
+                0.2270270270f, 0.1945945946f, 0.1216216216f, 0.0540540541f, 0.0162162162f,
+            };
+
+            for (size_t i = 0; i < glowKernelValues.size(); ++i) {
+                ImGui::SliderFloat(FormattedString<>("kernelValue[%d]", i), &glowKernelValues[i],
+                                   0.f, 1.f);
+            }
+
+            auto Glow = [&](auto& inputTexture, auto& outputTexture, glm::vec2 dir) {
+
+                glBindFramebuffer(GL_FRAMEBUFFER, *g_textureFB);
+                SetViewport(g_crtViewport);
+                glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, *outputTexture, 0);
+
+                glUseProgram(ShaderProgram::glow);
+
+                glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_2D, *inputTexture);
+                GLuint texID = glGetUniformLocation(ShaderProgram::glow, "inputTexture");
+                glUniform1i(texID, 0);
+
+                GLuint dirId = glGetUniformLocation(ShaderProgram::glow, "dir");
+                GLuint resolutionId = glGetUniformLocation(ShaderProgram::glow, "resolution");
+                GLuint radiusId = glGetUniformLocation(ShaderProgram::glow, "radius");
+                GLuint kernalValuesId = glGetUniformLocation(ShaderProgram::glow, "kernalValues");
+
+                glUniform1f(resolutionId,
+                            static_cast<float>(std::min(g_crtViewport.w, g_crtViewport.h)));
+                glUniform1f(radiusId, radius);
+                glUniform2f(dirId, dir.x, dir.y);
+                glUniform1fv(kernalValuesId, glowKernelValues.size(), &glowKernelValues[0]);
+
+                DrawFullScreenQuad();
+            };
+
+            Glow(currRenderedTexture0, g_glowTexture, {1.f, 0.f});
+            Glow(g_glowTexture, currRenderedTexture0, {0.f, 1.f});
+        }
+
+        // Copy glow texture back to currRenderedTexture0
+        //@TODO: technically don't need to do this, can just use g_glowTexture as input to next pass
+        //{
+        //    glBindFramebuffer(GL_FRAMEBUFFER, *g_textureFB);
+        //    SetViewport(g_crtViewport);
+        //    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, *currRenderedTexture0, 0);
+
+        //    glUseProgram(ShaderProgram::copyTexture);
+
+        //    glActiveTexture(GL_TEXTURE0);
+        //    glBindTexture(GL_TEXTURE_2D, *g_glowTexture);
+        //    GLuint texID = glGetUniformLocation(ShaderProgram::copyTexture, "inputTexture");
+        //    glUniform1i(texID, 0);
+
+        //    DrawFullScreenQuad();
+        //}
 
         /////////////////////////////////////////////////////////////////
         // PASS 3: render game screen texture to crt texture that is
@@ -561,40 +639,7 @@ namespace GLRender {
             // Set our "renderedTexture0" sampler to use Texture Unit 0
             glUniform1i(texID, 0);
 
-            auto vbo = MakeBufferResource();
-            auto quad_vertices = MakeClipSpaceQuad(CRT_SCALE_X, CRT_SCALE_Y);
-            SetVertexBufferData(*vbo, quad_vertices);
-
-            glEnableVertexAttribArray(0);
-            glBindBuffer(GL_ARRAY_BUFFER, *vbo);
-            glVertexAttribPointer(
-                0, // attribute 0. No particular reason for 0, but must match layout in the shader.
-                3, // size
-                GL_FLOAT, // type
-                GL_FALSE, // normalized?
-                0,        // stride
-                (void*)0  // array buffer offset
-            );
-
-            glm::vec2 quad_uvs[] = {{0, 0}, {1, 0}, {0, 1}, {0, 1}, {1, 0}, {1, 1}};
-            auto uvBuffer = MakeBufferResource();
-            SetVertexBufferData(*uvBuffer, quad_uvs);
-
-            // 2nd attribute buffer : UVs
-            glEnableVertexAttribArray(1);
-            glBindBuffer(GL_ARRAY_BUFFER, *uvBuffer);
-            glVertexAttribPointer(1,        // attribute
-                                  2,        // size
-                                  GL_FLOAT, // type
-                                  GL_FALSE, // normalized?
-                                  0,        // stride
-                                  (void*)0  // array buffer offset
-            );
-
-            glDrawArrays(GL_TRIANGLES, 0, 6); // 2*3 indices starting at 0 -> 2 triangles
-
-            glDisableVertexAttribArray(0);
-            glDisableVertexAttribArray(1);
+            DrawFullScreenQuad(CRT_SCALE_X, CRT_SCALE_Y);
         }
 
         /////////////////////////////////////////////////////////////////
@@ -630,40 +675,7 @@ namespace GLRender {
                 glUniform1f(overlayAlphaLoc, overlayAlpha);
             }
 
-            auto vbo = MakeBufferResource();
-            auto quad_vertices = MakeClipSpaceQuad();
-            SetVertexBufferData(*vbo, quad_vertices);
-
-            glEnableVertexAttribArray(0);
-            glBindBuffer(GL_ARRAY_BUFFER, *vbo);
-            glVertexAttribPointer(0, // attribute 0. No particular reason for 0, but must match the
-                                     // layout in the shader.
-                                  3, // size
-                                  GL_FLOAT, // type
-                                  GL_FALSE, // normalized?
-                                  0,        // stride
-                                  (void*)0  // array buffer offset
-            );
-
-            glm::vec2 quad_uvs[] = {{0, 0}, {1, 0}, {0, 1}, {0, 1}, {1, 0}, {1, 1}};
-            auto uvBuffer = MakeBufferResource();
-            SetVertexBufferData(*uvBuffer, quad_uvs);
-
-            // 2nd attribute buffer : UVs
-            glEnableVertexAttribArray(1);
-            glBindBuffer(GL_ARRAY_BUFFER, *uvBuffer);
-            glVertexAttribPointer(1,        // attribute
-                                  2,        // size
-                                  GL_FLOAT, // type
-                                  GL_FALSE, // normalized?
-                                  0,        // stride
-                                  (void*)0  // array buffer offset
-            );
-
-            glDrawArrays(GL_TRIANGLES, 0, 6); // 2*3 indices starting at 0 -> 2 triangles
-
-            glDisableVertexAttribArray(0);
-            glDisableVertexAttribArray(1);
+            DrawFullScreenQuad();
         }
     } // namespace GLRender
 } // namespace GLRender
