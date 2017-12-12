@@ -180,4 +180,23 @@ namespace GLUtils {
         GLuint texLoc = glGetUniformLocation(shader, name);
         glUniform1i(texLoc, textureSlot);
     }
+
+    class Shader {
+    public:
+        ~Shader() {
+            glUseProgram(0);
+            glDeleteProgram(m_shaderId);
+        }
+
+        void LoadShaders(const char* vertShaderFile, const char* fragShaderFile) {
+            m_shaderId = GLUtils::LoadShaders(vertShaderFile, fragShaderFile);
+        }
+
+        void Bind() { glUseProgram(m_shaderId); }
+
+        GLuint Id() const { return m_shaderId; }
+
+    private:
+        GLuint m_shaderId{};
+    };
 } // namespace GLUtils

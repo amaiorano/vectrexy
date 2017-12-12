@@ -170,15 +170,6 @@ namespace {
     std::vector<VertexData> g_quadVA;
     std::vector<VertexData> g_lineVA, g_pointVA;
 
-    namespace ShaderProgram {
-        GLuint drawVectors{};
-        GLuint glow{};
-        GLuint copyTexture{};
-        GLuint darkenTexture{};
-        GLuint gameScreenToCrtTexture{};
-        GLuint drawScreen{};
-    } // namespace ShaderProgram
-
     glm::mat4x4 g_projectionMatrix{};
     glm::mat4x4 g_modelViewMatrix{};
     VertexArrayResource g_topLevelVAO;
@@ -196,14 +187,20 @@ namespace {
 } // namespace
 
 namespace {
-    namespace ShaderPass {
-        /////////////////////////////////////////////////////////////////
-        // PASS 1: draw vectors
-        /////////////////////////////////////////////////////////////////
-        void DrawVectors(const std::vector<VertexData>& VA1, GLenum mode1,
-                         const std::vector<VertexData>& VA2, GLenum mode2, GLuint targetTextureId) {
-            GLuint shader = ShaderProgram::drawVectors;
+    class ShaderPass {
+    protected:
+        ~ShaderPass() = default;
+        Shader m_shader;
+    };
 
+    class DrawVectorsPass : public ShaderPass {
+    public:
+        void Init() {
+            m_shader.LoadShaders("shaders/DrawVectors.vert", "shaders/DrawVectors.frag");
+        }
+
+        void Draw(const std::vector<VertexData>& VA1, GLenum mode1,
+                  const std::vector<VertexData>& VA2, GLenum mode2, GLuint targetTextureId) {
             // Render to our framebuffer
             glBindFramebuffer(GL_FRAMEBUFFER, *g_textureFB);
             SetViewport(g_crtViewport); //@TODO: maybe get Viewport from texture
@@ -213,11 +210,11 @@ namespace {
             // Purposely do not clear the target texture.
             // glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            // Use our shader
-            glUseProgram(shader);
+            m_shader.Bind();
 
+            //@TODO: Add GLUtils::SetUniform overload
             const auto mvp = g_projectionMatrix * g_modelViewMatrix;
-            GLuint mvpUniform = glGetUniformLocation(shader, "MVP");
+            GLuint mvpUniform = glGetUniformLocation(m_shader.Id(), "MVP");
             glUniformMatrix4fv(mvpUniform, 1, GL_FALSE, &mvp[0][0]);
 
             auto DrawVertices = [](auto& VA, GLenum mode) {
@@ -259,41 +256,46 @@ namespace {
 
             DrawVertices(VA1, mode1);
             DrawVertices(VA2, mode2);
-        };
+        }
+    };
 
-        /////////////////////////////////////////////////////////////////
-        // PASS 2: darken texture
-        /////////////////////////////////////////////////////////////////
-        void DarkenTexture(GLuint inputTextureId, GLuint outputTextureId, float frameTime) {
-            GLuint shader = ShaderProgram::darkenTexture;
+    class DarkenTexturePass : public ShaderPass {
+    public:
+        void Init() {
+            m_shader.LoadShaders("shaders/PassThrough.vert", "shaders/DarkenTexture.frag");
+        }
 
+        void Draw(GLuint inputTextureId, GLuint outputTextureId, float frameTime) {
             glBindFramebuffer(GL_FRAMEBUFFER, *g_textureFB);
             SetViewport(g_crtViewport);
             glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, outputTextureId, 0);
 
             glClear(GL_COLOR_BUFFER_BIT);
 
-            glUseProgram(shader);
+            m_shader.Bind();
 
             // Bind our texture in Texture Unit 0
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, inputTextureId);
 
             // Set our "vectorsTexture0" sampler to use Texture Unit 0
-            SetUniform(shader, "vectorsTexture", 0);
+            SetUniform(m_shader.Id(), "vectorsTexture", 0);
 
             static float darkenSpeedScale = 3.0;
             ImGui::SliderFloat("darkenSpeedScale", &darkenSpeedScale, 0.0f, 10.0f);
-            SetUniform(shader, "darkenSpeedScale", darkenSpeedScale);
+            SetUniform(m_shader.Id(), "darkenSpeedScale", darkenSpeedScale);
 
-            SetUniform(shader, "frameTime", frameTime);
+            SetUniform(m_shader.Id(), "frameTime", frameTime);
 
             DrawFullScreenQuad();
         };
+    };
 
-        // GLOW
-        void ApplyGlow(GLuint inputTextureId, GLuint tempTextureId, GLuint outputTextureId) {
+    class GlowPass : public ShaderPass {
+    public:
+        void Init() { m_shader.LoadShaders("shaders/PassThrough.vert", "shaders/Glow.frag"); }
 
+        void Draw(GLuint inputTextureId, GLuint tempTextureId, GLuint outputTextureId) {
             static float radius = 3.0f;
             ImGui::SliderFloat("glowRadius", &radius, 0.0f, 5.0f);
 
@@ -308,23 +310,23 @@ namespace {
 
             auto GlowInDirection = [&](GLuint inputTextureId, GLuint outputTextureId,
                                        glm::vec2 dir) {
-                GLuint shader = ShaderProgram::glow;
 
                 glBindFramebuffer(GL_FRAMEBUFFER, *g_textureFB);
                 SetViewport(g_crtViewport);
                 glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, outputTextureId, 0);
 
-                glUseProgram(shader);
+                m_shader.Bind();
 
                 glActiveTexture(GL_TEXTURE0);
                 glBindTexture(GL_TEXTURE_2D, inputTextureId);
-                SetUniform(shader, "inputTexture", 0);
+                SetUniform(m_shader.Id(), "inputTexture", 0);
 
-                SetUniform(shader, "dir", dir.x, dir.y);
-                SetUniform(shader, "resolution",
+                SetUniform(m_shader.Id(), "dir", dir.x, dir.y);
+                SetUniform(m_shader.Id(), "resolution",
                            static_cast<float>(std::min(g_crtViewport.w, g_crtViewport.h)));
-                SetUniform(shader, "radius", radius);
-                SetUniform(shader, "kernalValues", &glowKernelValues[0], glowKernelValues.size());
+                SetUniform(m_shader.Id(), "radius", radius);
+                SetUniform(m_shader.Id(), "kernalValues", &glowKernelValues[0],
+                           glowKernelValues.size());
 
                 DrawFullScreenQuad();
             };
@@ -332,55 +334,62 @@ namespace {
             GlowInDirection(inputTextureId, tempTextureId, {1.f, 0.f});
             GlowInDirection(tempTextureId, outputTextureId, {0.f, 1.f});
         };
+    };
 
-        /////////////////////////////////////////////////////////////////
-        // PASS 3: render game screen texture to crt texture that is
-        //         larger (same size as overlay texture)
-        /////////////////////////////////////////////////////////////////
-        void GameScreenToCrtTexture(GLuint inputTextureId, GLuint outputTextureId) {
-            GLuint shader = ShaderProgram::gameScreenToCrtTexture;
+    class GameScreenToCrtTexturePass : ShaderPass {
+    public:
+        void Init() {
+            m_shader.LoadShaders("shaders/Passthrough.vert", "shaders/DrawTexture.frag");
+        }
 
+        void Draw(GLuint inputTextureId, GLuint outputTextureId) {
             glBindFramebuffer(GL_FRAMEBUFFER, *g_textureFB);
             SetViewport(g_overlayViewport);
             glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, outputTextureId, 0);
 
             glClear(GL_COLOR_BUFFER_BIT);
 
-            glUseProgram(shader);
+            m_shader.Bind();
 
             // Bind our texture in Texture Unit 0
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, inputTextureId);
             // Set our "vectorsTexture0" sampler to use Texture Unit 0
-            SetUniform(shader, "vectorsTexture", 0);
+            SetUniform(m_shader.Id(), "vectorsTexture", 0);
 
             DrawFullScreenQuad(CRT_SCALE_X, CRT_SCALE_Y);
-        };
+        }
+    };
 
-        /////////////////////////////////////////////////////////////////
-        // PASS 4: render to screen
-        /////////////////////////////////////////////////////////////////
-        void RenderToScreen(GLuint inputCrtTextureId, GLuint inputOverlayTextureId) {
+    class RenderToScreenPass : ShaderPass {
+    public:
+        void Init() { m_shader.LoadShaders("shaders/Passthrough.vert", "shaders/DrawScreen.frag"); }
 
-            GLuint shader = ShaderProgram::drawScreen;
-
+        void Draw(GLuint inputCrtTextureId, GLuint inputOverlayTextureId) {
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
             SetViewport(g_windowViewport);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            // Use our shader
-            glUseProgram(shader);
+            m_shader.Bind();
 
-            SetTextureUniform<0>(shader, "crtTexture", inputCrtTextureId);
-            SetTextureUniform<1>(shader, "overlayTexture", inputOverlayTextureId);
+            SetTextureUniform<0>(m_shader.Id(), "crtTexture", inputCrtTextureId);
+            SetTextureUniform<1>(m_shader.Id(), "overlayTexture", inputOverlayTextureId);
 
             static float overlayAlpha = 1.0f;
             ImGui::SliderFloat("overlayAlpha", &overlayAlpha, 0.0f, 1.0f);
-            SetUniform(shader, "overlayAlpha", overlayAlpha);
+            SetUniform(m_shader.Id(), "overlayAlpha", overlayAlpha);
 
             DrawFullScreenQuad();
-        };
-    } // namespace ShaderPass
+        }
+    };
+
+    // Global shader pass instances
+    DrawVectorsPass g_drawVectorsPass;
+    DarkenTexturePass g_darkenTexturePass;
+    GlowPass g_glowPass;
+    GameScreenToCrtTexturePass g_gameScreenToCrtTexturePass;
+    RenderToScreenPass g_renderToScreenPass;
+
 } // namespace
 
 namespace GLRender {
@@ -403,23 +412,11 @@ namespace GLRender {
         glBindVertexArray(*g_topLevelVAO);
 
         // Load shaders
-        //@TODO: Use PassThrough.vert for drawVectors as well (don't forget to pass UVs along)
-        ShaderProgram::drawVectors =
-            LoadShaders("shaders/DrawVectors.vert", "shaders/DrawVectors.frag");
-
-        ShaderProgram::glow = LoadShaders("shaders/PassThrough.vert", "shaders/Glow.frag");
-
-        ShaderProgram::copyTexture =
-            LoadShaders("shaders/PassThrough.vert", "shaders/CopyTexture.frag");
-
-        ShaderProgram::darkenTexture =
-            LoadShaders("shaders/PassThrough.vert", "shaders/DarkenTexture.frag");
-
-        ShaderProgram::gameScreenToCrtTexture =
-            LoadShaders("shaders/Passthrough.vert", "shaders/DrawTexture.frag");
-
-        ShaderProgram::drawScreen =
-            LoadShaders("shaders/Passthrough.vert", "shaders/DrawScreen.frag");
+        g_drawVectorsPass.Init();
+        g_darkenTexturePass.Init();
+        g_glowPass.Init();
+        g_gameScreenToCrtTexturePass.Init();
+        g_renderToScreenPass.Init();
 
         // Create resources
         g_textureFB = MakeFrameBufferResource();
@@ -540,25 +537,27 @@ namespace GLRender {
         glObjectLabel(GL_TEXTURE, *currVectorsThickTexture0, -1, "currVectorsThickTexture0");
         glObjectLabel(GL_TEXTURE, *currVectorsThickTexture1, -1, "currVectorsThickTexture1");
 
-        // Render normal lines and points and darken
+        // Render normal lines and points, and darken
         std::tie(g_lineVA, g_pointVA) = CreateLineAndPointVertexArrays(g_lines);
-        ShaderPass::DrawVectors(g_lineVA, GL_LINES, g_pointVA, GL_POINTS, *currVectorsTexture0);
-        ShaderPass::DarkenTexture(*currVectorsTexture0, *currVectorsTexture1,
-                                  static_cast<float>(frameTime));
+        g_drawVectorsPass.Draw(g_lineVA, GL_LINES, g_pointVA, GL_POINTS, *currVectorsTexture0);
+        g_darkenTexturePass.Draw(*currVectorsTexture0, *currVectorsTexture1,
+                                 static_cast<float>(frameTime));
 
         // Render thicker lines for blurring, darken, and apply glow
         g_quadVA = CreateQuadVertexArray(g_lines);
-        ShaderPass::DrawVectors(g_quadVA, GL_TRIANGLES, {}, {}, *currVectorsThickTexture0);
-        ShaderPass::DarkenTexture(*currVectorsThickTexture0, *currVectorsThickTexture1,
-                                  static_cast<float>(frameTime));
-        ShaderPass::ApplyGlow(*currVectorsThickTexture0, *g_glowTexture0, *g_glowTexture1);
+        g_drawVectorsPass.Draw(g_quadVA, GL_TRIANGLES, {}, {}, *currVectorsThickTexture0);
+        g_darkenTexturePass.Draw(*currVectorsThickTexture0, *currVectorsThickTexture1,
+                                 static_cast<float>(frameTime));
+        g_glowPass.Draw(*currVectorsThickTexture0, *g_glowTexture0, *g_glowTexture1);
 
         // Combine glow and normal lines
         //@TODO: Write shader and code for combining the two
 
-        ShaderPass::GameScreenToCrtTexture(*currVectorsTexture0, *g_crtTexture);
+        // Scale game screen (lines) to CRT texture
+        g_gameScreenToCrtTexturePass.Draw(*currVectorsTexture0, *g_crtTexture);
 
-        ShaderPass::RenderToScreen(*g_crtTexture, *g_overlayTexture);
+        // Present
+        g_renderToScreenPass.Draw(*g_crtTexture, *g_overlayTexture);
     }
 
 } // namespace GLRender
