@@ -397,7 +397,7 @@ namespace {
     glm::mat4x4 g_modelViewMatrix{};
     VertexArrayResource g_topLevelVAO;
     FrameBufferResource g_textureFB;
-    int g_renderedTexture0Index{};
+    int g_vectorsTexture0Index{};
     TextureResource g_vectorsTexture0;
     TextureResource g_vectorsTexture1;
     TextureResource g_vectorsThickTexture0;
@@ -509,6 +509,12 @@ namespace GLRender {
         g_vectorsTexture1 = MakeTextureResource();
         AllocateTexture(*g_vectorsTexture1, g_crtViewport.w, g_crtViewport.h, GL_RGB32F);
 
+        g_vectorsThickTexture0 = MakeTextureResource();
+        AllocateTexture(*g_vectorsThickTexture0, g_crtViewport.w, g_crtViewport.h, GL_RGB32F);
+
+        g_vectorsThickTexture1 = MakeTextureResource();
+        AllocateTexture(*g_vectorsThickTexture1, g_crtViewport.w, g_crtViewport.h, GL_RGB32F);
+
         g_glowTexture0 = MakeTextureResource();
         glObjectLabel(GL_TEXTURE, *g_glowTexture0, -1, "g_glowTexture0");
         AllocateTexture(*g_glowTexture0, g_crtViewport.w, g_crtViewport.h, GL_RGB32F);
@@ -545,17 +551,6 @@ namespace GLRender {
             }
         }
 
-        if (frameTime > 0)
-            g_renderedTexture0Index = (g_renderedTexture0Index + 1) % 2;
-
-        auto& currRenderedTexture0 =
-            g_renderedTexture0Index == 0 ? g_vectorsTexture0 : g_vectorsTexture1;
-        auto& currRenderedTexture1 =
-            g_renderedTexture0Index == 0 ? g_vectorsTexture1 : g_vectorsTexture0;
-
-        glObjectLabel(GL_TEXTURE, *currRenderedTexture0, -1, "currRenderedTexture0");
-        glObjectLabel(GL_TEXTURE, *currRenderedTexture1, -1, "currRenderedTexture1");
-
         auto MakeClipSpaceQuad = [](float scaleX = 1.f, float scaleY = 1.f) {
             std::array<glm::vec3, 6> quad_vertices{
                 glm::vec3{-scaleX, -scaleY, 0.0f}, glm::vec3{scaleX, -scaleY, 0.0f},
@@ -565,7 +560,6 @@ namespace GLRender {
         };
 
         auto DrawFullScreenQuad = [MakeClipSpaceQuad](float scaleX = 1.f, float scaleY = 1.f) {
-
             //@TODO: create once
             auto vbo = MakeBufferResource();
             auto quad_vertices = MakeClipSpaceQuad(scaleX, scaleY);
@@ -685,8 +679,8 @@ namespace GLRender {
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, inputTextureId);
 
-            // Set our "renderedTexture0" sampler to use Texture Unit 0
-            SetUniform(shader, "renderedTexture", 0);
+            // Set our "vectorsTexture0" sampler to use Texture Unit 0
+            SetUniform(shader, "vectorsTexture", 0);
 
             static float darkenSpeedScale = 3.0;
             ImGui::SliderFloat("darkenSpeedScale", &darkenSpeedScale, 0.0f, 10.0f);
@@ -739,23 +733,6 @@ namespace GLRender {
             GlowInDirection(tempTextureId, outputTextureId, {0.f, 1.f});
         };
 
-        // Copy glow texture back to currRenderedTexture0
-        //@TODO: technically don't need to do this, can just use g_glowTexture0 as input to next
-        // pass
-        //{
-        //    glBindFramebuffer(GL_FRAMEBUFFER, *g_textureFB);
-        //    SetViewport(g_crtViewport);
-        //    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, *currRenderedTexture0, 0);
-
-        //    glUseProgram(ShaderProgram::copyTexture);
-
-        //    glActiveTexture(GL_TEXTURE0);
-        //    glBindTexture(GL_TEXTURE_2D, *g_glowTexture0);
-        //    SetUniform(ShaderProgram::copyTexture, "inputTexture", 0);
-
-        //    DrawFullScreenQuad();
-        //}
-
         /////////////////////////////////////////////////////////////////
         // PASS 3: render game screen texture to crt texture that is
         //         larger (same size as overlay texture)
@@ -775,8 +752,8 @@ namespace GLRender {
             // Bind our texture in Texture Unit 0
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, inputTextureId);
-            // Set our "renderedTexture0" sampler to use Texture Unit 0
-            SetUniform(shader, "renderedTexture", 0);
+            // Set our "vectorsTexture0" sampler to use Texture Unit 0
+            SetUniform(shader, "vectorsTexture", 0);
 
             DrawFullScreenQuad(CRT_SCALE_X, CRT_SCALE_Y);
         };
@@ -805,18 +782,40 @@ namespace GLRender {
             DrawFullScreenQuad();
         };
 
-        //@TODO: Render thicker lines for blurring
-        // g_quadVA = CreateQuadVertexArray(g_lines);
-        // DrawVectors(g_quadVA, GL_TRIANGLES, {}, {}, *currRenderedTexture0);
+        if (frameTime > 0)
+            g_vectorsTexture0Index = (g_vectorsTexture0Index + 1) % 2;
 
+        auto& currVectorsTexture0 =
+            g_vectorsTexture0Index == 0 ? g_vectorsTexture0 : g_vectorsTexture1;
+        auto& currVectorsTexture1 =
+            g_vectorsTexture0Index == 0 ? g_vectorsTexture1 : g_vectorsTexture0;
+
+        auto& currVectorsThickTexture0 =
+            g_vectorsTexture0Index == 0 ? g_vectorsThickTexture0 : g_vectorsThickTexture1;
+        auto& currVectorsThickTexture1 =
+            g_vectorsTexture0Index == 0 ? g_vectorsThickTexture1 : g_vectorsThickTexture0;
+
+        glObjectLabel(GL_TEXTURE, *currVectorsTexture0, -1, "currVectorsTexture0");
+        glObjectLabel(GL_TEXTURE, *currVectorsTexture1, -1, "currVectorsTexture1");
+
+        glObjectLabel(GL_TEXTURE, *currVectorsThickTexture0, -1, "currVectorsThickTexture0");
+        glObjectLabel(GL_TEXTURE, *currVectorsThickTexture1, -1, "currVectorsThickTexture1");
+
+        // Render normal lines and points and darken
         std::tie(g_lineVA, g_pointVA) = CreateLineAndPointVertexArrays(g_lines);
-        DrawVectors(g_lineVA, GL_LINES, g_pointVA, GL_POINTS, *currRenderedTexture0);
+        DrawVectors(g_lineVA, GL_LINES, g_pointVA, GL_POINTS, *currVectorsTexture0);
+        DarkenTexture(*currVectorsTexture0, *currVectorsTexture1);
 
-        DarkenTexture(*currRenderedTexture0, *currRenderedTexture1);
+        // Render thicker lines for blurring, darken, and apply glow
+        g_quadVA = CreateQuadVertexArray(g_lines);
+        DrawVectors(g_quadVA, GL_TRIANGLES, {}, {}, *currVectorsThickTexture0);
+        DarkenTexture(*currVectorsThickTexture0, *currVectorsThickTexture1);
+        ApplyGlow(*currVectorsThickTexture0, *g_glowTexture0, *g_glowTexture1);
 
-        ApplyGlow(*currRenderedTexture0, *g_glowTexture0, *currRenderedTexture0);
+        // Combine glow and normal lines
+        //@TODO: Write shader and code for combining the two
 
-        GameScreenToCrtTexture(*currRenderedTexture0, *g_crtTexture);
+        GameScreenToCrtTexture(*currVectorsTexture0, *g_crtTexture);
 
         RenderToScreen(*g_crtTexture, *g_overlayTexture);
     }
