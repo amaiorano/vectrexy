@@ -6,8 +6,13 @@
 
 #include <array>
 #include <cassert>
+#include <optional>
 
 namespace GLUtils {
+    ////////////////////////////////
+    // Resources
+    ////////////////////////////////
+
     // Wraps an OpenGL resource id and automatically calls the delete function on destruction
     template <typename DeleteFunc>
     class GLResource {
@@ -93,6 +98,10 @@ namespace GLUtils {
     }
     using BufferResource = decltype(MakeBufferResource());
 
+    ////////////////////////////////
+    // Vertex Buffers
+    ////////////////////////////////
+
     template <typename T, size_t N>
     void SetVertexBufferData(GLuint vboId, T (&vertices)[N]) {
         glBindBuffer(GL_ARRAY_BUFFER, vboId);
@@ -108,6 +117,25 @@ namespace GLUtils {
     inline void CheckFramebufferStatus() {
         assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE);
     }
+
+    ////////////////////////////////
+    // Textures
+    ////////////////////////////////
+
+    struct PixelData {
+        uint8_t* pixels{};
+        GLenum format{};
+        GLenum type{};
+    };
+
+    void AllocateTexture(GLuint textureId, GLsizei width, GLsizei height, GLint internalFormat,
+                         std::optional<PixelData> pixelData = {});
+
+    bool LoadPngTexture(GLuint textureId, const char* file);
+
+    ////////////////////////////////
+    // Shaders
+    ////////////////////////////////
 
     GLuint LoadShaders(const char* vertShaderFile, const char* fragShaderFile);
 

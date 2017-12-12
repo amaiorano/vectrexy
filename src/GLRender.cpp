@@ -1,7 +1,6 @@
 #include "GLRender.h"
 #include "EngineClient.h"
 #include "GLUtils.h"
-#include "ImageFileUtils.h"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -19,44 +18,6 @@ const int VECTREX_SCREEN_WIDTH = 256;
 const int VECTREX_SCREEN_HEIGHT = 256;
 
 namespace {
-    struct PixelData {
-        uint8_t* pixels{};
-        GLenum format{};
-        GLenum type{};
-    };
-    void AllocateTexture(GLuint textureId, GLsizei width, GLsizei height, GLint internalFormat,
-                         std::optional<PixelData> pixelData = {}) {
-
-        auto pd = pixelData.value_or(PixelData{nullptr, GL_RGBA, GL_UNSIGNED_BYTE});
-
-        glBindTexture(GL_TEXTURE_2D, textureId);
-        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-        glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, width, height, 0, pd.format, pd.type,
-                     pd.pixels);
-        // By default, filtering is GL_LINEAR or GL_NEAREST_MIPMAP_LINEAR. We set to GL_NEAREST to
-        // avoid creating mipmaps and to make it less blurry.
-        // auto filtering = GL_LINEAR;
-        auto filtering = GL_NEAREST;
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filtering);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filtering);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    }
-
-    bool LoadPngTexture(GLuint textureId, const char* file) {
-        auto imgData = ImageFileUtils::loadPngImage(file);
-
-        if (!imgData) {
-            return false;
-        }
-
-        AllocateTexture(
-            textureId, imgData->width, imgData->height, imgData->hasAlpha ? GL_RGBA : GL_RGB,
-            PixelData{imgData->data.get(),
-                      static_cast<GLenum>(imgData->hasAlpha ? GL_RGBA : GL_RGB), GL_UNSIGNED_BYTE});
-        return true;
-    }
-
     struct Viewport {
         GLint x{}, y{};
         GLsizei w{}, h{};
