@@ -110,6 +110,50 @@ namespace {
         return {lineVA, pointVA};
     }
 
+    std::array<glm::vec3, 6> MakeClipSpaceQuad(float scaleX = 1.f, float scaleY = 1.f) {
+        return {glm::vec3{-scaleX, -scaleY, 0.0f}, glm::vec3{scaleX, -scaleY, 0.0f},
+                glm::vec3{-scaleX, scaleY, 0.0f},  glm::vec3{-scaleX, scaleY, 0.0f},
+                glm::vec3{scaleX, -scaleY, 0.0f},  glm::vec3{scaleX, scaleY, 0.0f}};
+    };
+
+    void DrawFullScreenQuad(float scaleX = 1.f, float scaleY = 1.f) {
+        //@TODO: create once
+        auto vbo = MakeBufferResource();
+        auto quad_vertices = MakeClipSpaceQuad(scaleX, scaleY);
+        SetVertexBufferData(*vbo, quad_vertices);
+
+        glEnableVertexAttribArray(0);
+        glBindBuffer(GL_ARRAY_BUFFER, *vbo);
+        glVertexAttribPointer(0,        // attribute 0. No particular reason for 0, but must match
+                                        // layout in the shader.
+                              3,        // size
+                              GL_FLOAT, // type
+                              GL_FALSE, // normalized?
+                              0,        // stride
+                              (void*)0  // array buffer offset
+        );
+
+        glm::vec2 quad_uvs[] = {{0, 0}, {1, 0}, {0, 1}, {0, 1}, {1, 0}, {1, 1}};
+        auto uvBuffer = MakeBufferResource();
+        SetVertexBufferData(*uvBuffer, quad_uvs);
+
+        // 2nd attribute buffer : UVs
+        glEnableVertexAttribArray(1);
+        glBindBuffer(GL_ARRAY_BUFFER, *uvBuffer);
+        glVertexAttribPointer(1,        // attribute
+                              2,        // size
+                              GL_FLOAT, // type
+                              GL_FALSE, // normalized?
+                              0,        // stride
+                              (void*)0  // array buffer offset
+        );
+
+        glDrawArrays(GL_TRIANGLES, 0, 6); // 2*3 indices starting at 0 -> 2 triangles
+
+        glDisableVertexAttribArray(0);
+        glDisableVertexAttribArray(1);
+    };
+
     // Globals
     float CRT_SCALE_X = 0.93f;
     float CRT_SCALE_Y = 0.76f;
@@ -288,58 +332,12 @@ namespace GLRender {
             }
         }
 
-        auto MakeClipSpaceQuad = [](float scaleX = 1.f, float scaleY = 1.f) {
-            std::array<glm::vec3, 6> quad_vertices{
-                glm::vec3{-scaleX, -scaleY, 0.0f}, glm::vec3{scaleX, -scaleY, 0.0f},
-                glm::vec3{-scaleX, scaleY, 0.0f},  glm::vec3{-scaleX, scaleY, 0.0f},
-                glm::vec3{scaleX, -scaleY, 0.0f},  glm::vec3{scaleX, scaleY, 0.0f}};
-            return quad_vertices;
-        };
-
-        auto DrawFullScreenQuad = [MakeClipSpaceQuad](float scaleX = 1.f, float scaleY = 1.f) {
-            //@TODO: create once
-            auto vbo = MakeBufferResource();
-            auto quad_vertices = MakeClipSpaceQuad(scaleX, scaleY);
-            SetVertexBufferData(*vbo, quad_vertices);
-
-            glEnableVertexAttribArray(0);
-            glBindBuffer(GL_ARRAY_BUFFER, *vbo);
-            glVertexAttribPointer(0, // attribute 0. No particular reason for 0, but must match
-                                     // layout in the shader.
-                                  3, // size
-                                  GL_FLOAT, // type
-                                  GL_FALSE, // normalized?
-                                  0,        // stride
-                                  (void*)0  // array buffer offset
-            );
-
-            glm::vec2 quad_uvs[] = {{0, 0}, {1, 0}, {0, 1}, {0, 1}, {1, 0}, {1, 1}};
-            auto uvBuffer = MakeBufferResource();
-            SetVertexBufferData(*uvBuffer, quad_uvs);
-
-            // 2nd attribute buffer : UVs
-            glEnableVertexAttribArray(1);
-            glBindBuffer(GL_ARRAY_BUFFER, *uvBuffer);
-            glVertexAttribPointer(1,        // attribute
-                                  2,        // size
-                                  GL_FLOAT, // type
-                                  GL_FALSE, // normalized?
-                                  0,        // stride
-                                  (void*)0  // array buffer offset
-            );
-
-            glDrawArrays(GL_TRIANGLES, 0, 6); // 2*3 indices starting at 0 -> 2 triangles
-
-            glDisableVertexAttribArray(0);
-            glDisableVertexAttribArray(1);
-        };
-
         /////////////////////////////////////////////////////////////////
         // PASS 1: draw vectors
         /////////////////////////////////////////////////////////////////
-        auto DrawVectors = [&](const std::vector<VertexData>& VA1, GLenum mode1,
-                               const std::vector<VertexData>& VA2, GLenum mode2,
-                               GLuint targetTextureId) {
+        auto DrawVectors = [](const std::vector<VertexData>& VA1, GLenum mode1,
+                              const std::vector<VertexData>& VA2, GLenum mode2,
+                              GLuint targetTextureId) {
 
             // Render to our framebuffer
             glBindFramebuffer(GL_FRAMEBUFFER, *g_textureFB);
@@ -401,7 +399,7 @@ namespace GLRender {
         /////////////////////////////////////////////////////////////////
         // PASS 2: darken texture
         /////////////////////////////////////////////////////////////////
-        auto DarkenTexture = [&](GLuint inputTextureId, GLuint outputTextureId) {
+        auto DarkenTexture = [](GLuint inputTextureId, GLuint outputTextureId, float frameTime) {
             GLuint shader = ShaderProgram::darkenTexture;
 
             glBindFramebuffer(GL_FRAMEBUFFER, *g_textureFB);
@@ -423,13 +421,13 @@ namespace GLRender {
             ImGui::SliderFloat("darkenSpeedScale", &darkenSpeedScale, 0.0f, 10.0f);
             SetUniform(shader, "darkenSpeedScale", darkenSpeedScale);
 
-            SetUniform(shader, "frameTime", (float)(frameTime));
+            SetUniform(shader, "frameTime", frameTime);
 
             DrawFullScreenQuad();
         };
 
         // GLOW
-        auto ApplyGlow = [&](GLuint inputTextureId, GLuint tempTextureId, GLuint outputTextureId) {
+        auto ApplyGlow = [](GLuint inputTextureId, GLuint tempTextureId, GLuint outputTextureId) {
 
             static float radius = 3.0f;
             ImGui::SliderFloat("glowRadius", &radius, 0.0f, 5.0f);
@@ -474,8 +472,7 @@ namespace GLRender {
         // PASS 3: render game screen texture to crt texture that is
         //         larger (same size as overlay texture)
         /////////////////////////////////////////////////////////////////
-        auto GameScreenToCrtTexture = [&](GLuint inputTextureId, GLuint outputTextureId) {
-
+        auto GameScreenToCrtTexture = [](GLuint inputTextureId, GLuint outputTextureId) {
             GLuint shader = ShaderProgram::gameScreenToCrtTexture;
 
             glBindFramebuffer(GL_FRAMEBUFFER, *g_textureFB);
@@ -498,7 +495,7 @@ namespace GLRender {
         /////////////////////////////////////////////////////////////////
         // PASS 4: render to screen
         /////////////////////////////////////////////////////////////////
-        auto RenderToScreen = [&](GLuint inputCrtTextureId, GLuint inputOverlayTextureId) {
+        auto RenderToScreen = [](GLuint inputCrtTextureId, GLuint inputOverlayTextureId) {
 
             GLuint shader = ShaderProgram::drawScreen;
 
@@ -541,12 +538,13 @@ namespace GLRender {
         // Render normal lines and points and darken
         std::tie(g_lineVA, g_pointVA) = CreateLineAndPointVertexArrays(g_lines);
         DrawVectors(g_lineVA, GL_LINES, g_pointVA, GL_POINTS, *currVectorsTexture0);
-        DarkenTexture(*currVectorsTexture0, *currVectorsTexture1);
+        DarkenTexture(*currVectorsTexture0, *currVectorsTexture1, static_cast<float>(frameTime));
 
         // Render thicker lines for blurring, darken, and apply glow
         g_quadVA = CreateQuadVertexArray(g_lines);
         DrawVectors(g_quadVA, GL_TRIANGLES, {}, {}, *currVectorsThickTexture0);
-        DarkenTexture(*currVectorsThickTexture0, *currVectorsThickTexture1);
+        DarkenTexture(*currVectorsThickTexture0, *currVectorsThickTexture1,
+                      static_cast<float>(frameTime));
         ApplyGlow(*currVectorsThickTexture0, *g_glowTexture0, *g_glowTexture1);
 
         // Combine glow and normal lines
