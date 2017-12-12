@@ -201,6 +201,48 @@ namespace {
         return programId;
     }
 
+    void SetUniform(GLuint shader, const char* name, GLint value) {
+        GLuint id = glGetUniformLocation(shader, name);
+        glUniform1i(id, value);
+    }
+    void SetUniform(GLuint shader, const char* name, GLfloat value) {
+        GLuint id = glGetUniformLocation(shader, name);
+        glUniform1f(id, value);
+    }
+    void SetUniform(GLuint shader, const char* name, GLfloat value1, GLfloat value2) {
+        GLuint id = glGetUniformLocation(shader, name);
+        glUniform2f(id, value1, value2);
+    }
+    void SetUniform(GLuint shader, const char* name, GLfloat* values, GLsizei size) {
+        GLuint id = glGetUniformLocation(shader, name);
+        glUniform1fv(id, size, values);
+    }
+
+    constexpr GLenum TextureSlotToTextureEnum(GLint slot) {
+        switch (slot) {
+        case 0:
+            return GL_TEXTURE0;
+        case 1:
+            return GL_TEXTURE1;
+        case 2:
+            return GL_TEXTURE2;
+        case 3:
+            return GL_TEXTURE3;
+        default:
+            assert(false);
+            return 0;
+        }
+    }
+
+    template <GLint textureSlot>
+    void SetTextureUniform(GLuint shader, const char* name, GLuint textureId) {
+        constexpr auto texEnum = TextureSlotToTextureEnum(textureSlot);
+        glActiveTexture(texEnum);
+        glBindTexture(GL_TEXTURE_2D, textureId);
+        GLuint texLoc = glGetUniformLocation(shader, name);
+        glUniform1i(texLoc, textureSlot);
+    }
+
     struct PixelData {
         uint8_t* pixels{};
         GLenum format{};
@@ -343,7 +385,7 @@ namespace {
     std::vector<VertexData> g_lineVA, g_pointVA;
 
     namespace ShaderProgram {
-        GLuint renderToTexture{};
+        GLuint drawVectors{};
         GLuint glow{};
         GLuint copyTexture{};
         GLuint darkenTexture{};
@@ -384,8 +426,8 @@ namespace GLRender {
         glBindVertexArray(*g_topLevelVAO);
 
         // Load shaders
-        //@TODO: Use PassThrough.vert for renderToTexture as well (don't forget to pass UVs along)
-        ShaderProgram::renderToTexture =
+        //@TODO: Use PassThrough.vert for drawVectors as well (don't forget to pass UVs along)
+        ShaderProgram::drawVectors =
             LoadShaders("shaders/DrawVectors.vert", "shaders/DrawVectors.frag");
 
         ShaderProgram::glow = LoadShaders("shaders/PassThrough.vert", "shaders/Glow.frag");
@@ -552,7 +594,7 @@ namespace GLRender {
         };
 
         /////////////////////////////////////////////////////////////////
-        // PASS 1: render to texture
+        // PASS 1: draw vectors
         /////////////////////////////////////////////////////////////////
         {
             // Render to our framebuffer
@@ -565,10 +607,10 @@ namespace GLRender {
             // glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
             // Use our shader
-            glUseProgram(ShaderProgram::renderToTexture);
+            glUseProgram(ShaderProgram::drawVectors);
 
             const auto mvp = g_projectionMatrix * g_modelViewMatrix;
-            GLuint mvpUniform = glGetUniformLocation(ShaderProgram::renderToTexture, "MVP");
+            GLuint mvpUniform = glGetUniformLocation(ShaderProgram::drawVectors, "MVP");
             glUniformMatrix4fv(mvpUniform, 1, GL_FALSE, &mvp[0][0]);
 
             auto DrawVertices = [](auto& VA, GLenum mode) {
@@ -618,28 +660,28 @@ namespace GLRender {
         // PASS 2: darken texture
         /////////////////////////////////////////////////////////////////
         {
+            GLuint shader = ShaderProgram::darkenTexture;
+
             glBindFramebuffer(GL_FRAMEBUFFER, *g_textureFB);
             SetViewport(g_crtViewport);
             glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, *currRenderedTexture1, 0);
 
             glClear(GL_COLOR_BUFFER_BIT);
 
-            glUseProgram(ShaderProgram::darkenTexture);
+            glUseProgram(shader);
 
             // Bind our texture in Texture Unit 0
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, *currRenderedTexture0);
-            GLuint texID = glGetUniformLocation(ShaderProgram::darkenTexture, "renderedTexture");
-            GLuint frameTimeID = glGetUniformLocation(ShaderProgram::darkenTexture, "frameTime");
-            GLuint darkenSpeedScaleID =
-                glGetUniformLocation(ShaderProgram::darkenTexture, "darkenSpeedScale");
+
             // Set our "renderedTexture0" sampler to use Texture Unit 0
-            glUniform1i(texID, 0);
+            SetUniform(shader, "renderedTexture", 0);
 
             static float darkenSpeedScale = 3.0;
             ImGui::SliderFloat("darkenSpeedScale", &darkenSpeedScale, 0.0f, 10.0f);
-            glUniform1f(darkenSpeedScaleID, darkenSpeedScale);
-            glUniform1f(frameTimeID, (float)(frameTime));
+            SetUniform(shader, "darkenSpeedScale", darkenSpeedScale);
+
+            SetUniform(shader, "frameTime", (float)(frameTime));
 
             DrawFullScreenQuad();
         }
@@ -659,28 +701,23 @@ namespace GLRender {
             }
 
             auto Glow = [&](auto& inputTexture, auto& outputTexture, glm::vec2 dir) {
+                GLuint shader = ShaderProgram::glow;
 
                 glBindFramebuffer(GL_FRAMEBUFFER, *g_textureFB);
                 SetViewport(g_crtViewport);
                 glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, *outputTexture, 0);
 
-                glUseProgram(ShaderProgram::glow);
+                glUseProgram(shader);
 
                 glActiveTexture(GL_TEXTURE0);
                 glBindTexture(GL_TEXTURE_2D, *inputTexture);
-                GLuint texID = glGetUniformLocation(ShaderProgram::glow, "inputTexture");
-                glUniform1i(texID, 0);
+                SetUniform(shader, "inputTexture", 0);
 
-                GLuint dirId = glGetUniformLocation(ShaderProgram::glow, "dir");
-                GLuint resolutionId = glGetUniformLocation(ShaderProgram::glow, "resolution");
-                GLuint radiusId = glGetUniformLocation(ShaderProgram::glow, "radius");
-                GLuint kernalValuesId = glGetUniformLocation(ShaderProgram::glow, "kernalValues");
-
-                glUniform1f(resolutionId,
-                            static_cast<float>(std::min(g_crtViewport.w, g_crtViewport.h)));
-                glUniform1f(radiusId, radius);
-                glUniform2f(dirId, dir.x, dir.y);
-                glUniform1fv(kernalValuesId, glowKernelValues.size(), &glowKernelValues[0]);
+                SetUniform(shader, "dir", dir.x, dir.y);
+                SetUniform(shader, "resolution",
+                           static_cast<float>(std::min(g_crtViewport.w, g_crtViewport.h)));
+                SetUniform(shader, "radius", radius);
+                SetUniform(shader, "kernalValues", &glowKernelValues[0], glowKernelValues.size());
 
                 DrawFullScreenQuad();
             };
@@ -700,8 +737,7 @@ namespace GLRender {
 
         //    glActiveTexture(GL_TEXTURE0);
         //    glBindTexture(GL_TEXTURE_2D, *g_glowTexture);
-        //    GLuint texID = glGetUniformLocation(ShaderProgram::copyTexture, "inputTexture");
-        //    glUniform1i(texID, 0);
+        //    SetUniform(ShaderProgram::copyTexture, "inputTexture", 0);
 
         //    DrawFullScreenQuad();
         //}
@@ -711,20 +747,21 @@ namespace GLRender {
         //         larger (same size as overlay texture)
         /////////////////////////////////////////////////////////////////
         {
+            GLuint shader = ShaderProgram::gameScreenToCrtTexture;
+
             glBindFramebuffer(GL_FRAMEBUFFER, *g_textureFB);
             SetViewport(g_overlayViewport);
             glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, *g_crtTexture, 0);
 
             glClear(GL_COLOR_BUFFER_BIT);
 
-            glUseProgram(ShaderProgram::gameScreenToCrtTexture);
+            glUseProgram(shader);
 
             // Bind our texture in Texture Unit 0
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, *currRenderedTexture0);
-            GLuint texID = glGetUniformLocation(ShaderProgram::darkenTexture, "renderedTexture");
             // Set our "renderedTexture0" sampler to use Texture Unit 0
-            glUniform1i(texID, 0);
+            SetUniform(shader, "renderedTexture", 0);
 
             DrawFullScreenQuad(CRT_SCALE_X, CRT_SCALE_Y);
         }
@@ -733,34 +770,21 @@ namespace GLRender {
         // PASS 4: render to screen
         /////////////////////////////////////////////////////////////////
         {
+            GLuint shader = ShaderProgram::drawScreen;
+
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
             SetViewport(g_windowViewport);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
             // Use our shader
-            glUseProgram(ShaderProgram::drawScreen);
+            glUseProgram(shader);
 
-            //@TODO: function SetTextureUniform
-            {
-                glActiveTexture(GL_TEXTURE0);
-                glBindTexture(GL_TEXTURE_2D, *g_crtTexture);
-                GLuint texLoc = glGetUniformLocation(ShaderProgram::drawScreen, "crtTexture");
-                glUniform1i(texLoc, 0);
-            }
-            {
-                glActiveTexture(GL_TEXTURE1);
-                glBindTexture(GL_TEXTURE_2D, *g_overlayTexture);
-                GLuint texLoc = glGetUniformLocation(ShaderProgram::drawScreen, "overlayTexture");
-                glUniform1i(texLoc, 1);
-            }
+            SetTextureUniform<0>(shader, "crtTexture", *g_crtTexture);
+            SetTextureUniform<1>(shader, "overlayTexture", *g_overlayTexture);
 
-            {
-                GLuint overlayAlphaLoc =
-                    glGetUniformLocation(ShaderProgram::drawScreen, "overlayAlpha");
-                static float overlayAlpha = 1.0f;
-                ImGui::SliderFloat("overlayAlpha", &overlayAlpha, 0.0f, 1.0f);
-                glUniform1f(overlayAlphaLoc, overlayAlpha);
-            }
+            static float overlayAlpha = 1.0f;
+            ImGui::SliderFloat("overlayAlpha", &overlayAlpha, 0.0f, 1.0f);
+            SetUniform(shader, "overlayAlpha", overlayAlpha);
 
             DrawFullScreenQuad();
         }
