@@ -265,13 +265,82 @@ namespace {
                 static_cast<GLsizei>(targetWidth), static_cast<GLsizei>(targetHeight)};
     }
 
+    struct VertexData {
+        glm::vec2 v{};
+        float brightness{};
+    };
+
+    std::vector<VertexData> CreateQuadVertexArray(const std::vector<Line>& lines) {
+        auto AlmostEqual = [](float a, float b, float epsilon = 0.01f) {
+            return abs(a - b) <= epsilon;
+        };
+
+        std::vector<VertexData> result;
+        static float lineWidth = 1.0f;
+        ImGui::SliderFloat("lineWidth", &lineWidth, 0.1f, 1.0f);
+
+        float hlw = lineWidth / 2.0f;
+
+        for (auto& line : lines) {
+            glm::vec2 p0{line.p0.x, line.p0.y};
+            glm::vec2 p1{line.p1.x, line.p1.y};
+
+            if (AlmostEqual(p0.x, p1.x) && AlmostEqual(p0.y, p1.y)) {
+                auto a = VertexData{p0 + glm::vec2{0, hlw}, line.brightness};
+                auto b = VertexData{p0 - glm::vec2{0, hlw}, line.brightness};
+                auto c = VertexData{p0 + glm::vec2{hlw, 0}, line.brightness};
+                auto d = VertexData{p0 - glm::vec2{hlw, 0}, line.brightness};
+
+                result.insert(result.end(), {a, b, c, c, d, a});
+
+            } else {
+                glm::vec2 v01 = glm::normalize(p1 - p0);
+                glm::vec2 n(-v01.y, v01.x);
+
+                auto a = VertexData{p0 + n * hlw, line.brightness};
+                auto b = VertexData{p0 - n * hlw, line.brightness};
+                auto c = VertexData{p1 - n * hlw, line.brightness};
+                auto d = VertexData{p1 + n * hlw, line.brightness};
+
+                result.insert(result.end(), {a, b, c, c, d, a});
+            }
+        }
+        return result;
+    }
+
+    std::tuple<std::vector<VertexData>, std::vector<VertexData>>
+    CreateLineAndPointVertexArrays(const std::vector<Line>& lines) {
+        auto AlmostEqual = [](float a, float b, float epsilon = 0.01f) {
+            return abs(a - b) <= epsilon;
+        };
+
+        std::vector<VertexData> lineVA, pointVA;
+
+        for (auto& line : lines) {
+            glm::vec2 p0{line.p0.x, line.p0.y};
+            glm::vec2 p1{line.p1.x, line.p1.y};
+
+            if (AlmostEqual(p0.x, p1.x) && AlmostEqual(p0.y, p1.y)) {
+                pointVA.push_back({p0, line.brightness});
+            } else {
+                lineVA.push_back({p0, line.brightness});
+                lineVA.push_back({p1, line.brightness});
+            }
+        }
+
+        return {lineVA, pointVA};
+    }
+
     // Globals
     float CRT_SCALE_X = 0.93f;
     float CRT_SCALE_Y = 0.76f;
     int g_windowWidth{}, g_windowHeight{};
 
     Viewport g_windowViewport{}, g_overlayViewport{}, g_crtViewport{};
-    std::vector<glm::vec2> g_lineVA, g_pointVA;
+
+    std::vector<Line> g_lines;
+    std::vector<VertexData> g_quadVA;
+    std::vector<VertexData> g_lineVA, g_pointVA;
 
     namespace ShaderProgram {
         GLuint renderToTexture{};
@@ -504,25 +573,43 @@ namespace GLRender {
 
             auto DrawVertices = [](auto& VA, GLenum mode) {
                 auto vbo = MakeBufferResource();
-                SetVertexBufferData(*vbo, VA);
+
+                glBindBuffer(GL_ARRAY_BUFFER, *vbo);
+                glBufferData(GL_ARRAY_BUFFER, VA.size() * sizeof(VertexData), VA.data(),
+                             GL_DYNAMIC_DRAW);
 
                 glEnableVertexAttribArray(0);
-                glBindBuffer(GL_ARRAY_BUFFER, *vbo);
-                glVertexAttribPointer(0,        // attribute
-                                      2,        // size
-                                      GL_FLOAT, // type
-                                      GL_FALSE, // normalized?
-                                      0,        // stride
-                                      (void*)0  // array buffer offset
+                glEnableVertexAttribArray(1);
+
+                // Vertices
+                glVertexAttribPointer(0,                             // attribute
+                                      2,                             // size
+                                      GL_FLOAT,                      // type
+                                      GL_FALSE,                      // normalized?
+                                      sizeof(VertexData),            // stride
+                                      (void*)offsetof(VertexData, v) // array buffer offset
+                );
+
+                // Brightness values
+                glVertexAttribPointer(1,                                      // attribute
+                                      1,                                      // size
+                                      GL_FLOAT,                               // type
+                                      GL_FALSE,                               // normalized?
+                                      sizeof(VertexData),                     // stride
+                                      (void*)offsetof(VertexData, brightness) // array buffer offset
                 );
 
                 glDrawArrays(mode, 0, VA.size());
 
-                VA.clear();
-
+                glDisableVertexAttribArray(1);
                 glDisableVertexAttribArray(0);
             };
 
+            //@TODO: Render thicker lines for blurring
+            // g_quadVA = CreateQuadVertexArray(g_lines);
+            // DrawVertices(g_quadVA, GL_TRIANGLES);
+
+            std::tie(g_lineVA, g_pointVA) = CreateLineAndPointVertexArrays(g_lines);
             DrawVertices(g_lineVA, GL_LINES);
             DrawVertices(g_pointVA, GL_POINTS);
         }
@@ -686,19 +773,5 @@ void Display::Clear() {
 }
 
 void Display::DrawLines(const std::vector<Line>& lines) {
-    auto AlmostEqual = [](float a, float b, float epsilon = 0.01f) {
-        return abs(a - b) <= epsilon;
-    };
-
-    for (auto& line : lines) {
-        glm::vec2 p0{line.p0.x, line.p0.y};
-        glm::vec2 p1{line.p1.x, line.p1.y};
-
-        if (AlmostEqual(p0.x, p1.x) && AlmostEqual(p0.y, p1.y)) {
-            g_pointVA.push_back(p0);
-        } else {
-            g_lineVA.push_back(p0);
-            g_lineVA.push_back(p1);
-        }
-    }
+    g_lines = lines; //@TODO: move?
 }
