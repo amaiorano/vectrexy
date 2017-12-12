@@ -319,7 +319,7 @@ namespace {
 
         std::vector<VertexData> result;
         static float lineWidth = 1.0f;
-        ImGui::SliderFloat("lineWidth", &lineWidth, 0.1f, 1.0f);
+        ImGui::SliderFloat("lineWidth", &lineWidth, 0.1f, 2.0f);
 
         float hlw = lineWidth / 2.0f;
 
@@ -398,9 +398,12 @@ namespace {
     VertexArrayResource g_topLevelVAO;
     FrameBufferResource g_textureFB;
     int g_renderedTexture0Index{};
-    TextureResource g_renderedTexture0;
-    TextureResource g_renderedTexture1;
-    TextureResource g_glowTexture;
+    TextureResource g_vectorsTexture0;
+    TextureResource g_vectorsTexture1;
+    TextureResource g_vectorsThickTexture0;
+    TextureResource g_vectorsThickTexture1;
+    TextureResource g_glowTexture0;
+    TextureResource g_glowTexture1;
     TextureResource g_crtTexture;
     TextureResource g_overlayTexture;
 
@@ -500,20 +503,27 @@ namespace GLRender {
         g_modelViewMatrix = {};
 
         // (Re)create resources that depend on viewport size
-        g_renderedTexture0 = MakeTextureResource();
-        AllocateTexture(*g_renderedTexture0, g_crtViewport.w, g_crtViewport.h, GL_RGB32F);
-        g_renderedTexture1 = MakeTextureResource();
-        AllocateTexture(*g_renderedTexture1, g_crtViewport.w, g_crtViewport.h, GL_RGB32F);
-        g_glowTexture = MakeTextureResource();
-        glObjectLabel(GL_TEXTURE, *g_glowTexture, -1, "g_glowTexture");
-        AllocateTexture(*g_glowTexture, g_crtViewport.w, g_crtViewport.h, GL_RGB32F);
+        g_vectorsTexture0 = MakeTextureResource();
+        AllocateTexture(*g_vectorsTexture0, g_crtViewport.w, g_crtViewport.h, GL_RGB32F);
+
+        g_vectorsTexture1 = MakeTextureResource();
+        AllocateTexture(*g_vectorsTexture1, g_crtViewport.w, g_crtViewport.h, GL_RGB32F);
+
+        g_glowTexture0 = MakeTextureResource();
+        glObjectLabel(GL_TEXTURE, *g_glowTexture0, -1, "g_glowTexture0");
+        AllocateTexture(*g_glowTexture0, g_crtViewport.w, g_crtViewport.h, GL_RGB32F);
+
+        g_glowTexture1 = MakeTextureResource();
+        glObjectLabel(GL_TEXTURE, *g_glowTexture1, -1, "g_glowTexture1");
+        AllocateTexture(*g_glowTexture1, g_crtViewport.w, g_crtViewport.h, GL_RGB32F);
+
         g_crtTexture = MakeTextureResource();
         AllocateTexture(*g_crtTexture, g_overlayViewport.w, g_overlayViewport.h, GL_RGB);
         glObjectLabel(GL_TEXTURE, *g_crtTexture, -1, "g_crtTexture");
 
-        // Clear g_renderedTexture0 once
+        // Clear g_vectorsTexture0 once
         glBindFramebuffer(GL_FRAMEBUFFER, *g_textureFB);
-        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, *g_renderedTexture0, 0);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, *g_vectorsTexture0, 0);
         SetViewport(g_overlayViewport);
         glClear(GL_COLOR_BUFFER_BIT);
 
@@ -539,9 +549,9 @@ namespace GLRender {
             g_renderedTexture0Index = (g_renderedTexture0Index + 1) % 2;
 
         auto& currRenderedTexture0 =
-            g_renderedTexture0Index == 0 ? g_renderedTexture0 : g_renderedTexture1;
+            g_renderedTexture0Index == 0 ? g_vectorsTexture0 : g_vectorsTexture1;
         auto& currRenderedTexture1 =
-            g_renderedTexture0Index == 0 ? g_renderedTexture1 : g_renderedTexture0;
+            g_renderedTexture0Index == 0 ? g_vectorsTexture1 : g_vectorsTexture0;
 
         glObjectLabel(GL_TEXTURE, *currRenderedTexture0, -1, "currRenderedTexture0");
         glObjectLabel(GL_TEXTURE, *currRenderedTexture1, -1, "currRenderedTexture1");
@@ -596,12 +606,15 @@ namespace GLRender {
         /////////////////////////////////////////////////////////////////
         // PASS 1: draw vectors
         /////////////////////////////////////////////////////////////////
-        {
+        auto DrawVectors = [&](const std::vector<VertexData>& VA1, GLenum mode1,
+                               const std::vector<VertexData>& VA2, GLenum mode2,
+                               GLuint targetTextureId) {
+
             // Render to our framebuffer
             glBindFramebuffer(GL_FRAMEBUFFER, *g_textureFB);
             SetViewport(g_crtViewport); //@TODO: maybe get Viewport from texture
                                         // dimensions? ({0,0,texW,textH})
-            glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, *currRenderedTexture0, 0);
+            glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, targetTextureId, 0);
 
             // Purposely do not clear the target texture.
             // glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -614,6 +627,9 @@ namespace GLRender {
             glUniformMatrix4fv(mvpUniform, 1, GL_FALSE, &mvp[0][0]);
 
             auto DrawVertices = [](auto& VA, GLenum mode) {
+                if (VA.size() == 0)
+                    return;
+
                 auto vbo = MakeBufferResource();
 
                 glBindBuffer(GL_ARRAY_BUFFER, *vbo);
@@ -647,24 +663,26 @@ namespace GLRender {
                 glDisableVertexAttribArray(0);
             };
 
-            //@TODO: Render thicker lines for blurring
-            // g_quadVA = CreateQuadVertexArray(g_lines);
-            // DrawVertices(g_quadVA, GL_TRIANGLES);
+            DrawVertices(VA1, mode1);
+            DrawVertices(VA2, mode2);
+        };
 
-            std::tie(g_lineVA, g_pointVA) = CreateLineAndPointVertexArrays(g_lines);
-            DrawVertices(g_lineVA, GL_LINES);
-            DrawVertices(g_pointVA, GL_POINTS);
-        }
+        //@TODO: Render thicker lines for blurring
+        // g_quadVA = CreateQuadVertexArray(g_lines);
+        // DrawVectors(g_quadVA, GL_TRIANGLES, {}, {}, *currRenderedTexture0);
+
+        std::tie(g_lineVA, g_pointVA) = CreateLineAndPointVertexArrays(g_lines);
+        DrawVectors(g_lineVA, GL_LINES, g_pointVA, GL_POINTS, *currRenderedTexture0);
 
         /////////////////////////////////////////////////////////////////
         // PASS 2: darken texture
         /////////////////////////////////////////////////////////////////
-        {
+        auto DarkenTexture = [&](GLuint inputTextureId, GLuint outputTextureId) {
             GLuint shader = ShaderProgram::darkenTexture;
 
             glBindFramebuffer(GL_FRAMEBUFFER, *g_textureFB);
             SetViewport(g_crtViewport);
-            glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, *currRenderedTexture1, 0);
+            glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, outputTextureId, 0);
 
             glClear(GL_COLOR_BUFFER_BIT);
 
@@ -672,7 +690,7 @@ namespace GLRender {
 
             // Bind our texture in Texture Unit 0
             glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, *currRenderedTexture0);
+            glBindTexture(GL_TEXTURE_2D, inputTextureId);
 
             // Set our "renderedTexture0" sampler to use Texture Unit 0
             SetUniform(shader, "renderedTexture", 0);
@@ -684,10 +702,13 @@ namespace GLRender {
             SetUniform(shader, "frameTime", (float)(frameTime));
 
             DrawFullScreenQuad();
-        }
+        };
+
+        DarkenTexture(*currRenderedTexture0, *currRenderedTexture1);
 
         // GLOW
-        {
+        auto ApplyGlow = [&](GLuint inputTextureId, GLuint tempTextureId, GLuint outputTextureId) {
+
             static float radius = 3.0f;
             ImGui::SliderFloat("glowRadius", &radius, 0.0f, 5.0f);
 
@@ -700,17 +721,18 @@ namespace GLRender {
                                    0.f, 1.f);
             }
 
-            auto Glow = [&](auto& inputTexture, auto& outputTexture, glm::vec2 dir) {
+            auto GlowInDirection = [&](GLuint inputTextureId, GLuint outputTextureId,
+                                       glm::vec2 dir) {
                 GLuint shader = ShaderProgram::glow;
 
                 glBindFramebuffer(GL_FRAMEBUFFER, *g_textureFB);
                 SetViewport(g_crtViewport);
-                glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, *outputTexture, 0);
+                glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, outputTextureId, 0);
 
                 glUseProgram(shader);
 
                 glActiveTexture(GL_TEXTURE0);
-                glBindTexture(GL_TEXTURE_2D, *inputTexture);
+                glBindTexture(GL_TEXTURE_2D, inputTextureId);
                 SetUniform(shader, "inputTexture", 0);
 
                 SetUniform(shader, "dir", dir.x, dir.y);
@@ -722,12 +744,15 @@ namespace GLRender {
                 DrawFullScreenQuad();
             };
 
-            Glow(currRenderedTexture0, g_glowTexture, {1.f, 0.f});
-            Glow(g_glowTexture, currRenderedTexture0, {0.f, 1.f});
-        }
+            GlowInDirection(inputTextureId, tempTextureId, {1.f, 0.f});
+            GlowInDirection(tempTextureId, outputTextureId, {0.f, 1.f});
+        };
+
+        ApplyGlow(*currRenderedTexture0, *g_glowTexture0, *currRenderedTexture0);
 
         // Copy glow texture back to currRenderedTexture0
-        //@TODO: technically don't need to do this, can just use g_glowTexture as input to next pass
+        //@TODO: technically don't need to do this, can just use g_glowTexture0 as input to next
+        // pass
         //{
         //    glBindFramebuffer(GL_FRAMEBUFFER, *g_textureFB);
         //    SetViewport(g_crtViewport);
@@ -736,7 +761,7 @@ namespace GLRender {
         //    glUseProgram(ShaderProgram::copyTexture);
 
         //    glActiveTexture(GL_TEXTURE0);
-        //    glBindTexture(GL_TEXTURE_2D, *g_glowTexture);
+        //    glBindTexture(GL_TEXTURE_2D, *g_glowTexture0);
         //    SetUniform(ShaderProgram::copyTexture, "inputTexture", 0);
 
         //    DrawFullScreenQuad();
@@ -746,12 +771,13 @@ namespace GLRender {
         // PASS 3: render game screen texture to crt texture that is
         //         larger (same size as overlay texture)
         /////////////////////////////////////////////////////////////////
-        {
+        auto GameScreenToCrtTexture = [&](GLuint inputTextureId, GLuint outputTextureId) {
+
             GLuint shader = ShaderProgram::gameScreenToCrtTexture;
 
             glBindFramebuffer(GL_FRAMEBUFFER, *g_textureFB);
             SetViewport(g_overlayViewport);
-            glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, *g_crtTexture, 0);
+            glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, outputTextureId, 0);
 
             glClear(GL_COLOR_BUFFER_BIT);
 
@@ -759,17 +785,20 @@ namespace GLRender {
 
             // Bind our texture in Texture Unit 0
             glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, *currRenderedTexture0);
+            glBindTexture(GL_TEXTURE_2D, inputTextureId);
             // Set our "renderedTexture0" sampler to use Texture Unit 0
             SetUniform(shader, "renderedTexture", 0);
 
             DrawFullScreenQuad(CRT_SCALE_X, CRT_SCALE_Y);
-        }
+        };
+
+        GameScreenToCrtTexture(*currRenderedTexture0, *g_crtTexture);
 
         /////////////////////////////////////////////////////////////////
         // PASS 4: render to screen
         /////////////////////////////////////////////////////////////////
-        {
+        auto RenderToScreen = [&](GLuint inputCrtTextureId, GLuint inputOverlayTextureId) {
+
             GLuint shader = ShaderProgram::drawScreen;
 
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -779,16 +808,19 @@ namespace GLRender {
             // Use our shader
             glUseProgram(shader);
 
-            SetTextureUniform<0>(shader, "crtTexture", *g_crtTexture);
-            SetTextureUniform<1>(shader, "overlayTexture", *g_overlayTexture);
+            SetTextureUniform<0>(shader, "crtTexture", inputCrtTextureId);
+            SetTextureUniform<1>(shader, "overlayTexture", inputOverlayTextureId);
 
             static float overlayAlpha = 1.0f;
             ImGui::SliderFloat("overlayAlpha", &overlayAlpha, 0.0f, 1.0f);
             SetUniform(shader, "overlayAlpha", overlayAlpha);
 
             DrawFullScreenQuad();
-        }
-    } // namespace GLRender
+        };
+
+        RenderToScreen(*g_crtTexture, *g_overlayTexture);
+    }
+
 } // namespace GLRender
 
 void Display::Clear() {
