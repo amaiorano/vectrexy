@@ -667,13 +667,6 @@ namespace GLRender {
             DrawVertices(VA2, mode2);
         };
 
-        //@TODO: Render thicker lines for blurring
-        // g_quadVA = CreateQuadVertexArray(g_lines);
-        // DrawVectors(g_quadVA, GL_TRIANGLES, {}, {}, *currRenderedTexture0);
-
-        std::tie(g_lineVA, g_pointVA) = CreateLineAndPointVertexArrays(g_lines);
-        DrawVectors(g_lineVA, GL_LINES, g_pointVA, GL_POINTS, *currRenderedTexture0);
-
         /////////////////////////////////////////////////////////////////
         // PASS 2: darken texture
         /////////////////////////////////////////////////////////////////
@@ -703,8 +696,6 @@ namespace GLRender {
 
             DrawFullScreenQuad();
         };
-
-        DarkenTexture(*currRenderedTexture0, *currRenderedTexture1);
 
         // GLOW
         auto ApplyGlow = [&](GLuint inputTextureId, GLuint tempTextureId, GLuint outputTextureId) {
@@ -748,8 +739,6 @@ namespace GLRender {
             GlowInDirection(tempTextureId, outputTextureId, {0.f, 1.f});
         };
 
-        ApplyGlow(*currRenderedTexture0, *g_glowTexture0, *currRenderedTexture0);
-
         // Copy glow texture back to currRenderedTexture0
         //@TODO: technically don't need to do this, can just use g_glowTexture0 as input to next
         // pass
@@ -792,8 +781,6 @@ namespace GLRender {
             DrawFullScreenQuad(CRT_SCALE_X, CRT_SCALE_Y);
         };
 
-        GameScreenToCrtTexture(*currRenderedTexture0, *g_crtTexture);
-
         /////////////////////////////////////////////////////////////////
         // PASS 4: render to screen
         /////////////////////////////////////////////////////////////////
@@ -817,6 +804,19 @@ namespace GLRender {
 
             DrawFullScreenQuad();
         };
+
+        //@TODO: Render thicker lines for blurring
+        // g_quadVA = CreateQuadVertexArray(g_lines);
+        // DrawVectors(g_quadVA, GL_TRIANGLES, {}, {}, *currRenderedTexture0);
+
+        std::tie(g_lineVA, g_pointVA) = CreateLineAndPointVertexArrays(g_lines);
+        DrawVectors(g_lineVA, GL_LINES, g_pointVA, GL_POINTS, *currRenderedTexture0);
+
+        DarkenTexture(*currRenderedTexture0, *currRenderedTexture1);
+
+        ApplyGlow(*currRenderedTexture0, *g_glowTexture0, *currRenderedTexture0);
+
+        GameScreenToCrtTexture(*currRenderedTexture0, *g_crtTexture);
 
         RenderToScreen(*g_crtTexture, *g_overlayTexture);
     }
