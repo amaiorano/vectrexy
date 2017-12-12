@@ -1,248 +1,24 @@
 #include "GLRender.h"
 #include "EngineClient.h"
+#include "GLUtils.h"
 #include "ImageFileUtils.h"
 
-#include <gl/glew.h> // Must be included before gl.h
-
-#include <SDL_opengl.h> // Wraps OpenGL headers
-#include <SDL_opengl_glext.h>
-
-#include <gl/GLU.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/mat4x4.hpp>
 #include <imgui.h>
 
-#include <fstream>
-#include <iostream>
 #include <optional>
-#include <sstream>
 #include <string>
 #include <vector>
+
+using namespace GLUtils;
 
 // Vectrex screen dimensions
 const int VECTREX_SCREEN_WIDTH = 256;
 const int VECTREX_SCREEN_HEIGHT = 256;
 
 namespace {
-    // Wraps an OpenGL resource id and automatically calls the delete function on destruction
-    template <typename DeleteFunc>
-    class GLResource {
-    public:
-        static const GLuint INVALID_RESOURCE_ID = ~0u;
-
-        GLResource(GLuint id = INVALID_RESOURCE_ID, DeleteFunc deleteFunc = DeleteFunc{})
-            : m_id(id)
-            , m_deleteFunc(std::move(deleteFunc)) {}
-
-        ~GLResource() {
-            if (m_id != INVALID_RESOURCE_ID) {
-                m_deleteFunc(m_id);
-            }
-        }
-
-        // Disable copy
-        GLResource(const GLResource&) = delete;
-        GLResource& operator=(const GLResource&) = delete;
-
-        // Enable move
-        GLResource(GLResource&& rhs)
-            : m_id(rhs.m_id)
-            , m_deleteFunc(rhs.m_deleteFunc) {
-            rhs.m_id = INVALID_RESOURCE_ID;
-        }
-        GLResource& operator=(GLResource&& rhs) {
-            if (this != &rhs) {
-                std::swap(m_id, rhs.m_id);
-                std::swap(m_deleteFunc, m_deleteFunc);
-            }
-            return *this;
-        }
-
-        GLuint get() const {
-            assert(m_id != INVALID_RESOURCE_ID);
-            return m_id;
-        }
-        GLuint operator*() const { return get(); }
-
-    private:
-        GLuint m_id;
-        DeleteFunc m_deleteFunc;
-    };
-
-    auto MakeTextureResource() {
-        struct Deleter {
-            auto operator()(GLuint id) { glDeleteTextures(1, &id); }
-        };
-        GLuint id;
-        glGenTextures(1, &id);
-        return GLResource<decltype(Deleter{})>{id};
-    }
-    using TextureResource = decltype(MakeTextureResource());
-
-    auto MakeVertexArrayResource() {
-        struct Deleter {
-            auto operator()(GLuint id) { glDeleteVertexArrays(1, &id); }
-        };
-        GLuint id;
-        glGenVertexArrays(1, &id);
-        return GLResource<decltype(Deleter{})>{id};
-    }
-    using VertexArrayResource = decltype(MakeVertexArrayResource());
-
-    auto MakeFrameBufferResource() {
-        struct Deleter {
-            auto operator()(GLuint id) { glDeleteFramebuffers(1, &id); }
-        };
-        GLuint id;
-        glGenFramebuffers(1, &id);
-        return GLResource<decltype(Deleter{})>{id};
-    }
-    using FrameBufferResource = decltype(MakeFrameBufferResource());
-
-    auto MakeBufferResource() {
-        struct Deleter {
-            auto operator()(GLuint id) { glDeleteBuffers(1, &id); }
-        };
-        GLuint id;
-        glGenBuffers(1, &id);
-        return GLResource<decltype(Deleter{})>{id};
-    }
-    using BufferResource = decltype(MakeBufferResource());
-
-    std::optional<std::string> FileToString(const char* file) {
-        std::ifstream is(file);
-        if (!is)
-            return {};
-        std::stringstream buffer;
-        buffer << is.rdbuf();
-        return buffer.str();
-    }
-
-    void SetVertexBufferData(GLuint vboId, const std::vector<glm::vec2>& vertices) {
-        glBindBuffer(GL_ARRAY_BUFFER, vboId);
-        glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(glm::vec2), vertices.data(),
-                     GL_DYNAMIC_DRAW);
-    }
-
-    template <typename T, size_t N>
-    void SetVertexBufferData(GLuint vboId, T (&vertices)[N]) {
-        glBindBuffer(GL_ARRAY_BUFFER, vboId);
-        glBufferData(GL_ARRAY_BUFFER, N * sizeof(vertices[0]), &vertices[0], GL_DYNAMIC_DRAW);
-    }
-
-    template <typename T, size_t N>
-    void SetVertexBufferData(GLuint vboId, const std::array<T, N>& vertices) {
-        glBindBuffer(GL_ARRAY_BUFFER, vboId);
-        glBufferData(GL_ARRAY_BUFFER, N * sizeof(vertices[0]), &vertices[0], GL_DYNAMIC_DRAW);
-    }
-
-    void CheckFramebufferStatus() {
-        ASSERT(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE);
-    }
-
-    GLuint LoadShaders(const char* vertShaderFile, const char* fragShaderFile) {
-        auto CheckStatus = [](GLuint id, GLenum pname) {
-            assert(pname == GL_COMPILE_STATUS || pname == GL_LINK_STATUS);
-            GLint result = GL_FALSE;
-            int infoLogLength{};
-            glGetShaderiv(id, pname, &result);
-            glGetShaderiv(id, GL_INFO_LOG_LENGTH, &infoLogLength);
-            if (infoLogLength > 0) {
-                std::vector<char> info(infoLogLength + 1);
-                if (pname == GL_COMPILE_STATUS)
-                    glGetShaderInfoLog(id, infoLogLength, NULL, info.data());
-                else
-                    glGetProgramInfoLog(id, infoLogLength, NULL, info.data());
-                printf("%s", info.data());
-            }
-            return true;
-        };
-
-        auto CompileShader = [CheckStatus](GLuint shaderId, const char* shaderFile) {
-            auto shaderCode = FileToString(shaderFile);
-            if (!shaderCode) {
-                printf("Failed to open %s", shaderFile);
-                return false;
-            }
-            printf("Compiling shader : %s\n", shaderFile);
-            auto sourcePtr = shaderCode->c_str();
-            glShaderSource(shaderId, 1, &sourcePtr, NULL);
-            glCompileShader(shaderId);
-            return CheckStatus(shaderId, GL_COMPILE_STATUS);
-        };
-
-        auto LinkProgram = [CheckStatus](GLuint programId) {
-            printf("Linking program\n");
-            glLinkProgram(programId);
-            return CheckStatus(programId, GL_LINK_STATUS);
-        };
-
-        GLuint vertShaderId = glCreateShader(GL_VERTEX_SHADER);
-        if (!CompileShader(vertShaderId, vertShaderFile))
-            return 0;
-
-        GLuint fragShaderId = glCreateShader(GL_FRAGMENT_SHADER);
-        if (!CompileShader(fragShaderId, fragShaderFile))
-            return 0;
-
-        GLuint programId = glCreateProgram();
-        glAttachShader(programId, vertShaderId);
-        glAttachShader(programId, fragShaderId);
-        if (!LinkProgram(programId))
-            return 0;
-
-        glDetachShader(programId, vertShaderId);
-        glDetachShader(programId, fragShaderId);
-
-        glDeleteShader(vertShaderId);
-        glDeleteShader(fragShaderId);
-
-        return programId;
-    }
-
-    void SetUniform(GLuint shader, const char* name, GLint value) {
-        GLuint id = glGetUniformLocation(shader, name);
-        glUniform1i(id, value);
-    }
-    void SetUniform(GLuint shader, const char* name, GLfloat value) {
-        GLuint id = glGetUniformLocation(shader, name);
-        glUniform1f(id, value);
-    }
-    void SetUniform(GLuint shader, const char* name, GLfloat value1, GLfloat value2) {
-        GLuint id = glGetUniformLocation(shader, name);
-        glUniform2f(id, value1, value2);
-    }
-    void SetUniform(GLuint shader, const char* name, GLfloat* values, GLsizei size) {
-        GLuint id = glGetUniformLocation(shader, name);
-        glUniform1fv(id, size, values);
-    }
-
-    constexpr GLenum TextureSlotToTextureEnum(GLint slot) {
-        switch (slot) {
-        case 0:
-            return GL_TEXTURE0;
-        case 1:
-            return GL_TEXTURE1;
-        case 2:
-            return GL_TEXTURE2;
-        case 3:
-            return GL_TEXTURE3;
-        default:
-            assert(false);
-            return 0;
-        }
-    }
-
-    template <GLint textureSlot>
-    void SetTextureUniform(GLuint shader, const char* name, GLuint textureId) {
-        constexpr auto texEnum = TextureSlotToTextureEnum(textureSlot);
-        glActiveTexture(texEnum);
-        glBindTexture(GL_TEXTURE_2D, textureId);
-        GLuint texLoc = glGetUniformLocation(shader, name);
-        glUniform1i(texLoc, textureSlot);
-    }
-
     struct PixelData {
         uint8_t* pixels{};
         GLenum format{};
@@ -460,7 +236,7 @@ namespace GLRender {
         glObjectLabel(GL_TEXTURE, *g_overlayTexture, -1, "g_overlayTexture");
         const char* overlayFile = "overlays/mine.png";
         if (!LoadPngTexture(*g_overlayTexture, overlayFile)) {
-            std::cerr << "Failed to load overlay: " << overlayFile << "\n";
+            printf("Failed to load overlay: %s\n", overlayFile);
 
             // If we fail, then allocate a min-sized transparent texture
             std::vector<uint8_t> emptyTexture;
