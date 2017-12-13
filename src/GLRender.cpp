@@ -175,23 +175,18 @@ namespace {
     VertexArrayResource g_topLevelVAO;
     FrameBufferResource g_textureFB;
     int g_vectorsTexture0Index{};
-    TextureResource g_vectorsTexture0;
-    TextureResource g_vectorsTexture1;
-    TextureResource g_vectorsThickTexture0;
-    TextureResource g_vectorsThickTexture1;
-    TextureResource g_glowTexture0;
-    TextureResource g_glowTexture1;
-    TextureResource g_crtTexture;
-    TextureResource g_overlayTexture;
+    Texture g_vectorsTexture0;
+    Texture g_vectorsTexture1;
+    Texture g_vectorsThickTexture0;
+    Texture g_vectorsThickTexture1;
+    Texture g_glowTexture0;
+    Texture g_glowTexture1;
+    Texture g_crtTexture;
+    Texture g_overlayTexture;
 
 } // namespace
 
 namespace {
-    void SetFrameBufferTexture(GLuint frameBufferId, GLuint textureId) {
-        glBindFramebuffer(GL_FRAMEBUFFER, frameBufferId);
-        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, textureId, 0);
-    }
-
     class ShaderPass {
     protected:
         ~ShaderPass() = default;
@@ -408,18 +403,17 @@ namespace GLRender {
         CheckFramebufferStatus();
 
         // For now, always attempt to load the mine storm overlay
-        g_overlayTexture = MakeTextureResource();
-        glObjectLabel(GL_TEXTURE, *g_overlayTexture, -1, "g_overlayTexture");
         const char* overlayFile = "overlays/mine.png";
-        if (!LoadPngTexture(*g_overlayTexture, overlayFile)) {
+        if (!g_overlayTexture.LoadPng(overlayFile)) {
             printf("Failed to load overlay: %s\n", overlayFile);
 
             // If we fail, then allocate a min-sized transparent texture
             std::vector<uint8_t> emptyTexture;
             emptyTexture.resize(64 * 64 * 4);
-            AllocateTexture(*g_overlayTexture, 64, 64, GL_RGBA,
-                            PixelData{&emptyTexture[0], GL_RGBA, GL_UNSIGNED_BYTE});
+            g_overlayTexture.Allocate(64, 64, GL_RGBA,
+                                      PixelData{&emptyTexture[0], GL_RGBA, GL_UNSIGNED_BYTE});
         }
+        glObjectLabel(GL_TEXTURE, g_overlayTexture.Id(), -1, "g_overlayTexture");
     }
 
     void Shutdown() {
@@ -448,32 +442,19 @@ namespace GLRender {
         g_modelViewMatrix = {};
 
         // (Re)create resources that depend on viewport size
-        g_vectorsTexture0 = MakeTextureResource();
-        AllocateTexture(*g_vectorsTexture0, g_crtViewport.w, g_crtViewport.h, GL_RGB32F);
-
-        g_vectorsTexture1 = MakeTextureResource();
-        AllocateTexture(*g_vectorsTexture1, g_crtViewport.w, g_crtViewport.h, GL_RGB32F);
-
-        g_vectorsThickTexture0 = MakeTextureResource();
-        AllocateTexture(*g_vectorsThickTexture0, g_crtViewport.w, g_crtViewport.h, GL_RGB32F);
-
-        g_vectorsThickTexture1 = MakeTextureResource();
-        AllocateTexture(*g_vectorsThickTexture1, g_crtViewport.w, g_crtViewport.h, GL_RGB32F);
-
-        g_glowTexture0 = MakeTextureResource();
-        glObjectLabel(GL_TEXTURE, *g_glowTexture0, -1, "g_glowTexture0");
-        AllocateTexture(*g_glowTexture0, g_crtViewport.w, g_crtViewport.h, GL_RGB32F);
-
-        g_glowTexture1 = MakeTextureResource();
-        glObjectLabel(GL_TEXTURE, *g_glowTexture1, -1, "g_glowTexture1");
-        AllocateTexture(*g_glowTexture1, g_crtViewport.w, g_crtViewport.h, GL_RGB32F);
-
-        g_crtTexture = MakeTextureResource();
-        AllocateTexture(*g_crtTexture, g_overlayViewport.w, g_overlayViewport.h, GL_RGB);
-        glObjectLabel(GL_TEXTURE, *g_crtTexture, -1, "g_crtTexture");
+        g_vectorsTexture0.Allocate(g_crtViewport.w, g_crtViewport.h, GL_RGB32F);
+        g_vectorsTexture1.Allocate(g_crtViewport.w, g_crtViewport.h, GL_RGB32F);
+        g_vectorsThickTexture0.Allocate(g_crtViewport.w, g_crtViewport.h, GL_RGB32F);
+        g_vectorsThickTexture1.Allocate(g_crtViewport.w, g_crtViewport.h, GL_RGB32F);
+        g_glowTexture0.Allocate(g_crtViewport.w, g_crtViewport.h, GL_RGB32F);
+        glObjectLabel(GL_TEXTURE, g_glowTexture0.Id(), -1, "g_glowTexture0");
+        g_glowTexture1.Allocate(g_crtViewport.w, g_crtViewport.h, GL_RGB32F);
+        glObjectLabel(GL_TEXTURE, g_glowTexture1.Id(), -1, "g_glowTexture1");
+        g_crtTexture.Allocate(g_overlayViewport.w, g_overlayViewport.h, GL_RGB);
+        glObjectLabel(GL_TEXTURE, g_crtTexture.Id(), -1, "g_crtTexture");
 
         // Clear g_vectorsTexture0 once
-        SetFrameBufferTexture(*g_textureFB, *g_vectorsTexture0);
+        SetFrameBufferTexture(*g_textureFB, g_vectorsTexture0.Id());
         SetViewport(g_crtViewport);
         glClear(GL_COLOR_BUFFER_BIT);
 
@@ -508,33 +489,33 @@ namespace GLRender {
         auto& currVectorsThickTexture1 =
             g_vectorsTexture0Index == 0 ? g_vectorsThickTexture1 : g_vectorsThickTexture0;
 
-        glObjectLabel(GL_TEXTURE, *currVectorsTexture0, -1, "currVectorsTexture0");
-        glObjectLabel(GL_TEXTURE, *currVectorsTexture1, -1, "currVectorsTexture1");
+        glObjectLabel(GL_TEXTURE, currVectorsTexture0.Id(), -1, "currVectorsTexture0");
+        glObjectLabel(GL_TEXTURE, currVectorsTexture1.Id(), -1, "currVectorsTexture1");
 
-        glObjectLabel(GL_TEXTURE, *currVectorsThickTexture0, -1, "currVectorsThickTexture0");
-        glObjectLabel(GL_TEXTURE, *currVectorsThickTexture1, -1, "currVectorsThickTexture1");
+        glObjectLabel(GL_TEXTURE, currVectorsThickTexture0.Id(), -1, "currVectorsThickTexture0");
+        glObjectLabel(GL_TEXTURE, currVectorsThickTexture1.Id(), -1, "currVectorsThickTexture1");
 
         // Render normal lines and points, and darken
         std::tie(g_lineVA, g_pointVA) = CreateLineAndPointVertexArrays(g_lines);
-        g_drawVectorsPass.Draw(g_lineVA, GL_LINES, g_pointVA, GL_POINTS, *currVectorsTexture0);
-        g_darkenTexturePass.Draw(*currVectorsTexture0, *currVectorsTexture1,
+        g_drawVectorsPass.Draw(g_lineVA, GL_LINES, g_pointVA, GL_POINTS, currVectorsTexture0.Id());
+        g_darkenTexturePass.Draw(currVectorsTexture0.Id(), currVectorsTexture1.Id(),
                                  static_cast<float>(frameTime));
 
         // Render thicker lines for blurring, darken, and apply glow
         g_quadVA = CreateQuadVertexArray(g_lines);
-        g_drawVectorsPass.Draw(g_quadVA, GL_TRIANGLES, {}, {}, *currVectorsThickTexture0);
-        g_darkenTexturePass.Draw(*currVectorsThickTexture0, *currVectorsThickTexture1,
+        g_drawVectorsPass.Draw(g_quadVA, GL_TRIANGLES, {}, {}, currVectorsThickTexture0.Id());
+        g_darkenTexturePass.Draw(currVectorsThickTexture0.Id(), currVectorsThickTexture1.Id(),
                                  static_cast<float>(frameTime));
-        g_glowPass.Draw(*currVectorsThickTexture0, *g_glowTexture0, *g_glowTexture1);
+        g_glowPass.Draw(currVectorsThickTexture0.Id(), g_glowTexture0.Id(), g_glowTexture1.Id());
 
         // Combine glow and normal lines
         //@TODO: Write shader and code for combining the two
 
         // Scale game screen (lines) to CRT texture
-        g_gameScreenToCrtTexturePass.Draw(*currVectorsTexture0, *g_crtTexture);
+        g_gameScreenToCrtTexturePass.Draw(currVectorsTexture0.Id(), g_crtTexture.Id());
 
         // Present
-        g_renderToScreenPass.Draw(*g_crtTexture, *g_overlayTexture);
+        g_renderToScreenPass.Draw(g_crtTexture.Id(), g_overlayTexture.Id());
     }
 
 } // namespace GLRender

@@ -99,6 +99,15 @@ namespace GLUtil {
     using BufferResource = decltype(MakeBufferResource());
 
     ////////////////////////////////
+    // Frame Buffers
+    ////////////////////////////////
+
+    inline void SetFrameBufferTexture(GLuint frameBufferId, GLuint textureId) {
+        glBindFramebuffer(GL_FRAMEBUFFER, frameBufferId);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, textureId, 0);
+    }
+
+    ////////////////////////////////
     // Vertex Buffers
     ////////////////////////////////
 
@@ -132,6 +141,34 @@ namespace GLUtil {
                          std::optional<PixelData> pixelData = {});
 
     bool LoadPngTexture(GLuint textureId, const char* file);
+
+    class Texture {
+    public:
+        void Allocate(GLsizei width, GLsizei height, GLint internalFormat,
+                      std::optional<PixelData> pixelData = {}) {
+            m_resource = MakeTextureResource();
+            AllocateTexture(*m_resource, width, height, internalFormat, pixelData);
+            m_width = width;
+            m_height = height;
+        }
+
+        bool LoadPng(const char* file) {
+            TextureResource resource = MakeTextureResource();
+            if (LoadPngTexture(*resource, file)) {
+                m_resource = std::move(resource);
+                return true;
+            }
+            return false;
+        }
+
+        GLuint Id() const { return *m_resource; }
+        GLsizei Width() const { return m_width; }
+        GLsizei Height() const { return m_height; }
+
+    private:
+        TextureResource m_resource;
+        GLsizei m_width{}, m_height{};
+    };
 
     ////////////////////////////////
     // Shaders
