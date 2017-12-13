@@ -201,10 +201,8 @@ namespace {
 
         void Draw(const std::vector<VertexData>& VA1, GLenum mode1,
                   const std::vector<VertexData>& VA2, GLenum mode2, GLuint targetTextureId) {
-            // Render to our framebuffer
             glBindFramebuffer(GL_FRAMEBUFFER, *g_textureFB);
-            SetViewport(g_crtViewport); //@TODO: maybe get Viewport from texture
-                                        // dimensions? ({0,0,texW,textH})
+            SetViewport(g_crtViewport);
             glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, targetTextureId, 0);
 
             // Purposely do not clear the target texture.
@@ -212,10 +210,8 @@ namespace {
 
             m_shader.Bind();
 
-            //@TODO: Add GLUtils::SetUniform overload
             const auto mvp = g_projectionMatrix * g_modelViewMatrix;
-            GLuint mvpUniform = glGetUniformLocation(m_shader.Id(), "MVP");
-            glUniformMatrix4fv(mvpUniform, 1, GL_FALSE, &mvp[0][0]);
+            SetUniformMatrix4v(m_shader.Id(), "MVP", &mvp[0][0]);
 
             auto DrawVertices = [](auto& VA, GLenum mode) {
                 if (VA.size() == 0)
@@ -266,25 +262,18 @@ namespace {
         }
 
         void Draw(GLuint inputTextureId, GLuint outputTextureId, float frameTime) {
+            static float darkenSpeedScale = 3.0;
+            ImGui::SliderFloat("darkenSpeedScale", &darkenSpeedScale, 0.0f, 10.0f);
+
             glBindFramebuffer(GL_FRAMEBUFFER, *g_textureFB);
             SetViewport(g_crtViewport);
             glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, outputTextureId, 0);
-
             glClear(GL_COLOR_BUFFER_BIT);
 
             m_shader.Bind();
 
-            // Bind our texture in Texture Unit 0
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, inputTextureId);
-
-            // Set our "vectorsTexture0" sampler to use Texture Unit 0
-            SetUniform(m_shader.Id(), "vectorsTexture", 0);
-
-            static float darkenSpeedScale = 3.0;
-            ImGui::SliderFloat("darkenSpeedScale", &darkenSpeedScale, 0.0f, 10.0f);
+            SetTextureUniform<0>(m_shader.Id(), "vectorsTexture", inputTextureId);
             SetUniform(m_shader.Id(), "darkenSpeedScale", darkenSpeedScale);
-
             SetUniform(m_shader.Id(), "frameTime", frameTime);
 
             DrawFullScreenQuad();
@@ -309,17 +298,13 @@ namespace {
 
     private:
         void GlowInDirection(GLuint inputTextureId, GLuint outputTextureId, glm::vec2 dir) {
-
             glBindFramebuffer(GL_FRAMEBUFFER, *g_textureFB);
             SetViewport(g_crtViewport);
             glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, outputTextureId, 0);
 
             m_shader.Bind();
 
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, inputTextureId);
-            SetUniform(m_shader.Id(), "inputTexture", 0);
-
+            SetTextureUniform<0>(m_shader.Id(), "inputTexture", inputTextureId);
             SetUniform(m_shader.Id(), "dir", dir.x, dir.y);
             SetUniform(m_shader.Id(), "resolution",
                        static_cast<float>(std::min(g_crtViewport.w, g_crtViewport.h)));
@@ -346,16 +331,11 @@ namespace {
             glBindFramebuffer(GL_FRAMEBUFFER, *g_textureFB);
             SetViewport(g_overlayViewport);
             glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, outputTextureId, 0);
-
             glClear(GL_COLOR_BUFFER_BIT);
 
             m_shader.Bind();
 
-            // Bind our texture in Texture Unit 0
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, inputTextureId);
-            // Set our "vectorsTexture0" sampler to use Texture Unit 0
-            SetUniform(m_shader.Id(), "vectorsTexture", 0);
+            SetTextureUniform<0>(m_shader.Id(), "vectorsTexture", inputTextureId);
 
             DrawFullScreenQuad(CRT_SCALE_X, CRT_SCALE_Y);
         }
@@ -366,6 +346,9 @@ namespace {
         void Init() { m_shader.LoadShaders("shaders/Passthrough.vert", "shaders/DrawScreen.frag"); }
 
         void Draw(GLuint inputCrtTextureId, GLuint inputOverlayTextureId) {
+            static float overlayAlpha = 1.0f;
+            ImGui::SliderFloat("overlayAlpha", &overlayAlpha, 0.0f, 1.0f);
+
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
             SetViewport(g_windowViewport);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -374,9 +357,6 @@ namespace {
 
             SetTextureUniform<0>(m_shader.Id(), "crtTexture", inputCrtTextureId);
             SetTextureUniform<1>(m_shader.Id(), "overlayTexture", inputOverlayTextureId);
-
-            static float overlayAlpha = 1.0f;
-            ImGui::SliderFloat("overlayAlpha", &overlayAlpha, 0.0f, 1.0f);
             SetUniform(m_shader.Id(), "overlayAlpha", overlayAlpha);
 
             DrawFullScreenQuad();
@@ -461,8 +441,6 @@ namespace GLRender {
         g_crtViewport = {0, 0, static_cast<GLsizei>(g_overlayViewport.w * CRT_SCALE_X),
                          static_cast<GLsizei>(g_overlayViewport.h * CRT_SCALE_Y)};
 
-        SetViewport(g_overlayViewport);
-
         double halfWidth = VECTREX_SCREEN_WIDTH / 2.0;
         double halfHeight = VECTREX_SCREEN_HEIGHT / 2.0;
         g_projectionMatrix = glm::ortho(-halfWidth, halfWidth, -halfHeight, halfHeight);
@@ -497,7 +475,7 @@ namespace GLRender {
         // Clear g_vectorsTexture0 once
         glBindFramebuffer(GL_FRAMEBUFFER, *g_textureFB);
         glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, *g_vectorsTexture0, 0);
-        SetViewport(g_overlayViewport);
+        SetViewport(g_crtViewport);
         glClear(GL_COLOR_BUFFER_BIT);
 
         return true;

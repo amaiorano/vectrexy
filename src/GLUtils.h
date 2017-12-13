@@ -151,9 +151,13 @@ namespace GLUtils {
         GLuint id = glGetUniformLocation(shader, name);
         glUniform2f(id, value1, value2);
     }
-    inline void SetUniform(GLuint shader, const char* name, GLfloat* values, GLsizei size) {
+    inline void SetUniform(GLuint shader, const char* name, const GLfloat* values, GLsizei size) {
         GLuint id = glGetUniformLocation(shader, name);
         glUniform1fv(id, size, values);
+    }
+    inline void SetUniformMatrix4v(GLuint shader, const char* name, const GLfloat* matrix) {
+        GLuint id = glGetUniformLocation(shader, name);
+        glUniformMatrix4fv(id, 1, GL_FALSE, matrix);
     }
 
     constexpr GLenum TextureSlotToTextureEnum(GLint slot) {
