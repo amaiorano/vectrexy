@@ -296,43 +296,43 @@ namespace {
         void Init() { m_shader.LoadShaders("shaders/PassThrough.vert", "shaders/Glow.frag"); }
 
         void Draw(GLuint inputTextureId, GLuint tempTextureId, GLuint outputTextureId) {
-            static float radius = 3.0f;
-            ImGui::SliderFloat("glowRadius", &radius, 0.0f, 5.0f);
+            ImGui::SliderFloat("glowRadius", &m_radius, 0.0f, 5.0f);
 
-            static std::array<float, 5> glowKernelValues = {
-                0.2270270270f, 0.1945945946f, 0.1216216216f, 0.0540540541f, 0.0162162162f,
-            };
-
-            for (size_t i = 0; i < glowKernelValues.size(); ++i) {
-                ImGui::SliderFloat(FormattedString<>("kernelValue[%d]", i), &glowKernelValues[i],
+            for (size_t i = 0; i < m_glowKernelValues.size(); ++i) {
+                ImGui::SliderFloat(FormattedString<>("kernelValue[%d]", i), &m_glowKernelValues[i],
                                    0.f, 1.f);
             }
 
-            auto GlowInDirection = [&](GLuint inputTextureId, GLuint outputTextureId,
-                                       glm::vec2 dir) {
-
-                glBindFramebuffer(GL_FRAMEBUFFER, *g_textureFB);
-                SetViewport(g_crtViewport);
-                glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, outputTextureId, 0);
-
-                m_shader.Bind();
-
-                glActiveTexture(GL_TEXTURE0);
-                glBindTexture(GL_TEXTURE_2D, inputTextureId);
-                SetUniform(m_shader.Id(), "inputTexture", 0);
-
-                SetUniform(m_shader.Id(), "dir", dir.x, dir.y);
-                SetUniform(m_shader.Id(), "resolution",
-                           static_cast<float>(std::min(g_crtViewport.w, g_crtViewport.h)));
-                SetUniform(m_shader.Id(), "radius", radius);
-                SetUniform(m_shader.Id(), "kernalValues", &glowKernelValues[0],
-                           glowKernelValues.size());
-
-                DrawFullScreenQuad();
-            };
-
             GlowInDirection(inputTextureId, tempTextureId, {1.f, 0.f});
             GlowInDirection(tempTextureId, outputTextureId, {0.f, 1.f});
+        };
+
+    private:
+        void GlowInDirection(GLuint inputTextureId, GLuint outputTextureId, glm::vec2 dir) {
+
+            glBindFramebuffer(GL_FRAMEBUFFER, *g_textureFB);
+            SetViewport(g_crtViewport);
+            glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, outputTextureId, 0);
+
+            m_shader.Bind();
+
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, inputTextureId);
+            SetUniform(m_shader.Id(), "inputTexture", 0);
+
+            SetUniform(m_shader.Id(), "dir", dir.x, dir.y);
+            SetUniform(m_shader.Id(), "resolution",
+                       static_cast<float>(std::min(g_crtViewport.w, g_crtViewport.h)));
+            SetUniform(m_shader.Id(), "radius", m_radius);
+            SetUniform(m_shader.Id(), "kernalValues", &m_glowKernelValues[0],
+                       m_glowKernelValues.size());
+
+            DrawFullScreenQuad();
+        };
+
+        float m_radius = 3.f;
+        std::array<float, 5> m_glowKernelValues = {
+            0.2270270270f, 0.1945945946f, 0.1216216216f, 0.0540540541f, 0.0162162162f,
         };
     };
 
