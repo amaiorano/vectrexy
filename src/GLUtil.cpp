@@ -1,4 +1,4 @@
-#include "GLUtils.h"
+#include "GLUtil.h"
 #include "ImageFileUtils.h"
 #include <fstream>
 #include <sstream>
@@ -15,10 +15,10 @@ namespace {
     }
 } // namespace
 
-void GLUtils::AllocateTexture(GLuint textureId, GLsizei width, GLsizei height, GLint internalFormat,
-                              std::optional<PixelData> pixelData) {
+void GLUtil::AllocateTexture(GLuint textureId, GLsizei width, GLsizei height, GLint internalFormat,
+                             std::optional<PixelData> pixelData) {
 
-    auto pd = pixelData.value_or(GLUtils::PixelData{nullptr, GL_RGBA, GL_UNSIGNED_BYTE});
+    auto pd = pixelData.value_or(GLUtil::PixelData{nullptr, GL_RGBA, GL_UNSIGNED_BYTE});
 
     glBindTexture(GL_TEXTURE_2D, textureId);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
@@ -33,7 +33,7 @@ void GLUtils::AllocateTexture(GLuint textureId, GLsizei width, GLsizei height, G
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 }
 
-bool GLUtils::LoadPngTexture(GLuint textureId, const char* file) {
+bool GLUtil::LoadPngTexture(GLuint textureId, const char* file) {
     auto imgData = ImageFileUtils::loadPngImage(file);
 
     if (!imgData) {
@@ -47,7 +47,7 @@ bool GLUtils::LoadPngTexture(GLuint textureId, const char* file) {
     return true;
 }
 
-GLuint GLUtils::LoadShaders(const char* vertShaderFile, const char* fragShaderFile) {
+GLuint GLUtil::LoadShaders(const char* vertShaderFile, const char* fragShaderFile) {
     auto CheckStatus = [](GLuint id, GLenum pname) {
         assert(pname == GL_COMPILE_STATUS || pname == GL_LINK_STATUS);
         GLint result = GL_FALSE;

@@ -1,6 +1,6 @@
 #include "GLRender.h"
 #include "EngineClient.h"
-#include "GLUtils.h"
+#include "GLUtil.h"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -11,7 +11,7 @@
 #include <string>
 #include <vector>
 
-using namespace GLUtils;
+using namespace GLUtil;
 
 // Vectrex screen dimensions
 const int VECTREX_SCREEN_WIDTH = 256;

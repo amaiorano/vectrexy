@@ -8,7 +8,7 @@
 #include <cassert>
 #include <optional>
 
-namespace GLUtils {
+namespace GLUtil {
     ////////////////////////////////
     // Resources
     ////////////////////////////////
@@ -193,7 +193,7 @@ namespace GLUtils {
         }
 
         void LoadShaders(const char* vertShaderFile, const char* fragShaderFile) {
-            m_shaderId = GLUtils::LoadShaders(vertShaderFile, fragShaderFile);
+            m_shaderId = GLUtil::LoadShaders(vertShaderFile, fragShaderFile);
         }
 
         void Bind() { glUseProgram(m_shaderId); }
@@ -203,4 +203,4 @@ namespace GLUtils {
     private:
         GLuint m_shaderId{};
     };
-} // namespace GLUtils
+} // namespace GLUtil
