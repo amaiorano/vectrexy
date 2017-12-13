@@ -187,6 +187,11 @@ namespace {
 } // namespace
 
 namespace {
+    void SetFrameBufferTexture(GLuint frameBufferId, GLuint textureId) {
+        glBindFramebuffer(GL_FRAMEBUFFER, frameBufferId);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, textureId, 0);
+    }
+
     class ShaderPass {
     protected:
         ~ShaderPass() = default;
@@ -200,10 +205,9 @@ namespace {
         }
 
         void Draw(const std::vector<VertexData>& VA1, GLenum mode1,
-                  const std::vector<VertexData>& VA2, GLenum mode2, GLuint targetTextureId) {
-            glBindFramebuffer(GL_FRAMEBUFFER, *g_textureFB);
+                  const std::vector<VertexData>& VA2, GLenum mode2, GLuint outputTextureId) {
+            SetFrameBufferTexture(*g_textureFB, outputTextureId);
             SetViewport(g_crtViewport);
-            glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, targetTextureId, 0);
 
             // Purposely do not clear the target texture.
             // glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -265,9 +269,8 @@ namespace {
             static float darkenSpeedScale = 3.0;
             ImGui::SliderFloat("darkenSpeedScale", &darkenSpeedScale, 0.0f, 10.0f);
 
-            glBindFramebuffer(GL_FRAMEBUFFER, *g_textureFB);
+            SetFrameBufferTexture(*g_textureFB, outputTextureId);
             SetViewport(g_crtViewport);
-            glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, outputTextureId, 0);
             glClear(GL_COLOR_BUFFER_BIT);
 
             m_shader.Bind();
@@ -298,9 +301,8 @@ namespace {
 
     private:
         void GlowInDirection(GLuint inputTextureId, GLuint outputTextureId, glm::vec2 dir) {
-            glBindFramebuffer(GL_FRAMEBUFFER, *g_textureFB);
+            SetFrameBufferTexture(*g_textureFB, outputTextureId);
             SetViewport(g_crtViewport);
-            glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, outputTextureId, 0);
 
             m_shader.Bind();
 
@@ -328,9 +330,8 @@ namespace {
         }
 
         void Draw(GLuint inputTextureId, GLuint outputTextureId) {
-            glBindFramebuffer(GL_FRAMEBUFFER, *g_textureFB);
+            SetFrameBufferTexture(*g_textureFB, outputTextureId);
             SetViewport(g_overlayViewport);
-            glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, outputTextureId, 0);
             glClear(GL_COLOR_BUFFER_BIT);
 
             m_shader.Bind();
@@ -434,7 +435,6 @@ namespace GLRender {
         g_windowWidth = windowWidth;
         g_windowHeight = windowHeight;
 
-        // Overlay
         float overlayAR = 936.f / 1200.f;
         g_windowViewport = GetBestFitViewport(overlayAR, windowWidth, windowHeight);
         g_overlayViewport = {0, 0, g_windowViewport.w, g_windowViewport.h};
@@ -473,8 +473,7 @@ namespace GLRender {
         glObjectLabel(GL_TEXTURE, *g_crtTexture, -1, "g_crtTexture");
 
         // Clear g_vectorsTexture0 once
-        glBindFramebuffer(GL_FRAMEBUFFER, *g_textureFB);
-        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, *g_vectorsTexture0, 0);
+        SetFrameBufferTexture(*g_textureFB, *g_vectorsTexture0);
         SetViewport(g_crtViewport);
         glClear(GL_COLOR_BUFFER_BIT);
 
