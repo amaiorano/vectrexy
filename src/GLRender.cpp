@@ -74,10 +74,10 @@ namespace {
             glm::vec2 p1{line.p1.x, line.p1.y};
 
             if (AlmostEqual(p0.x, p1.x) && AlmostEqual(p0.y, p1.y)) {
-                auto a = VertexData{p0 + glm::vec2{0, hlw}, line.brightness};
-                auto b = VertexData{p0 - glm::vec2{0, hlw}, line.brightness};
-                auto c = VertexData{p0 + glm::vec2{hlw, 0}, line.brightness};
-                auto d = VertexData{p0 - glm::vec2{hlw, 0}, line.brightness};
+                auto a = VertexData{p0 + glm::vec2{hlw, hlw}, line.brightness};
+                auto b = VertexData{p0 + glm::vec2{hlw, -hlw}, line.brightness};
+                auto c = VertexData{p0 + glm::vec2{-hlw, -hlw}, line.brightness};
+                auto d = VertexData{p0 + glm::vec2{-hlw, hlw}, line.brightness};
 
                 result.insert(result.end(), {a, b, c, c, d, a});
 
