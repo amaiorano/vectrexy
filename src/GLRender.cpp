@@ -58,14 +58,12 @@ namespace {
         float brightness{};
     };
 
-    std::vector<VertexData> CreateQuadVertexArray(const std::vector<Line>& lines) {
+    std::vector<VertexData> CreateQuadVertexArray(const std::vector<Line>& lines, float lineWidth) {
         auto AlmostEqual = [](float a, float b, float epsilon = 0.01f) {
             return abs(a - b) <= epsilon;
         };
 
         std::vector<VertexData> result;
-        static float lineWidth = 1.0f;
-        ImGui::SliderFloat("lineWidth", &lineWidth, 0.1f, 2.0f);
 
         float hlw = lineWidth / 2.0f;
 
@@ -193,7 +191,7 @@ namespace {
 namespace {
     class ShaderPass {
     protected:
-        ~ShaderPass() = default;
+        ShaderPass() = default;
         Shader m_shader;
     };
 
@@ -324,6 +322,27 @@ namespace {
         };
     };
 
+    class CombineVectorsAndGlowPass : ShaderPass {
+    public:
+        void Init() {
+            m_shader.LoadShaders("shaders/Passthrough.vert", "shaders/CombineVectorsAndGlow.frag");
+        }
+
+        void Draw(const Texture& inputVectorsTexture, const Texture& inputGlowTexture,
+                  const Texture& outputTexture) {
+            SetFrameBufferTexture(*g_textureFB, outputTexture.Id());
+            SetViewportToTextureDims(outputTexture);
+            glClear(GL_COLOR_BUFFER_BIT);
+
+            m_shader.Bind();
+
+            SetTextureUniform<0>(m_shader.Id(), "vectorsTexture", inputVectorsTexture.Id());
+            SetTextureUniform<1>(m_shader.Id(), "glowTexture", inputGlowTexture.Id());
+
+            DrawFullScreenQuad();
+        }
+    };
+
     class GameScreenToCrtTexturePass : ShaderPass {
     public:
         void Init() {
@@ -369,6 +388,7 @@ namespace {
     DrawVectorsPass g_drawVectorsPass;
     DarkenTexturePass g_darkenTexturePass;
     GlowPass g_glowPass;
+    CombineVectorsAndGlowPass g_combineVectorsAndGlowPass;
     GameScreenToCrtTexturePass g_gameScreenToCrtTexturePass;
     RenderToScreenPass g_renderToScreenPass;
 
@@ -397,6 +417,7 @@ namespace GLRender {
         g_drawVectorsPass.Init();
         g_darkenTexturePass.Init();
         g_glowPass.Init();
+        g_combineVectorsAndGlowPass.Init();
         g_gameScreenToCrtTexturePass.Init();
         g_renderToScreenPass.Init();
 
@@ -505,23 +526,37 @@ namespace GLRender {
         glObjectLabel(GL_TEXTURE, currVectorsThickTexture1.Id(), -1, "currVectorsThickTexture1");
 
         // Render normal lines and points, and darken
-        std::tie(g_lineVA, g_pointVA) = CreateLineAndPointVertexArrays(g_lines);
-        g_drawVectorsPass.Draw(g_lineVA, GL_LINES, g_pointVA, GL_POINTS, currVectorsTexture0);
+        static bool thickBaseLines = false;
+        ImGui::Checkbox("thickBaseLines", &thickBaseLines);
+        if (!thickBaseLines) {
+            std::tie(g_lineVA, g_pointVA) = CreateLineAndPointVertexArrays(g_lines);
+            g_drawVectorsPass.Draw(g_lineVA, GL_LINES, g_pointVA, GL_POINTS, currVectorsTexture0);
+        } else {
+            static float lineWidthNormal = 0.75f;
+            ImGui::SliderFloat("lineWidthNormal", &lineWidthNormal, 0.1f, 2.0f);
+            g_quadVA = CreateQuadVertexArray(g_lines, lineWidthNormal);
+            g_drawVectorsPass.Draw(g_quadVA, GL_TRIANGLES, {}, {}, currVectorsTexture0);
+        }
         g_darkenTexturePass.Draw(currVectorsTexture0, currVectorsTexture1,
                                  static_cast<float>(frameTime));
 
         // Render thicker lines for blurring, darken, and apply glow
-        g_quadVA = CreateQuadVertexArray(g_lines);
+        static float lineWidthGlow = 1.2f;
+        ImGui::SliderFloat("lineWidthGlow", &lineWidthGlow, 0.1f, 2.0f);
+        g_quadVA = CreateQuadVertexArray(g_lines, lineWidthGlow);
         g_drawVectorsPass.Draw(g_quadVA, GL_TRIANGLES, {}, {}, currVectorsThickTexture0);
         g_darkenTexturePass.Draw(currVectorsThickTexture0, currVectorsThickTexture1,
                                  static_cast<float>(frameTime));
         g_glowPass.Draw(currVectorsThickTexture0, g_glowTexture0, g_glowTexture1);
 
+        //@TODO: rename g_glowTexture0 to g_tempTexture or something, and g_glowTexture1 rename to
+        // just g_glowTexture
+
         // Combine glow and normal lines
-        //@TODO: Write shader and code for combining the two
+        g_combineVectorsAndGlowPass.Draw(currVectorsTexture0, g_glowTexture1, g_glowTexture0);
 
         // Scale game screen (lines) to CRT texture
-        g_gameScreenToCrtTexturePass.Draw(currVectorsTexture0, g_crtTexture);
+        g_gameScreenToCrtTexturePass.Draw(g_glowTexture0, g_crtTexture);
 
         // Present
         g_renderToScreenPass.Draw(g_crtTexture, g_overlayTexture);
