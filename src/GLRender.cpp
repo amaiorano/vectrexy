@@ -181,8 +181,8 @@ namespace {
     Texture g_vectorsTexture1;
     Texture g_vectorsThickTexture0;
     Texture g_vectorsThickTexture1;
-    Texture g_glowTexture0;
-    Texture g_glowTexture1;
+    Texture g_tempTexture;
+    Texture g_glowTexture;
     Texture g_crtTexture;
     Texture g_overlayTexture;
 
@@ -476,10 +476,10 @@ namespace GLRender {
         g_vectorsTexture1.Allocate(crtWidth, crtHeight, GL_RGB32F);
         g_vectorsThickTexture0.Allocate(crtWidth, crtHeight, GL_RGB32F);
         g_vectorsThickTexture1.Allocate(crtWidth, crtHeight, GL_RGB32F);
-        g_glowTexture0.Allocate(crtWidth, crtHeight, GL_RGB32F);
-        glObjectLabel(GL_TEXTURE, g_glowTexture0.Id(), -1, "g_glowTexture0");
-        g_glowTexture1.Allocate(crtWidth, crtHeight, GL_RGB32F);
-        glObjectLabel(GL_TEXTURE, g_glowTexture1.Id(), -1, "g_glowTexture1");
+        g_tempTexture.Allocate(crtWidth, crtHeight, GL_RGB32F);
+        glObjectLabel(GL_TEXTURE, g_tempTexture.Id(), -1, "g_tempTexture");
+        g_glowTexture.Allocate(crtWidth, crtHeight, GL_RGB32F);
+        glObjectLabel(GL_TEXTURE, g_glowTexture.Id(), -1, "g_glowTexture");
         g_crtTexture.Allocate(overlayWidth, overlayHeight, GL_RGB);
         glObjectLabel(GL_TEXTURE, g_crtTexture.Id(), -1, "g_crtTexture");
 
@@ -547,16 +547,13 @@ namespace GLRender {
         g_drawVectorsPass.Draw(g_quadVA, GL_TRIANGLES, {}, {}, currVectorsThickTexture0);
         g_darkenTexturePass.Draw(currVectorsThickTexture0, currVectorsThickTexture1,
                                  static_cast<float>(frameTime));
-        g_glowPass.Draw(currVectorsThickTexture0, g_glowTexture0, g_glowTexture1);
-
-        //@TODO: rename g_glowTexture0 to g_tempTexture or something, and g_glowTexture1 rename to
-        // just g_glowTexture
+        g_glowPass.Draw(currVectorsThickTexture0, g_tempTexture, g_glowTexture);
 
         // Combine glow and normal lines
-        g_combineVectorsAndGlowPass.Draw(currVectorsTexture0, g_glowTexture1, g_glowTexture0);
+        g_combineVectorsAndGlowPass.Draw(currVectorsTexture0, g_glowTexture, g_tempTexture);
 
         // Scale game screen (lines) to CRT texture
-        g_gameScreenToCrtTexturePass.Draw(g_glowTexture0, g_crtTexture);
+        g_gameScreenToCrtTexturePass.Draw(g_tempTexture, g_crtTexture);
 
         // Present
         g_renderToScreenPass.Draw(g_crtTexture, g_overlayTexture);
