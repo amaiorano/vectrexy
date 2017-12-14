@@ -540,20 +540,28 @@ namespace GLRender {
         g_darkenTexturePass.Draw(currVectorsTexture0, currVectorsTexture1,
                                  static_cast<float>(frameTime));
 
-        // Render thicker lines for blurring, darken, and apply glow
-        static float lineWidthGlow = 1.2f;
-        ImGui::SliderFloat("lineWidthGlow", &lineWidthGlow, 0.1f, 2.0f);
-        g_quadVA = CreateQuadVertexArray(g_lines, lineWidthGlow);
-        g_drawVectorsPass.Draw(g_quadVA, GL_TRIANGLES, {}, {}, currVectorsThickTexture0);
-        g_darkenTexturePass.Draw(currVectorsThickTexture0, currVectorsThickTexture1,
-                                 static_cast<float>(frameTime));
-        g_glowPass.Draw(currVectorsThickTexture0, g_tempTexture, g_glowTexture);
+        static bool enableBlur = true;
+        ImGui::Checkbox("enableBlur", &enableBlur);
+        if (enableBlur) {
 
-        // Combine glow and normal lines
-        g_combineVectorsAndGlowPass.Draw(currVectorsTexture0, g_glowTexture, g_tempTexture);
+            // Render thicker lines for blurring, darken, and apply glow
+            static float lineWidthGlow = 1.2f;
+            ImGui::SliderFloat("lineWidthGlow", &lineWidthGlow, 0.1f, 2.0f);
+            g_quadVA = CreateQuadVertexArray(g_lines, lineWidthGlow);
+            g_drawVectorsPass.Draw(g_quadVA, GL_TRIANGLES, {}, {}, currVectorsThickTexture0);
+            g_darkenTexturePass.Draw(currVectorsThickTexture0, currVectorsThickTexture1,
+                                     static_cast<float>(frameTime));
+            g_glowPass.Draw(currVectorsThickTexture0, g_tempTexture, g_glowTexture);
 
-        // Scale game screen (lines) to CRT texture
-        g_gameScreenToCrtTexturePass.Draw(g_tempTexture, g_crtTexture);
+            // Combine glow and normal lines
+            g_combineVectorsAndGlowPass.Draw(currVectorsTexture0, g_glowTexture, g_tempTexture);
+
+            // Scale game screen (lines) to CRT texture
+            g_gameScreenToCrtTexturePass.Draw(g_tempTexture, g_crtTexture);
+        } else {
+            // Scale game screen (lines) to CRT texture
+            g_gameScreenToCrtTexturePass.Draw(currVectorsTexture0, g_crtTexture);
+        }
 
         // Present
         g_renderToScreenPass.Draw(g_crtTexture, g_overlayTexture);
