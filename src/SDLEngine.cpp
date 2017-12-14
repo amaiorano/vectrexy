@@ -64,6 +64,7 @@ namespace {
         std::optional<int> windowX;
         std::optional<int> windowY;
         std::optional<int> windowWidth;
+        std::optional<int> windowHeight;
         std::optional<float> imguiFontScale;
     };
 
@@ -92,6 +93,8 @@ namespace {
                 options.windowY = std::stoi(tokens[1]);
             else if (tokens[0] == "windowWidth")
                 options.windowWidth = std::stoi(tokens[1]);
+            else if (tokens[0] == "windowHeight")
+                options.windowHeight = std::stoi(tokens[1]);
             else if (tokens[0] == "imguiFontScale")
                 options.imguiFontScale = std::stof(tokens[1]);
             else {
@@ -336,7 +339,7 @@ bool SDLEngine::Run(int argc, char** argv) {
     const int windowX = options.windowX.value_or(SDL_WINDOWPOS_CENTERED);
     const int windowY = options.windowY.value_or(SDL_WINDOWPOS_CENTERED);
     const int windowWidth = options.windowWidth.value_or(DEFAULT_WINDOW_WIDTH);
-    const int windowHeight = WindowHeightFromWidth(windowWidth);
+    const int windowHeight = options.windowHeight.value_or(WindowHeightFromWidth(windowWidth));
 
     g_window = SDL_CreateWindow(WINDOW_TITLE, windowX, windowY, windowWidth, windowHeight,
                                 SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
