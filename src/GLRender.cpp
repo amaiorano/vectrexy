@@ -272,7 +272,7 @@ namespace {
 
             m_shader.Bind();
 
-            SetTextureUniform<0>(m_shader.Id(), "vectorsTexture", inputTexture.Id());
+            SetTextureUniform(m_shader.Id(), "vectorsTexture", inputTexture.Id(), 0);
             SetUniform(m_shader.Id(), "darkenSpeedScale", darkenSpeedScale);
             SetUniform(m_shader.Id(), "frameTime", frameTime);
 
@@ -305,7 +305,7 @@ namespace {
 
             m_shader.Bind();
 
-            SetTextureUniform<0>(m_shader.Id(), "inputTexture", inputTexture.Id());
+            SetTextureUniform(m_shader.Id(), "inputTexture", inputTexture.Id(), 0);
             SetUniform(m_shader.Id(), "dir", dir.x, dir.y);
             SetUniform(m_shader.Id(), "resolution",
                        static_cast<float>(std::min(outputTexture.Width(), outputTexture.Height())));
@@ -336,8 +336,8 @@ namespace {
 
             m_shader.Bind();
 
-            SetTextureUniform<0>(m_shader.Id(), "vectorsTexture", inputVectorsTexture.Id());
-            SetTextureUniform<1>(m_shader.Id(), "glowTexture", inputGlowTexture.Id());
+            SetTextureUniform(m_shader.Id(), "vectorsTexture", inputVectorsTexture.Id(), 0);
+            SetTextureUniform(m_shader.Id(), "glowTexture", inputGlowTexture.Id(), 1);
 
             DrawFullScreenQuad();
         }
@@ -356,7 +356,7 @@ namespace {
 
             m_shader.Bind();
 
-            SetTextureUniform<0>(m_shader.Id(), "vectorsTexture", inputTexture.Id());
+            SetTextureUniform(m_shader.Id(), "vectorsTexture", inputTexture.Id(), 0);
 
             DrawFullScreenQuad(CRT_SCALE_X, CRT_SCALE_Y);
         }
@@ -376,8 +376,8 @@ namespace {
 
             m_shader.Bind();
 
-            SetTextureUniform<0>(m_shader.Id(), "crtTexture", inputCrtTexture.Id());
-            SetTextureUniform<1>(m_shader.Id(), "overlayTexture", inputOverlayTexture.Id());
+            SetTextureUniform(m_shader.Id(), "crtTexture", inputCrtTexture.Id(), 0);
+            SetTextureUniform(m_shader.Id(), "overlayTexture", inputOverlayTexture.Id(), 1);
             SetUniform(m_shader.Id(), "overlayAlpha", overlayAlpha);
 
             DrawFullScreenQuad();

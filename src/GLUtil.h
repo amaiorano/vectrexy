@@ -196,27 +196,9 @@ namespace GLUtil {
         GLuint id = glGetUniformLocation(shader, name);
         glUniformMatrix4fv(id, 1, GL_FALSE, matrix);
     }
-
-    constexpr GLenum TextureSlotToTextureEnum(GLint slot) {
-        switch (slot) {
-        case 0:
-            return GL_TEXTURE0;
-        case 1:
-            return GL_TEXTURE1;
-        case 2:
-            return GL_TEXTURE2;
-        case 3:
-            return GL_TEXTURE3;
-        default:
-            assert(false);
-            return 0;
-        }
-    }
-
-    template <GLint textureSlot>
-    void SetTextureUniform(GLuint shader, const char* name, GLuint textureId) {
-        constexpr auto texEnum = TextureSlotToTextureEnum(textureSlot);
-        glActiveTexture(texEnum);
+    inline void SetTextureUniform(GLuint shader, const char* name, GLuint textureId,
+                                  GLint textureSlot) {
+        glActiveTexture(GL_TEXTURE0 + textureSlot);
         glBindTexture(GL_TEXTURE_2D, textureId);
         GLuint texLoc = glGetUniformLocation(shader, name);
         glUniform1i(texLoc, textureSlot);
