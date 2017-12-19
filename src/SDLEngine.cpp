@@ -316,6 +316,10 @@ void SetFocusConsole() {
     Platform::SetConsoleFocus();
 }
 
+void ResetOverlay(const char* file) {
+    GLRender::ResetOverlay(file);
+}
+
 void SDLEngine::RegisterClient(IEngineClient& client) {
     g_client = &client;
 }

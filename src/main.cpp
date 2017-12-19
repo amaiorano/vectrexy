@@ -6,6 +6,7 @@
 #include "EngineClient.h"
 #include "MemoryBus.h"
 #include "MemoryMap.h"
+#include "Overlays.h"
 #include "Platform.h"
 #include "Ram.h"
 #include "SDLEngine.h"
@@ -17,6 +18,8 @@
 class Vectrexy final : public IEngineClient {
 private:
     bool Init(int argc, char** argv) override {
+        m_overlays.LoadOverlays();
+
         std::string rom = argc == 2 ? argv[1] : "";
 
         m_cpu.Init(m_memoryBus);
@@ -29,8 +32,13 @@ private:
 
         m_biosRom.LoadBiosRom("bios_rom.bin");
 
-        if (!rom.empty())
+        if (!rom.empty()) {
             LoadRom(rom.c_str());
+        } else {
+            if (auto overlayPath = m_overlays.FindOverlay("Minestorm")) {
+                ResetOverlay(overlayPath->string().c_str());
+            }
+        }
 
         Reset();
 
@@ -53,7 +61,19 @@ private:
             fprintf(stderr, "Failed to load rom file: %s\n", file);
             return false;
         }
+
         //@TODO: Show game name in title bar
+
+        auto overlayPath = m_overlays.FindOverlay(file);
+        if (overlayPath) {
+            auto path = overlayPath->string().c_str();
+            fprintf(stderr, "Found overlay for %s: %s\n", file, path);
+            ResetOverlay(path);
+        } else {
+            fprintf(stderr, "No overlay found for %s\n", file);
+            ResetOverlay();
+        }
+
         return true;
     }
 
@@ -94,6 +114,7 @@ private:
     UnmappedMemoryDevice m_unmapped;
     Cartridge m_cartridge;
     Debugger m_debugger;
+    Overlays m_overlays;
 };
 
 int main(int argc, char** argv) {

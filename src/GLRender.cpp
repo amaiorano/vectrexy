@@ -429,18 +429,7 @@ namespace GLRender {
         glDrawBuffers(1, drawBuffers);
         CheckFramebufferStatus();
 
-        // For now, always attempt to load the mine storm overlay
-        const char* overlayFile = "overlays/mine.png";
-        if (!g_overlayTexture.LoadPng(overlayFile)) {
-            printf("Failed to load overlay: %s\n", overlayFile);
-
-            // If we fail, then allocate a min-sized transparent texture
-            std::vector<uint8_t> emptyTexture;
-            emptyTexture.resize(64 * 64 * 4);
-            g_overlayTexture.Allocate(64, 64, GL_RGBA,
-                                      PixelData{&emptyTexture[0], GL_RGBA, GL_UNSIGNED_BYTE});
-        }
-        glObjectLabel(GL_TEXTURE, g_overlayTexture.Id(), -1, "g_overlayTexture");
+        ResetOverlay();
     }
 
     void Shutdown() {
@@ -448,6 +437,26 @@ namespace GLRender {
     }
 
     std::tuple<int, int> GetMajorMinorVersion() { return {3, 3}; }
+
+    void ResetOverlay(const char* file) {
+        auto CreateEmptyOverlayTexture = [] {
+            std::vector<uint8_t> emptyTexture;
+            emptyTexture.resize(64 * 64 * 4);
+            g_overlayTexture.Allocate(64, 64, GL_RGBA,
+                                      PixelData{&emptyTexture[0], GL_RGBA, GL_UNSIGNED_BYTE});
+        };
+
+        if (!file) {
+            CreateEmptyOverlayTexture();
+        } else if (!g_overlayTexture.LoadPng(file)) {
+            fprintf(stderr, "Failed to load overlay: %s\n", file);
+
+            // If we fail, then allocate a min-sized transparent texture
+            CreateEmptyOverlayTexture();
+        }
+
+        glObjectLabel(GL_TEXTURE, g_overlayTexture.Id(), -1, "g_overlayTexture");
+    }
 
     bool OnWindowResized(int windowWidth, int windowHeight) {
         if (windowHeight == 0) {

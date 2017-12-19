@@ -59,3 +59,5 @@ public:
 // Set focus on the main window
 void SetFocusMainWindow();
 void SetFocusConsole();
+
+void ResetOverlay(const char* file = nullptr);
