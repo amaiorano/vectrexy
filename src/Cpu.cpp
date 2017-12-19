@@ -1079,6 +1079,11 @@ public:
                 OpBranch([this] { return (CC.Zero | (CC.Negative ^ CC.Overflow)) != 0; });
                 break;
 
+            case 0x16:
+                // Note: LBRA is in table 0, while all other long branch instructions are in table 1
+                OpLongBranch([this] { return true; });
+                break;
+
             case 0x1E: // EXG (exchange/swap register values)
                 OpEXG();
                 break;
@@ -1665,9 +1670,6 @@ public:
                 OpCMP<1, 0xBC>(Y);
                 break;
 
-            case 0x20: // BRA (branch always)
-                OpLongBranch([this] { return true; });
-                break;
             case 0x21: // BRN (branch never)
                 OpLongBranch([this] { return false; });
                 break;
