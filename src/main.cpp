@@ -4,6 +4,7 @@
 #include "Cpu.h"
 #include "Debugger.h"
 #include "EngineClient.h"
+#include "FileSystemUtil.h"
 #include "MemoryBus.h"
 #include "MemoryMap.h"
 #include "Overlays.h"
@@ -84,9 +85,11 @@ private:
         }
 
         if (find_if(emuEvents, [](auto& e) { return e.type == EmuEvent::Type::OpenRomFile; })) {
+            FileSystemUtil::ScopedSetCurrentDirectory scopedSetDir(m_lastOpenedFile);
             auto result =
                 Platform::OpenFileDialog("Open Vectrex rom", "Vectrex Rom", "*.vec;*.bin");
             if (result && LoadRom(result->c_str())) {
+                m_lastOpenedFile = *result;
                 Reset();
             }
         }
@@ -115,6 +118,7 @@ private:
     Cartridge m_cartridge;
     Debugger m_debugger;
     Overlays m_overlays;
+    fs::path m_lastOpenedFile;
 };
 
 int main(int argc, char** argv) {
