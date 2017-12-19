@@ -66,9 +66,9 @@ private:
 
         auto overlayPath = m_overlays.FindOverlay(file);
         if (overlayPath) {
-            auto path = overlayPath->string().c_str();
-            fprintf(stderr, "Found overlay for %s: %s\n", file, path);
-            ResetOverlay(path);
+            auto path = overlayPath->string();
+            fprintf(stderr, "Found overlay for %s: %s\n", file, path.c_str());
+            ResetOverlay(path.c_str());
         } else {
             fprintf(stderr, "No overlay found for %s\n", file);
             ResetOverlay();
