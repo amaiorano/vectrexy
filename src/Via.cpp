@@ -80,6 +80,9 @@ namespace {
 
 void Via::Init(MemoryBus& memoryBus) {
     memoryBus.ConnectDevice(*this, MemoryMap::Via.range);
+}
+
+void Via::Reset() {
     m_portB = m_portA = 0;
     m_dataDirB = m_dataDirA = 0;
     m_periphCntl = 0;

@@ -153,3 +153,8 @@ inline void AssertHandler(const char* file, int line, const char* condition, con
 
 // Type aliases
 using cycles_t = uint64_t;
+
+template <typename Container, typename Pred>
+bool find_if(Container container, Pred pred) {
+    return std::find_if(std::begin(container), std::end(container), pred) != std::end(container);
+}

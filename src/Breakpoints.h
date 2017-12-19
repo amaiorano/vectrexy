@@ -33,6 +33,8 @@ struct Breakpoint {
 
 class Breakpoints {
 public:
+    void Reset() { m_breakpoints.clear(); }
+
     Breakpoint* Add(Breakpoint::Type type, uint16_t address) {
         auto& bp = m_breakpoints[address];
         bp.type = type;

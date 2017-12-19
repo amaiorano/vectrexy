@@ -23,12 +23,6 @@ MSC_PUSH_WARNING_DISABLE(4121)
 #undef max
 MSC_POP_WARNING_DISABLE()
 
-//@TODO: Move to some header
-template <typename Container, typename Pred>
-bool find_if(Container container, Pred pred) {
-    return std::find_if(std::begin(container), std::end(container), pred) != std::end(container);
-}
-
 namespace {
     // Display window dimensions
     const int DEFAULT_WINDOW_WIDTH = 600;
@@ -476,6 +470,16 @@ bool SDLEngine::Run(int argc, char** argv) {
             // of these keys.
             g_keyboard.ResetKeyState(SDL_SCANCODE_LCTRL);
             g_keyboard.ResetKeyState(SDL_SCANCODE_C);
+        }
+
+        if (g_keyboard.GetKeyState(SDL_SCANCODE_LCTRL).down &&
+            g_keyboard.GetKeyState(SDL_SCANCODE_R).pressed) {
+            emuEvents.push_back({EmuEvent::Type::Reset});
+        }
+
+        if (g_keyboard.GetKeyState(SDL_SCANCODE_LCTRL).down &&
+            g_keyboard.GetKeyState(SDL_SCANCODE_O).pressed) {
+            emuEvents.push_back({EmuEvent::Type::OpenRomFile});
         }
 
         if (!g_client->Update(frameTime, input, emuEvents))

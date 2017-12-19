@@ -43,7 +43,7 @@ private:
 
 class EmuEvent {
 public:
-    enum class Type { BreakIntoDebugger };
+    enum class Type { BreakIntoDebugger, Reset, OpenRomFile };
     Type type;
 };
 using EmuEvents = std::vector<EmuEvent>;

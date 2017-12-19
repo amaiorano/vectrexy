@@ -22,44 +22,49 @@ namespace {
         return result;
     }
 
-    void ValidateRom(const char* file) {
-        FileStream fs(file, "rb");
-
-        std::string requiredCopyright = "g GCE";
-        auto copyright = ReadStreamUntil(fs, 0x80);
-        if (copyright.size() < requiredCopyright.size() ||
-            memcmp(copyright.data(), requiredCopyright.data(), sizeof(requiredCopyright) != 0)) {
-            FAIL_MSG("Invalid rom");
-        }
-
-        // Location of music from ROM
-        //@TODO: Byte-swap on little endian
-        uint16_t musicLocation;
-        fs.ReadValue(musicLocation);
-
-        // Title of game is a multiline string of position, string, 0x80 as newline marker.
-        const int MAX_LINES = 5; // Some reasonable max to look for
+    bool IsValidRom(const char* file) {
         bool valid = false;
-        std::string title;
-        for (int line = 0; line < MAX_LINES; ++line) {
-            uint8_t height, width, relY, relX;
-            fs.ReadValue(height);
-            // If first byte is 0, we're done
-            if (height == 0) {
-                valid = true;
-                break;
-            }
-            fs.ReadValue(width);
-            fs.ReadValue(relY);
-            fs.ReadValue(relX);
 
-            auto titleBytes = ReadStreamUntil(fs, 0x80);
-            title += {titleBytes.begin(), titleBytes.end()};
-            title += " ";
+        try {
+            FileStream fs(file, "rb");
+
+            std::string requiredCopyright = "g GCE";
+            auto copyright = ReadStreamUntil(fs, 0x80);
+            if (copyright.size() < requiredCopyright.size() ||
+                memcmp(copyright.data(), requiredCopyright.data(),
+                       sizeof(requiredCopyright) != 0)) {
+                FAIL_MSG("Invalid rom");
+            }
+
+            // Location of music from ROM
+            //@TODO: Byte-swap on little endian
+            uint16_t musicLocation;
+            fs.ReadValue(musicLocation);
+
+            // Title of game is a multiline string of position, string, 0x80 as newline marker.
+            const int MAX_LINES = 5; // Some reasonable max to look for
+            std::string title;
+            for (int line = 0; line < MAX_LINES; ++line) {
+                uint8_t height, width, relY, relX;
+                fs.ReadValue(height);
+                // If first byte is 0, we're done
+                if (height == 0) {
+                    valid = true;
+                    break;
+                }
+                fs.ReadValue(width);
+                fs.ReadValue(relY);
+                fs.ReadValue(relX);
+
+                auto titleBytes = ReadStreamUntil(fs, 0x80);
+                title += {titleBytes.begin(), titleBytes.end()};
+                title += " ";
+            }
+
+        } catch (...) {
         }
 
-        if (!valid)
-            FAIL_MSG("Invalid rom");
+        return valid;
     }
 } // namespace
 
@@ -68,10 +73,13 @@ void Cartridge::Init(MemoryBus& memoryBus) {
     m_data.resize(MemoryMap::Cartridge.physicalSize, 0);
 }
 
-void Cartridge::LoadRom(const char* file) {
-    ValidateRom(file);
-    FileStream fs(file, "rb");
-    m_data = ReadStreamUntilEnd(fs);
+bool Cartridge::LoadRom(const char* file) {
+    if (IsValidRom(file)) {
+        FileStream fs(file, "rb");
+        m_data = ReadStreamUntilEnd(fs);
+        return true;
+    }
+    return false;
 }
 
 uint8_t Cartridge::Read(uint16_t address) const {

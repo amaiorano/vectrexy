@@ -17,6 +17,7 @@ class Input;
 class Via : public IMemoryBusDevice {
 public:
     void Init(MemoryBus& memoryBus);
+    void Reset();
     void Update(cycles_t cycles, const Input& input);
 
 private:

@@ -1,4 +1,5 @@
 #include "Platform.h"
+#include "Base.h"
 
 #ifdef WIN32
 
@@ -72,6 +73,33 @@ namespace Platform {
         WORD foreground = info.wAttributes & 0b1111;
         WORD background = (info.wAttributes & 0b1111'0000) >> 4;
         return {static_cast<ConsoleColor>(foreground), static_cast<ConsoleColor>(background)};
+    }
+
+    bool SupportsOpenFileDialog() { return true; }
+
+    std::optional<std::string> OpenFileDialog(const char* title, const char* filterName,
+                                              const char* filterTypes) {
+        auto filter =
+            FormattedString<>("%s (%s)%c%s%c", filterName, filterTypes, '\0', filterTypes, '\0');
+
+        char file[_MAX_PATH] = "";
+        char currDir[_MAX_PATH] = "";
+        ::GetCurrentDirectoryA(sizeof(currDir), currDir);
+
+        OPENFILENAMEA ofn = {0};
+        ofn.lStructSize = sizeof(ofn);
+        ofn.lpstrFile = file;
+        ofn.nMaxFile = sizeof(file);
+        ofn.lpstrTitle = title;
+        ofn.lpstrFilter = filter.Value();
+        ofn.nFilterIndex = 0;
+        ofn.lpstrInitialDir = currDir;
+        ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
+
+        if (::GetOpenFileNameA(&ofn) == TRUE) {
+            return {ofn.lpstrFile};
+        }
+        return {};
     }
 } // namespace Platform
 #endif

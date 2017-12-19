@@ -27,21 +27,50 @@ private:
         m_cartridge.Init(m_memoryBus);
         m_debugger.Init(m_memoryBus, m_cpu, m_via);
 
-        // Some games rely on initial random state of memory (e.g. Mine Storm)
-        const unsigned int seed = std::random_device{}();
-        m_ram.Randomize(seed);
-
         m_biosRom.LoadBiosRom("bios_rom.bin");
 
         if (!rom.empty())
-            m_cartridge.LoadRom(rom.c_str());
+            LoadRom(rom.c_str());
 
-        m_cpu.Reset();
+        Reset();
 
         return true;
     }
 
+    void Reset() {
+        m_cpu.Reset();
+        m_via.Reset();
+        m_ram.Reset();
+        m_debugger.Reset();
+
+        // Some games rely on initial random state of memory (e.g. Mine Storm)
+        const unsigned int seed = std::random_device{}();
+        m_ram.Randomize(seed);
+    }
+
+    bool LoadRom(const char* file) {
+        if (!m_cartridge.LoadRom(file)) {
+            fprintf(stderr, "Failed to load rom file: %s\n", file);
+            return false;
+        }
+        //@TODO: Show game name in title bar
+        return true;
+    }
+
     bool Update(double frameTime, const Input& input, const EmuEvents& emuEvents) override {
+
+        if (find_if(emuEvents, [](auto& e) { return e.type == EmuEvent::Type::Reset; })) {
+            Reset();
+        }
+
+        if (find_if(emuEvents, [](auto& e) { return e.type == EmuEvent::Type::OpenRomFile; })) {
+            auto result =
+                Platform::OpenFileDialog("Open Vectrex rom", "Vectrex Rom", "*.vec;*.bin");
+            if (result && LoadRom(result->c_str())) {
+                Reset();
+            }
+        }
+
         if (!m_debugger.Update(frameTime, input, emuEvents))
             return false;
 

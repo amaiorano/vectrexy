@@ -2,6 +2,7 @@
 
 #include <any>
 #include <functional>
+#include <optional>
 #include <tuple>
 
 namespace Platform {
@@ -53,5 +54,10 @@ namespace Platform {
         ~ScopedConsoleColor() { SetConsoleColor(std::get<0>(m_color), std::get<1>(m_color)); }
         std::tuple<ConsoleColor, ConsoleColor> m_color;
     };
+
+    bool SupportsOpenFileDialog();
+    std::optional<std::string> OpenFileDialog(const char* title = "Open",
+                                              const char* filterName = "All files",
+                                              const char* filterTypes = "*.*");
 
 } // namespace Platform

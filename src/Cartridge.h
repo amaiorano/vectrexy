@@ -6,7 +6,8 @@
 class Cartridge : public IMemoryBusDevice {
 public:
     void Init(MemoryBus& memoryBus);
-    void LoadRom(const char* file);
+    void Reset() {}
+    bool LoadRom(const char* file);
 
 private:
     uint8_t Read(uint16_t address) const override;

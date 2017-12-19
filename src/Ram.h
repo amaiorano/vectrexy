@@ -7,10 +7,9 @@
 
 class Ram : public IMemoryBusDevice {
 public:
-    void Init(MemoryBus& memoryBus) {
-        memoryBus.ConnectDevice(*this, MemoryMap::Ram.range);
-        std::fill(m_data.begin(), m_data.end(), static_cast<uint8_t>(0));
-    }
+    void Init(MemoryBus& memoryBus) { memoryBus.ConnectDevice(*this, MemoryMap::Ram.range); }
+
+    void Reset() { std::fill(m_data.begin(), m_data.end(), static_cast<uint8_t>(0)); }
 
     void Randomize(unsigned int seed) {
         std::uniform_int_distribution<> distribution{0, 255};

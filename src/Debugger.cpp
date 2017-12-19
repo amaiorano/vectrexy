@@ -722,6 +722,15 @@ void Debugger::Init(MemoryBus& memoryBus, Cpu& cpu, Via& via) {
         });
 }
 
+void Debugger::Reset() {
+    m_cpuCyclesLeft = 0;
+    m_breakpoints.Reset();
+    m_cpuCyclesTotal = 0;
+    m_cpuCyclesLeft = 0;
+    g_instructionTraceBuffer.Clear();
+    g_currTraceInfo = nullptr;
+}
+
 void Debugger::BreakIntoDebugger() {
     m_breakIntoDebugger = true;
     SetFocusConsole();
