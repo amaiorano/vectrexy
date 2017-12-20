@@ -83,7 +83,9 @@ bool Cartridge::LoadRom(const char* file) {
 }
 
 uint8_t Cartridge::Read(uint16_t address) const {
-    return m_data.at(MemoryMap::Cartridge.MapAddress(address));
+    auto mappedAddress = MemoryMap::Cartridge.MapAddress(address);
+    ASSERT_MSG(mappedAddress < m_data.size(), "Invalid Cartridge read at $%04x", address);
+    return m_data[mappedAddress];
 }
 
 void Cartridge::Write(uint16_t /*address*/, uint8_t /*value*/) {

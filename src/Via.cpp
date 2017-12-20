@@ -209,7 +209,7 @@ uint8_t Via::Read(uint16_t address) const {
         return interruptFlag;
     }
     case 0xE:
-        FAIL_MSG("Not implemented");
+        FAIL_MSG("Read InterruptEnable not implemented");
         return m_interruptEnable;
     case 0xF:
         FAIL_MSG("A without handshake not implemented yet");
@@ -325,7 +325,7 @@ void Via::Write(uint16_t address, uint8_t value) {
         m_timer1.SetInterruptFlag(TestBits(value, InterruptFlag::Timer1));
         break;
     case 0xE:
-        // FAIL_MSG("Not implemented");
+        // FAIL_MSG("Write InterruptEnable not implemented");
         m_interruptEnable = value;
         break;
     case 0xF:
