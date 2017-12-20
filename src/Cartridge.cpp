@@ -42,7 +42,7 @@ namespace {
             fs.ReadValue(musicLocation);
 
             // Title of game is a multiline string of position, string, 0x80 as newline marker.
-            const int MAX_LINES = 5; // Some reasonable max to look for
+            const int MAX_LINES = 10; // Some reasonable max to look for
             std::string title;
             for (int line = 0; line < MAX_LINES; ++line) {
                 uint8_t height, width, relY, relX;
