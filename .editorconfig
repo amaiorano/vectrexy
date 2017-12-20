@@ -2,3 +2,7 @@ root = true
 [*.{frag,vert}]
 indent_style = space
 indent_size = 4
+
+[*.md]
+indent_style = space
+indent_size = 4
