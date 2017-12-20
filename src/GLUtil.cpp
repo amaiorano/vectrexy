@@ -68,7 +68,7 @@ GLuint GLUtil::LoadShaders(const char* vertShaderFile, const char* fragShaderFil
     auto CompileShader = [CheckStatus](GLuint shaderId, const char* shaderFile) {
         auto shaderCode = FileToString(shaderFile);
         if (!shaderCode) {
-            printf("Failed to open %s", shaderFile);
+            printf("Failed to open %s\n", shaderFile);
             return false;
         }
         printf("Compiling shader : %s\n", shaderFile);

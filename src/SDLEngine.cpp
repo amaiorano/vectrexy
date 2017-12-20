@@ -8,10 +8,14 @@
 #include <SDL.h>
 #include <algorithm>
 #include <chrono>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <optional>
 #include <unordered_map>
+
+//@TODO: should be std::filesystem
+namespace fs = std::experimental::filesystem;
 
 // Include SDL_syswm.h for SDL_GetWindowWMInfo
 // This includes windows.h on Windows platforms, we have to do the usual dance of disabling certain
@@ -37,6 +41,30 @@ namespace {
     template <typename T>
     constexpr T MsToSec(T ms) {
         return static_cast<T>(ms / 1000.0);
+    }
+
+    bool FindAndSetRootPath(fs::path exePath) {
+        // Start by setting current directory to that of exectuable
+        // fs::current_path(exePath.remove_filename());
+
+        // Now look for bios file in current directory and up parent dirs
+        // and set current working directory to the one found.
+        const char* biosRomFile = "bios_rom.bin";
+
+        auto currDir = exePath.remove_filename();
+
+        // auto cwd = fs::current_path();
+        do {
+            if (fs::exists(currDir / biosRomFile)) {
+                fs::current_path(currDir);
+                printf("Root path set to: %s\n", fs::current_path().string().c_str());
+                return true;
+            }
+            currDir = currDir.parent_path();
+        } while (!currDir.empty());
+
+        fprintf(stderr, "Bios rom file not found: %s", biosRomFile);
+        return false;
     }
 
     Platform::WindowHandle GetMainWindowHandle() {
@@ -325,6 +353,9 @@ void SDLEngine::RegisterClient(IEngineClient& client) {
 }
 
 bool SDLEngine::Run(int argc, char** argv) {
+    if (!FindAndSetRootPath(fs::path(argv[0])))
+        return false;
+
     const auto options = LoadOptionsFile("options.txt");
 
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER) < 0) {
