@@ -137,24 +137,28 @@ namespace GLUtil {
         GLenum type{};
     };
 
+    const GLint DEFAULT_FILTERING = GL_NEAREST;
+
     void AllocateTexture(GLuint textureId, GLsizei width, GLsizei height, GLint internalFormat,
+                         std::optional<GLint> filtering = {},
                          std::optional<PixelData> pixelData = {});
 
-    bool LoadPngTexture(GLuint textureId, const char* file);
+    bool LoadPngTexture(GLuint textureId, const char* file, std::optional<GLint> filtering = {});
 
     class Texture {
     public:
         void Allocate(GLsizei width, GLsizei height, GLint internalFormat,
+                      std::optional<GLint> filtering = {},
                       std::optional<PixelData> pixelData = {}) {
             m_resource = MakeTextureResource();
-            AllocateTexture(*m_resource, width, height, internalFormat, pixelData);
+            AllocateTexture(*m_resource, width, height, internalFormat, filtering, pixelData);
             m_width = width;
             m_height = height;
         }
 
-        bool LoadPng(const char* file) {
+        bool LoadPng(const char* file, std::optional<GLint> filtering = {}) {
             TextureResource resource = MakeTextureResource();
-            if (LoadPngTexture(*resource, file)) {
+            if (LoadPngTexture(*resource, file, filtering)) {
                 m_resource = std::move(resource);
                 return true;
             }

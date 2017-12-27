@@ -16,24 +16,20 @@ namespace {
 } // namespace
 
 void GLUtil::AllocateTexture(GLuint textureId, GLsizei width, GLsizei height, GLint internalFormat,
-                             std::optional<PixelData> pixelData) {
+                             std::optional<GLint> filtering, std::optional<PixelData> pixelData) {
 
     auto pd = pixelData.value_or(GLUtil::PixelData{nullptr, GL_RGBA, GL_UNSIGNED_BYTE});
 
     glBindTexture(GL_TEXTURE_2D, textureId);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, width, height, 0, pd.format, pd.type, pd.pixels);
-    // By default, filtering is GL_LINEAR or GL_NEAREST_MIPMAP_LINEAR. We set to GL_NEAREST to
-    // avoid creating mipmaps and to make it less blurry.
-    // auto filtering = GL_LINEAR;
-    auto filtering = GL_NEAREST;
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filtering);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filtering);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filtering.value_or(DEFAULT_FILTERING));
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filtering.value_or(DEFAULT_FILTERING));
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 }
 
-bool GLUtil::LoadPngTexture(GLuint textureId, const char* file) {
+bool GLUtil::LoadPngTexture(GLuint textureId, const char* file, std::optional<GLint> filtering) {
     auto imgData = ImageFileUtils::loadPngImage(file);
 
     if (!imgData) {
@@ -41,7 +37,7 @@ bool GLUtil::LoadPngTexture(GLuint textureId, const char* file) {
     }
 
     AllocateTexture(
-        textureId, imgData->width, imgData->height, imgData->hasAlpha ? GL_RGBA : GL_RGB,
+        textureId, imgData->width, imgData->height, imgData->hasAlpha ? GL_RGBA : GL_RGB, filtering,
         PixelData{imgData->data.get(), static_cast<GLenum>(imgData->hasAlpha ? GL_RGBA : GL_RGB),
                   GL_UNSIGNED_BYTE});
     return true;

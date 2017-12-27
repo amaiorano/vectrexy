@@ -442,13 +442,13 @@ namespace GLRender {
         auto CreateEmptyOverlayTexture = [] {
             std::vector<uint8_t> emptyTexture;
             emptyTexture.resize(64 * 64 * 4);
-            g_overlayTexture.Allocate(64, 64, GL_RGBA,
+            g_overlayTexture.Allocate(64, 64, GL_RGBA, {},
                                       PixelData{&emptyTexture[0], GL_RGBA, GL_UNSIGNED_BYTE});
         };
 
         if (!file) {
             CreateEmptyOverlayTexture();
-        } else if (!g_overlayTexture.LoadPng(file)) {
+        } else if (!g_overlayTexture.LoadPng(file, GL_LINEAR)) {
             fprintf(stderr, "Failed to load overlay: %s\n", file);
 
             // If we fail, then allocate a min-sized transparent texture
