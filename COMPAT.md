@@ -29,7 +29,7 @@
 | Armor Attack (1982) (Spinner Hack) [a1]                      | InvalidRead       | Invalid Cartridge read at $10ad                           |
 | Armor Attack (1982) [b1]                                     | MissingOp         | Unhandled Op: SWI                                         |
 | Art Master (1983) (light pen)                                | Good?             | Can't get past the first screen, maybe emulate light pen? |
-| Art Master (1983) (light pen) [b1]                           | InvaidRead        | Invalid Cartridge read at $2803                           |
+| Art Master (1983) (light pen) [b1]                           | InvalidRead       | Invalid Cartridge read at $2803                           |
 | Bedlam (1983)                                                | MissingOp         | Unhandled Op: CWAI                                        |
 | Bedlam (1983) (Spinner Hack)                                 | MissingOp         | Unhandled Op: CWAI                                        |
 | Bedlam (1983) [b1]                                           | InvalidRead       | Invalid Cartridge read at $0ea3                           |
@@ -47,79 +47,79 @@
 | Cosmic Chasm (1982)                                          | Great             |                                                           |
 | Fortress of Narzod (1982)                                    | Great             |                                                           |
 | Fortress of Narzod (1982) [b1]                               | MissingOp         | Unhandled Op: SWI                                         |
-| Heads Up - Action Soccer (1983)                              |                   |                                                           |
-| Heads Up - Action Soccer (1983) [b1]                         |                   |                                                           |
-| Hyperchase (1982)                                            |                   |                                                           |
-| Hyperchase (1982) [b1]                                       |                   |                                                           |
-| Melody Master (1983) (light pen)                             |                   |                                                           |
-| Melody Master (1983) (light pen) [b1]                        |                   |                                                           |
-| Mine Storm (1982)                                            |                   |                                                           |
-| Mine Storm (1982) (Karrsoft Hack) [h1]                       |                   |                                                           |
-| Mine Storm (1982) (RLB Hack) [b1]                            |                   |                                                           |
-| Mine Storm (1982) (RLB Hack) [b1][o1]                        |                   |                                                           |
-| Mine Storm (1982) (RLB Hack) [b1][o2]                        |                   |                                                           |
-| Mine Storm (1982) (RLB Hack) [h1]                            |                   |                                                           |
-| Mine Storm (1982) (RLB Hack) [o1]                            |                   |                                                           |
-| Mine Storm (1982) (RLB Hack) [o2]                            |                   |                                                           |
-| Mine Storm II (1983)                                         |                   |                                                           |
-| Mine Storm II (1983) (Fred Taft Hack) [h1]                   |                   |                                                           |
-| Mine Storm II (1983) (Spinner Hack)                          |                   |                                                           |
-| Narrow Escape (2-D Version by Fred Taft) (1983) [h1]         |                   |                                                           |
-| Polar Rescue (1983)                                          |                   |                                                           |
-| Polar Rescue (1983) [a1]                                     |                   |                                                           |
-| Polar Rescue (1983) [a1][o1]                                 |                   |                                                           |
-| Polar Rescue (1983) [b1]                                     |                   |                                                           |
-| Pole Position (1982)                                         |                   |                                                           |
-| Pole Position (1982) (Spinner Hack)                          |                   |                                                           |
-| Pole Position (1982) [b1]                                    |                   |                                                           |
-| Pole Position (1982) [f1]                                    |                   |                                                           |
-| Rip-Off (1982)                                               |                   |                                                           |
-| Rip-Off (1982) [b1]                                          |                   |                                                           |
-| Scramble (1982)                                              |                   |                                                           |
-| Scramble (1982) [b1]                                         |                   |                                                           |
-| Solar Quest (1982)                                           |                   |                                                           |
-| Solar Quest (1982) (Spinner Hack)                            |                   |                                                           |
-| Solar Quest (1982) [b1]                                      |                   |                                                           |
-| Space Wars (1982)                                            |                   |                                                           |
-| Space Wars (1982) [b1]                                       |                   |                                                           |
-| Spike (1983)                                                 |                   |                                                           |
-| Spinball (1983)                                              |                   |                                                           |
-| Spinball (1983) [b1]                                         |                   |                                                           |
-| Spinball (1983) [b2]                                         |                   |                                                           |
-| Star Castle (1983)                                           |                   |                                                           |
-| Star Castle (1983) (Spinner Hack)                            |                   |                                                           |
-| Star Castle (1983) [b1]                                      |                   |                                                           |
-| Star Hawk (1982)                                             |                   |                                                           |
-| Star Hawk (1982) [b1]                                        |                   |                                                           |
-| Star Ship (1982)                                             |                   |                                                           |
-| Star Trek - The Motion Picture (1982)                        |                   |                                                           |
-| Star Trek - The Motion Picture (1982) (controller hack) [h1] |                   |                                                           |
-| Star Trek - The Motion Picture (1982) [a1]                   |                   |                                                           |
-| Star Trek - The Motion Picture (1982) [b1]                   |                   |                                                           |
-| Star Trek - The Motion Picture (1982) [o1]                   |                   |                                                           |
-| Web Warp (1983)                                              |                   |                                                           |
-| Web Wars (1983)                                              |                   |                                                           |
-| Web Wars (1983) [b1]                                         |                   |                                                           |
+| Heads Up - Action Soccer (1983)                              | Great             |                                                           |
+| Heads Up - Action Soccer (1983) [b1]                         | IllegalInstr      | cpuOp.addrMode != AddressingMode::Illegal                 |
+| Hyperchase (1982)                                            | Meh               | No crash, but only can drive straight, no NPCs, etc.      |
+| Hyperchase (1982) [b1]                                       | IllegalInstr      | cpuOp.addrMode != AddressingMode::Illegal                 |
+| Melody Master (1983) (light pen)                             | UNTESTED          |                                                           |
+| Melody Master (1983) (light pen) [b1]                        | UNTESTED          |                                                           |
+| Mine Storm (1982)                                            | Great             |                                                           |
+| Mine Storm (1982) (Karrsoft Hack) [h1]                       | Great             |                                                           |
+| Mine Storm (1982) (RLB Hack) [b1]                            | InvalidRead       | Invalid Cartridge read at $7fc8                           |
+| Mine Storm (1982) (RLB Hack) [b1][o1]                        | InvalidRead       | Invalid Cartridge read at $7fc8                           |
+| Mine Storm (1982) (RLB Hack) [b1][o2]                        | InvalidRead       | Invalid Cartridge read at $7fc8                           |
+| Mine Storm (1982) (RLB Hack) [h1]                            | Good              | Invalid Cartridge read at $3409 on shoot spawned enemy    |
+| Mine Storm (1982) (RLB Hack) [o1]                            | Good              |                                                           |
+| Mine Storm (1982) (RLB Hack) [o2]                            | Good              |                                                           |
+| Mine Storm II (1983)                                         | Good              |                                                           |
+| Mine Storm II (1983) (Fred Taft Hack) [h1]                   | UNTESTED          |                                                           |
+| Mine Storm II (1983) (Spinner Hack)                          | UNTESTED          |                                                           |
+| Narrow Escape (2-D Version by Fred Taft) (1983) [h1]         | InvalidRead       | After some play: Invalid Cartridge read at $340e          |
+| Polar Rescue (1983)                                          | Meh               | Starts well, but once enter water, nothing                |
+| Polar Rescue (1983) [a1]                                     | UNTESTED          |                                                           |
+| Polar Rescue (1983) [a1][o1]                                 | UNTESTED          |                                                           |
+| Polar Rescue (1983) [b1]                                     | UNTESTED          |                                                           |
+| Pole Position (1982)                                         | InvalidRead       | Read from unmapped range at address $bd14                 |
+| Pole Position (1982) (Spinner Hack)                          | UNTESTED          |                                                           |
+| Pole Position (1982) [b1]                                    | UNTESTED          |                                                           |
+| Pole Position (1982) [f1]                                    | UNTESTED          |                                                           |
+| Rip-Off (1982)                                               | Great             |                                                           |
+| Rip-Off (1982) [b1]                                          | UNTESTED          |                                                           |
+| Scramble (1982)                                              | InvalidRead       | Invalid Cartridge read at $1000                           |
+| Scramble (1982) [b1]                                         | UNTESTED          |                                                           |
+| Solar Quest (1982)                                           | Meh               | Ship keeps turning (input issue)                          |
+| Solar Quest (1982) (Spinner Hack)                            | UNTESTED          |                                                           |
+| Solar Quest (1982) [b1]                                      | UNTESTED          |                                                           |
+| Space Wars (1982)                                            | Great             |                                                           |
+| Space Wars (1982) [b1]                                       | UNTESTED          |                                                           |
+| Spike (1983)                                                 | Great             |                                                           |
+| Spinball (1983)                                              | InvalidRead       | Read from unmapped range at address $80fa                 |
+| Spinball (1983) [b1]                                         | UNTESTED          |                                                           |
+| Spinball (1983) [b2]                                         | UNTESTED          |                                                           |
+| Star Castle (1983)                                           | Great             |                                                           |
+| Star Castle (1983) (Spinner Hack)                            | UNTESTED          |                                                           |
+| Star Castle (1983) [b1]                                      | UNTESTED          |                                                           |
+| Star Hawk (1982)                                             | Meh               | Works, but aim input doesn't work properly (keeps moving) |
+| Star Hawk (1982) [b1]                                        | UNTESTED          |                                                           |
+| Star Ship (1982)                                             | Great             |                                                           |
+| Star Trek - The Motion Picture (1982)                        | Good              | Font render not perfect, bars crooked at bottom           |
+| Star Trek - The Motion Picture (1982) (controller hack) [h1] | UNTESTED          |                                                           |
+| Star Trek - The Motion Picture (1982) [a1]                   | UNTESTED          |                                                           |
+| Star Trek - The Motion Picture (1982) [b1]                   | UNTESTED          |                                                           |
+| Star Trek - The Motion Picture (1982) [o1]                   | UNTESTED          |                                                           |
+| Web Warp (1983)                                              | Great             |                                                           |
+| Web Wars (1983)                                              | UNTESTED          |                                                           |
+| Web Wars (1983) [b1]                                         | UNTESTED          |                                                           |
 
 ## Commercial Unreleased Roms
 
-| Rom                                                          | Status         | Comment                                                          |
-| ------------------------------------------------------------ | -------------- | ---------------------------------------------------------------- |
-| Dark Tower (1983) (Prototype)                                | Good?             | Not sure.                                                 |
-| Dark Tower (1983) (Prototype) (Fred Taft Hack) [h1]          | UNTESTED          |                                                           |
-| Dark Tower (1983) (Prototype) [b1]                           | UNTESTED          |                                                           |
-| Dark Tower (1983) (Prototype) [b2]                           | UNTESTED          |                                                           |
-| Dark Tower (1983) (Prototype) [b3]                           | UNTESTED          |                                                           |
-| Dual Vectrex Test #1 (1983) (PD)                             | UNTESTED          |                                                           |
-| Dual Vectrex Test #1 (1983) (PD) [b1]                        | UNTESTED          |                                                           |
-| Dual Vectrex Test #2 (1983) (PD)                             | UNTESTED          |                                                           |
-| Dual Vectrex Test #2 (1983) (PD) [b1]                        | UNTESTED          |                                                           |
-| Engine Analyzer (1983) (light pen)                           | UNTESTED          |                                                           |
-| Spectrum I+ Demo (1982) (PD)                                 |                   |                                                           |
-| Test Rev. 4 (1982) (PD)                                      |                   |                                                           |
-| Test Rev. 4 (1982) (PD) [b1]                                 |                   |                                                           |
-| Tour De France (1983) (Prototype)                            |                   |                                                           |
-| Vectrex BIOS (1982)                                          |                   |                                                           |
+| Rom                                                 | Status   | Comment   |
+| --------------------------------------------------- | -------- | --------- |
+| Dark Tower (1983) (Prototype)                       | Good?    | Not sure. |
+| Dark Tower (1983) (Prototype) (Fred Taft Hack) [h1] | UNTESTED |           |
+| Dark Tower (1983) (Prototype) [b1]                  | UNTESTED |           |
+| Dark Tower (1983) (Prototype) [b2]                  | UNTESTED |           |
+| Dark Tower (1983) (Prototype) [b3]                  | UNTESTED |           |
+| Dual Vectrex Test #1 (1983) (PD)                    | UNTESTED |           |
+| Dual Vectrex Test #1 (1983) (PD) [b1]               | UNTESTED |           |
+| Dual Vectrex Test #2 (1983) (PD)                    | UNTESTED |           |
+| Dual Vectrex Test #2 (1983) (PD) [b1]               | UNTESTED |           |
+| Engine Analyzer (1983) (light pen)                  | UNTESTED |           |
+| Spectrum I+ Demo (1982) (PD)                        |          |           |
+| Test Rev. 4 (1982) (PD)                             |          |           |
+| Test Rev. 4 (1982) (PD) [b1]                        |          |           |
+| Tour De France (1983) (Prototype)                   |          |           |
+| Vectrex BIOS (1982)                                 |          |           |
 
 ## Homebrew Roms
 
