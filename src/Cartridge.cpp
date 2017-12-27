@@ -33,7 +33,7 @@ namespace {
             if (copyright.size() < requiredCopyright.size() ||
                 memcmp(copyright.data(), requiredCopyright.data(),
                        sizeof(requiredCopyright) != 0)) {
-                FAIL_MSG("Invalid rom");
+                fprintf(stderr, "Warning: missing \"g GCE\" copyright string at start of rom\n");
             }
 
             // Location of music from ROM
