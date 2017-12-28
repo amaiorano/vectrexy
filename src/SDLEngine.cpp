@@ -397,101 +397,10 @@ bool SDLEngine::Run(int argc, char** argv) {
     // Clear at least once, required for certain drivers that don't clear the buffers
     display.Clear();
 
-    auto lastTime = std::chrono::high_resolution_clock::now();
-
     bool quit = false;
-    SDL_Event sdlEvent;
     while (!quit) {
-        while (SDL_PollEvent(&sdlEvent) != 0) {
-            ImGui_ImplSdlGL3_ProcessEvent(&sdlEvent);
-            if (sdlEvent.type == SDL_QUIT) {
-                quit = true;
-            }
-
-            switch (sdlEvent.type) {
-            case SDL_WINDOWEVENT:
-                switch (sdlEvent.window.event) {
-                case SDL_WINDOWEVENT_SIZE_CHANGED:
-                    GLRender::OnWindowResized(sdlEvent.window.data1, sdlEvent.window.data2);
-                    break;
-                }
-                break;
-
-            case SDL_CONTROLLERDEVICEADDED:
-                AddController(sdlEvent.cdevice.which);
-                break;
-
-            case SDL_CONTROLLERDEVICEREMOVED:
-                RemoveController(sdlEvent.cdevice.which);
-                break;
-
-            case SDL_CONTROLLERBUTTONDOWN:
-            case SDL_CONTROLLERBUTTONUP: {
-                const auto& cbutton = sdlEvent.cbutton;
-                const bool buttonDown = sdlEvent.type == SDL_CONTROLLERBUTTONDOWN;
-                GetGamepadByInstanceId(sdlEvent.cbutton.which)
-                    .OnButtonStateChange(cbutton.button, buttonDown);
-            } break;
-
-            case SDL_CONTROLLERAXISMOTION: {
-                const auto& caxis = sdlEvent.caxis;
-                GetGamepadByInstanceId(sdlEvent.cdevice.which)
-                    .OnAxisStateChange(caxis.axis, caxis.value);
-            } break;
-
-            case SDL_KEYDOWN:
-            case SDL_KEYUP:
-                g_keyboard.OnKeyStateChange(sdlEvent.key);
-                break;
-            }
-        }
-
-        // Update time
-        const auto currTime = std::chrono::high_resolution_clock::now();
-        const std::chrono::duration<double> diff = currTime - lastTime;
-        const double realFrameTime = diff.count();
-        lastTime = currTime;
-
-        // FPS
-        {
-            static double frames = 0;
-            static double elapsedTime = 0;
-            frames += 1;
-            elapsedTime += realFrameTime;
-            if (elapsedTime >= 1) {
-                double currFps = frames / elapsedTime;
-                static double avgFps = currFps;
-                avgFps = avgFps * 0.75 + currFps * 0.25;
-
-                SDL_SetWindowTitle(g_window, FormattedString<>("%s - FPS: %.2f (avg: %.2f)",
-                                                               WINDOW_TITLE, currFps, avgFps));
-
-                frames = 0;
-                elapsedTime = elapsedTime - 1.0;
-            }
-        }
-
-        // Compute frame time
-        const double frameTime = [&] {
-            // Clamp
-            double frameTime = std::min(realFrameTime, MsToSec(100.0));
-
-            // Reset to 0 if paused
-            static bool pause = false;
-            UpdatePauseState(pause);
-            if (pause)
-                frameTime = 0.0;
-
-            static bool turbo = false;
-            UpdateTurboMode(turbo);
-            if (turbo)
-                frameTime *= 10;
-
-            return frameTime;
-        }();
-
-        ImGui_ImplSdlGL3_NewFrame(g_window);
-
+        const auto frameTime = UpdateFrameTime();
+        PollEvents(quit);
         auto input = UpdateInput();
 
         auto emuEvents = EmuEvents{};
@@ -499,10 +408,10 @@ bool SDLEngine::Run(int argc, char** argv) {
             g_keyboard.GetKeyState(SDL_SCANCODE_C).down) {
             emuEvents.push_back({EmuEvent::Type::BreakIntoDebugger});
 
-            // @HACK: Because the SDL window ends up losing focus to the console window, we don't
-            // get the KEY_UP events for these keys right away, so "continuing" from the console
-            // ends up breaking back into it again. We avoid this by explicitly clearing the state
-            // of these keys.
+            // @HACK: Because the SDL window ends up losing focus to the console window, we
+            // don't get the KEY_UP events for these keys right away, so "continuing" from the
+            // console ends up breaking back into it again. We avoid this by explicitly clearing
+            // the state of these keys.
             g_keyboard.ResetKeyState(SDL_SCANCODE_LCTRL);
             g_keyboard.ResetKeyState(SDL_SCANCODE_C);
         }
@@ -517,13 +426,15 @@ bool SDLEngine::Run(int argc, char** argv) {
             emuEvents.push_back({EmuEvent::Type::OpenRomFile});
         }
 
+        ImGui_ImplSdlGL3_NewFrame(g_window);
+
         if (!g_client->Update(frameTime, input, emuEvents))
             quit = true;
 
         g_client->Render(frameTime, display);
+
         GLRender::RenderScene(frameTime);
         ImGui::Render();
-
         SDL_GL_SwapWindow(g_window);
 
         g_keyboard.PostFrameUpdateKeyStates();
@@ -538,4 +449,94 @@ bool SDLEngine::Run(int argc, char** argv) {
     SDL_Quit();
 
     return true;
+}
+
+void SDLEngine::PollEvents(bool& quit) {
+    SDL_Event sdlEvent;
+
+    while (SDL_PollEvent(&sdlEvent) != 0) {
+        ImGui_ImplSdlGL3_ProcessEvent(&sdlEvent);
+        if (sdlEvent.type == SDL_QUIT) {
+            quit = true;
+        }
+
+        switch (sdlEvent.type) {
+        case SDL_WINDOWEVENT:
+            switch (sdlEvent.window.event) {
+            case SDL_WINDOWEVENT_SIZE_CHANGED:
+                GLRender::OnWindowResized(sdlEvent.window.data1, sdlEvent.window.data2);
+                break;
+            }
+            break;
+
+        case SDL_CONTROLLERDEVICEADDED:
+            AddController(sdlEvent.cdevice.which);
+            break;
+
+        case SDL_CONTROLLERDEVICEREMOVED:
+            RemoveController(sdlEvent.cdevice.which);
+            break;
+
+        case SDL_CONTROLLERBUTTONDOWN:
+        case SDL_CONTROLLERBUTTONUP: {
+            const auto& cbutton = sdlEvent.cbutton;
+            const bool buttonDown = sdlEvent.type == SDL_CONTROLLERBUTTONDOWN;
+            GetGamepadByInstanceId(sdlEvent.cbutton.which)
+                .OnButtonStateChange(cbutton.button, buttonDown);
+        } break;
+
+        case SDL_CONTROLLERAXISMOTION: {
+            const auto& caxis = sdlEvent.caxis;
+            GetGamepadByInstanceId(sdlEvent.cdevice.which)
+                .OnAxisStateChange(caxis.axis, caxis.value);
+        } break;
+
+        case SDL_KEYDOWN:
+        case SDL_KEYUP:
+            g_keyboard.OnKeyStateChange(sdlEvent.key);
+            break;
+        }
+    }
+}
+
+double SDLEngine::UpdateFrameTime() {
+    static auto lastTime = std::chrono::high_resolution_clock::now();
+    const auto currTime = std::chrono::high_resolution_clock::now();
+    const std::chrono::duration<double> diff = currTime - lastTime;
+    const double realFrameTime = diff.count();
+    lastTime = currTime;
+
+    // FPS
+    static double frames = 0;
+    static double elapsedTime = 0;
+    frames += 1;
+    elapsedTime += realFrameTime;
+    if (elapsedTime >= 1) {
+        double currFps = frames / elapsedTime;
+        static double avgFps = currFps;
+        avgFps = avgFps * 0.75 + currFps * 0.25;
+
+        SDL_SetWindowTitle(g_window, FormattedString<>("%s - FPS: %.2f (avg: %.2f)", WINDOW_TITLE,
+                                                       currFps, avgFps));
+
+        frames = 0;
+        elapsedTime = elapsedTime - 1.0;
+    }
+
+    // Clamp
+    double frameTime = std::min(realFrameTime, MsToSec(100.0));
+
+    // Reset to 0 if paused
+    static bool pause = false;
+    UpdatePauseState(pause);
+    if (pause)
+        frameTime = 0.0;
+
+    // Scale up if turbo
+    static bool turbo = false;
+    UpdateTurboMode(turbo);
+    if (turbo)
+        frameTime *= 10;
+
+    return frameTime;
 }

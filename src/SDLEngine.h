@@ -9,4 +9,8 @@ public:
 
     // Blocking call, returns when application is exited (window closed, etc.)
     bool Run(int argc, char** argv);
+
+private:
+    void PollEvents(bool& quit);
+    double UpdateFrameTime();
 };
