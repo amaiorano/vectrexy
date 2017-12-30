@@ -1,4 +1,5 @@
 #include "Cartridge.h"
+#include "ConsoleOutput.h"
 #include "MemoryMap.h"
 #include "Stream.h"
 #include <vector>
@@ -33,7 +34,7 @@ namespace {
             if (copyright.size() < requiredCopyright.size() ||
                 memcmp(copyright.data(), requiredCopyright.data(),
                        sizeof(requiredCopyright) != 0)) {
-                fprintf(stderr, "Warning: missing \"g GCE\" copyright string at start of rom\n");
+                Errorf("Warning: missing \"g GCE\" copyright string at start of rom\n");
             }
 
             // Location of music from ROM

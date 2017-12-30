@@ -1,4 +1,5 @@
 #include "GLUtil.h"
+#include "ConsoleOutput.h"
 #include "ImageFileUtils.h"
 #include <fstream>
 #include <sstream>
@@ -56,7 +57,7 @@ GLuint GLUtil::LoadShaders(const char* vertShaderFile, const char* fragShaderFil
                 glGetShaderInfoLog(id, infoLogLength, NULL, info.data());
             else
                 glGetProgramInfoLog(id, infoLogLength, NULL, info.data());
-            printf("%s", info.data());
+            Printf("%s", info.data());
         }
         return true;
     };
@@ -64,10 +65,10 @@ GLuint GLUtil::LoadShaders(const char* vertShaderFile, const char* fragShaderFil
     auto CompileShader = [CheckStatus](GLuint shaderId, const char* shaderFile) {
         auto shaderCode = FileToString(shaderFile);
         if (!shaderCode) {
-            printf("Failed to open %s\n", shaderFile);
+            Printf("Failed to open %s\n", shaderFile);
             return false;
         }
-        printf("Compiling shader : %s\n", shaderFile);
+        Printf("Compiling shader : %s\n", shaderFile);
         auto sourcePtr = shaderCode->c_str();
         glShaderSource(shaderId, 1, &sourcePtr, NULL);
         glCompileShader(shaderId);
@@ -75,7 +76,7 @@ GLuint GLUtil::LoadShaders(const char* vertShaderFile, const char* fragShaderFil
     };
 
     auto LinkProgram = [CheckStatus](GLuint programId) {
-        printf("Linking program\n");
+        Printf("Linking program\n");
         glLinkProgram(programId);
         return CheckStatus(programId, GL_LINK_STATUS);
     };

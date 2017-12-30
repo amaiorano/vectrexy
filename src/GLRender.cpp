@@ -1,4 +1,5 @@
 #include "GLRender.h"
+#include "ConsoleOutput.h"
 #include "EngineClient.h"
 #include "GLUtil.h"
 
@@ -449,7 +450,7 @@ namespace GLRender {
         if (!file) {
             CreateEmptyOverlayTexture();
         } else if (!g_overlayTexture.LoadPng(file, GL_LINEAR)) {
-            fprintf(stderr, "Failed to load overlay: %s\n", file);
+            Errorf("Failed to load overlay: %s\n", file);
 
             // If we fail, then allocate a min-sized transparent texture
             CreateEmptyOverlayTexture();

@@ -1,5 +1,6 @@
 #include "SDLEngine.h"
 
+#include "ConsoleOutput.h"
 #include "EngineClient.h"
 #include "GLRender.h"
 #include "Platform.h"
@@ -57,13 +58,13 @@ namespace {
         do {
             if (fs::exists(currDir / biosRomFile)) {
                 fs::current_path(currDir);
-                printf("Root path set to: %s\n", fs::current_path().string().c_str());
+                Printf("Root path set to: %s\n", fs::current_path().string().c_str());
                 return true;
             }
             currDir = currDir.parent_path();
         } while (!currDir.empty());
 
-        fprintf(stderr, "Bios rom file not found: %s", biosRomFile);
+        Errorf("Bios rom file not found: %s", biosRomFile);
         return false;
     }
 
@@ -174,7 +175,7 @@ namespace {
 
     void AddController(int index) {
         if (index >= 2) {
-            printf("Cannot support more than 2 gamepads\n");
+            Printf("Cannot support more than 2 gamepads\n");
             return;
         }
 

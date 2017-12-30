@@ -1,6 +1,7 @@
 #include "Base.h"
 #include "BiosRom.h"
 #include "Cartridge.h"
+#include "ConsoleOutput.h"
 #include "Cpu.h"
 #include "Debugger.h"
 #include "EngineClient.h"
@@ -59,7 +60,7 @@ private:
 
     bool LoadRom(const char* file) {
         if (!m_cartridge.LoadRom(file)) {
-            fprintf(stderr, "Failed to load rom file: %s\n", file);
+            Errorf("Failed to load rom file: %s\n", file);
             return false;
         }
 
@@ -68,10 +69,10 @@ private:
         auto overlayPath = m_overlays.FindOverlay(file);
         if (overlayPath) {
             auto path = overlayPath->string();
-            fprintf(stderr, "Found overlay for %s: %s\n", file, path.c_str());
+            Errorf("Found overlay for %s: %s\n", file, path.c_str());
             ResetOverlay(path.c_str());
         } else {
-            fprintf(stderr, "No overlay found for %s\n", file);
+            Errorf("No overlay found for %s\n", file);
             ResetOverlay();
         }
 

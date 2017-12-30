@@ -1,5 +1,6 @@
 #include "Debugger.h"
 #include "CircularBuffer.h"
+#include "ConsoleOutput.h"
 #include "Cpu.h"
 #include "CpuHelpers.h"
 #include "CpuOpCodes.h"
@@ -32,33 +33,6 @@ namespace {
     private:
         decltype(Platform::GetConsoleCtrlHandler()) m_oldHandler;
     };
-
-    namespace internal {
-        FILE* g_printStream = stdout;
-    }
-
-    struct ScopedOverridePrintStream {
-        ScopedOverridePrintStream() {}
-        ScopedOverridePrintStream(FILE* stream) { SetPrintStream(stream); }
-        ~ScopedOverridePrintStream() {
-            if (m_oldStream)
-                internal::g_printStream = m_oldStream;
-        }
-
-        void SetPrintStream(FILE* stream) {
-            assert(m_oldStream == nullptr);
-            m_oldStream = internal::g_printStream;
-            internal::g_printStream = stream;
-        }
-
-    private:
-        FILE* m_oldStream = nullptr;
-    };
-
-    template <typename... Args>
-    void Printf(const char* format, Args... args) {
-        fprintf(internal::g_printStream, format, args...);
-    }
 
     template <typename T>
     T HexStringToIntegral(const char* s) {
