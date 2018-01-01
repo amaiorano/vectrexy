@@ -1763,10 +1763,11 @@ public:
     }
 };
 
-Cpu::Cpu()
-    : m_impl(std::make_unique<CpuImpl>()) {}
+Cpu::Cpu() {
+    m_impl.Construct();
+}
 
-Cpu::~Cpu() {}
+Cpu::~Cpu() = default;
 
 void Cpu::Init(MemoryBus& memoryBus) {
     m_impl->Init(memoryBus);

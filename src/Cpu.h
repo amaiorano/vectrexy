@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Base.h"
-#include <memory>
+#include "Pimpl.h"
 
 class MemoryBus;
 
@@ -72,5 +72,5 @@ public:
     const CpuRegisters& Registers();
 
 private:
-    std::unique_ptr<class CpuImpl> m_impl;
+    pimpl::Pimpl<class CpuImpl, 32> m_impl;
 };
