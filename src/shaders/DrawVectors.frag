@@ -2,8 +2,6 @@ R"ShaderSource(
 #version 330 core
 
 in float vertexBrightness;
-
-// Ouput data
 out vec3 color;
 
 void main() {
