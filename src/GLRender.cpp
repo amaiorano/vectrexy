@@ -193,39 +193,39 @@ namespace {
     // Stringified shader source
     namespace ShaderSource {
         const char* CombineVectorsAndGlow_frag =
-#include "../shaders/CombineVectorsAndGlow.frag"
+#include "shaders/CombineVectorsAndGlow.frag"
             ;
 
         const char* CopyTexture_frag =
-#include "../shaders/CopyTexture.frag"
+#include "shaders/CopyTexture.frag"
             ;
 
         const char* DarkenTexture_frag =
-#include "../shaders/DarkenTexture.frag"
+#include "shaders/DarkenTexture.frag"
             ;
 
         const char* DrawScreen_frag =
-#include "../shaders/DrawScreen.frag"
+#include "shaders/DrawScreen.frag"
             ;
 
         const char* DrawTexture_frag =
-#include "../shaders/DrawTexture.frag"
+#include "shaders/DrawTexture.frag"
             ;
 
         const char* DrawVectors_frag =
-#include "../shaders/DrawVectors.frag"
+#include "shaders/DrawVectors.frag"
             ;
 
         const char* DrawVectors_vert =
-#include "../shaders/DrawVectors.vert"
+#include "shaders/DrawVectors.vert"
             ;
 
         const char* Glow_frag =
-#include "../shaders/Glow.frag"
+#include "shaders/Glow.frag"
             ;
 
         const char* Passthrough_vert =
-#include "../shaders/Passthrough.vert"
+#include "shaders/Passthrough.vert"
             ;
     } // namespace ShaderSource
 
