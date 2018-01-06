@@ -1,3 +1,4 @@
+R"ShaderSource(
 #version 330 core
 
 in vec2 UV;
@@ -44,3 +45,4 @@ void main() {
     /////finalColor = max(finalColor, vec3(0)); // Clamp to 0
     ///color = finalColor;
 }
+)ShaderSource"

@@ -1,3 +1,4 @@
+R"ShaderSource(
 #version 330 core
 
 in vec2 UV;
@@ -19,3 +20,4 @@ void main() {
 
     color = texture( renderedTexture, UV ).rgba;
 }
+)ShaderSource"

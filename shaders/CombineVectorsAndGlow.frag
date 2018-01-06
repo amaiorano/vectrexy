@@ -1,3 +1,4 @@
+R"ShaderSource(
 #version 330 core
 
 in vec2 UV;
@@ -11,3 +12,4 @@ void main() {
     vec3 c2 = texture( glowTexture, UV ).rgb;
     color = max(c1, c2);
 }
+)ShaderSource"

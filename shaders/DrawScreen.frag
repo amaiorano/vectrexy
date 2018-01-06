@@ -1,3 +1,4 @@
+R"ShaderSource(
 #version 330 core
 
 in vec2 UV;
@@ -13,3 +14,4 @@ void main() {
     float ratio = max(0, c2.a - (1 - overlayAlpha));
     color = mix(c1, vec3(c2), ratio);
 }
+)ShaderSource"
