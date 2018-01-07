@@ -1763,10 +1763,7 @@ public:
     }
 };
 
-Cpu::Cpu() {
-    m_impl.Construct();
-}
-
+Cpu::Cpu() = default;
 Cpu::~Cpu() = default;
 
 void Cpu::Init(MemoryBus& memoryBus) {
