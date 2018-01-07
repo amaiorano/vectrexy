@@ -190,6 +190,45 @@ namespace {
 } // namespace
 
 namespace {
+    // Stringified shader source
+    namespace ShaderSource {
+        const char* CombineVectorsAndGlow_frag =
+#include "shaders/CombineVectorsAndGlow.frag"
+            ;
+
+        const char* CopyTexture_frag =
+#include "shaders/CopyTexture.frag"
+            ;
+
+        const char* DarkenTexture_frag =
+#include "shaders/DarkenTexture.frag"
+            ;
+
+        const char* DrawScreen_frag =
+#include "shaders/DrawScreen.frag"
+            ;
+
+        const char* DrawTexture_frag =
+#include "shaders/DrawTexture.frag"
+            ;
+
+        const char* DrawVectors_frag =
+#include "shaders/DrawVectors.frag"
+            ;
+
+        const char* DrawVectors_vert =
+#include "shaders/DrawVectors.vert"
+            ;
+
+        const char* Glow_frag =
+#include "shaders/Glow.frag"
+            ;
+
+        const char* Passthrough_vert =
+#include "shaders/Passthrough.vert"
+            ;
+    } // namespace ShaderSource
+
     class ShaderPass {
     protected:
         ShaderPass() = default;
@@ -199,7 +238,7 @@ namespace {
     class DrawVectorsPass : public ShaderPass {
     public:
         void Init() {
-            m_shader.LoadShaders("shaders/DrawVectors.vert", "shaders/DrawVectors.frag");
+            m_shader.LoadShaders(ShaderSource::DrawVectors_vert, ShaderSource::DrawVectors_frag);
         }
 
         void Draw(const std::vector<VertexData>& VA1, GLenum mode1,
@@ -260,7 +299,7 @@ namespace {
     class DarkenTexturePass : public ShaderPass {
     public:
         void Init() {
-            m_shader.LoadShaders("shaders/PassThrough.vert", "shaders/DarkenTexture.frag");
+            m_shader.LoadShaders(ShaderSource::Passthrough_vert, ShaderSource::DarkenTexture_frag);
         }
 
         void Draw(const Texture& inputTexture, const Texture& outputTexture, float frameTime) {
@@ -283,7 +322,9 @@ namespace {
 
     class GlowPass : public ShaderPass {
     public:
-        void Init() { m_shader.LoadShaders("shaders/PassThrough.vert", "shaders/Glow.frag"); }
+        void Init() {
+            m_shader.LoadShaders(ShaderSource::Passthrough_vert, ShaderSource::Glow_frag);
+        }
 
         void Draw(const Texture& inputTexture, const Texture& tempTexture,
                   const Texture& outputTexture) {
@@ -326,7 +367,8 @@ namespace {
     class CombineVectorsAndGlowPass : ShaderPass {
     public:
         void Init() {
-            m_shader.LoadShaders("shaders/Passthrough.vert", "shaders/CombineVectorsAndGlow.frag");
+            m_shader.LoadShaders(ShaderSource::Passthrough_vert,
+                                 ShaderSource::CombineVectorsAndGlow_frag);
         }
 
         void Draw(const Texture& inputVectorsTexture, const Texture& inputGlowTexture,
@@ -347,7 +389,7 @@ namespace {
     class GameScreenToCrtTexturePass : ShaderPass {
     public:
         void Init() {
-            m_shader.LoadShaders("shaders/Passthrough.vert", "shaders/DrawTexture.frag");
+            m_shader.LoadShaders(ShaderSource::Passthrough_vert, ShaderSource::DrawTexture_frag);
         }
 
         void Draw(const Texture& inputTexture, const Texture& outputTexture) {
@@ -365,7 +407,9 @@ namespace {
 
     class RenderToScreenPass : ShaderPass {
     public:
-        void Init() { m_shader.LoadShaders("shaders/Passthrough.vert", "shaders/DrawScreen.frag"); }
+        void Init() {
+            m_shader.LoadShaders(ShaderSource::Passthrough_vert, ShaderSource::DrawScreen_frag);
+        }
 
         void Draw(const Texture& inputCrtTexture, const Texture& inputOverlayTexture) {
             static float overlayAlpha = 1.0f;

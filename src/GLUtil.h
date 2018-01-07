@@ -178,7 +178,8 @@ namespace GLUtil {
     // Shaders
     ////////////////////////////////
 
-    GLuint LoadShaders(const char* vertShaderFile, const char* fragShaderFile);
+    GLuint LoadShadersFromFiles(const char* vertShaderFile, const char* fragShaderFile);
+    GLuint LoadShaders(const char* vertShaderCode, const char* fragShaderCode);
 
     inline void SetUniform(GLuint shader, const char* name, GLint value) {
         GLuint id = glGetUniformLocation(shader, name);

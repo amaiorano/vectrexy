@@ -1,3 +1,4 @@
+R"ShaderSource(
 #version 330 core
 
 in vec2 UV;
@@ -40,3 +41,4 @@ void main() {
 
     color = sum.rgb;
 }
+)ShaderSource"

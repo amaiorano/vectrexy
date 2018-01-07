@@ -44,7 +44,23 @@ bool GLUtil::LoadPngTexture(GLuint textureId, const char* file, std::optional<GL
     return true;
 }
 
-GLuint GLUtil::LoadShaders(const char* vertShaderFile, const char* fragShaderFile) {
+GLuint GLUtil::LoadShadersFromFiles(const char* vertShaderFile, const char* fragShaderFile) {
+    auto vertShaderCode = FileToString(vertShaderFile);
+    if (!vertShaderCode) {
+        Errorf("Failed to open %s\n", vertShaderFile);
+        return 0;
+    }
+
+    auto fragShaderCode = FileToString(fragShaderFile);
+    if (!fragShaderCode) {
+        Errorf("Failed to open %s\n", fragShaderFile);
+        return 0;
+    }
+
+    return LoadShaders(vertShaderCode->c_str(), fragShaderCode->c_str());
+}
+
+GLuint GLUtil::LoadShaders(const char* vertShaderCode, const char* fragShaderCode) {
     auto CheckStatus = [](GLuint id, GLenum pname) {
         assert(pname == GL_COMPILE_STATUS || pname == GL_LINK_STATUS);
         GLint result = GL_FALSE;
@@ -57,36 +73,31 @@ GLuint GLUtil::LoadShaders(const char* vertShaderFile, const char* fragShaderFil
                 glGetShaderInfoLog(id, infoLogLength, NULL, info.data());
             else
                 glGetProgramInfoLog(id, infoLogLength, NULL, info.data());
-            Printf("%s", info.data());
+            Errorf("%s", info.data());
         }
         return true;
     };
 
-    auto CompileShader = [CheckStatus](GLuint shaderId, const char* shaderFile) {
-        auto shaderCode = FileToString(shaderFile);
-        if (!shaderCode) {
-            Printf("Failed to open %s\n", shaderFile);
-            return false;
-        }
-        Printf("Compiling shader : %s\n", shaderFile);
-        auto sourcePtr = shaderCode->c_str();
+    auto CompileShader = [CheckStatus](GLuint shaderId, const char* shaderCode) {
+        // Printf("Compiling shader : %s\n", shaderFile);
+        auto sourcePtr = shaderCode;
         glShaderSource(shaderId, 1, &sourcePtr, NULL);
         glCompileShader(shaderId);
         return CheckStatus(shaderId, GL_COMPILE_STATUS);
     };
 
     auto LinkProgram = [CheckStatus](GLuint programId) {
-        Printf("Linking program\n");
+        // Printf("Linking program\n");
         glLinkProgram(programId);
         return CheckStatus(programId, GL_LINK_STATUS);
     };
 
     GLuint vertShaderId = glCreateShader(GL_VERTEX_SHADER);
-    if (!CompileShader(vertShaderId, vertShaderFile))
+    if (!CompileShader(vertShaderId, vertShaderCode))
         return 0;
 
     GLuint fragShaderId = glCreateShader(GL_FRAGMENT_SHADER);
-    if (!CompileShader(fragShaderId, fragShaderFile))
+    if (!CompileShader(fragShaderId, fragShaderCode))
         return 0;
 
     GLuint programId = glCreateProgram();
