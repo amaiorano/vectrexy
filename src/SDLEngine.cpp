@@ -400,9 +400,9 @@ bool SDLEngine::Run(int argc, char** argv) {
 
     bool quit = false;
     while (!quit) {
-        const auto frameTime = UpdateFrameTime();
         PollEvents(quit);
         auto input = UpdateInput();
+        const auto frameTime = UpdateFrameTime();
 
         auto emuEvents = EmuEvents{};
         if (g_keyboard.GetKeyState(SDL_SCANCODE_LCTRL).down &&
