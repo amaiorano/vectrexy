@@ -1,5 +1,6 @@
 #include "Cartridge.h"
 #include "ConsoleOutput.h"
+#include "ErrorHandler.h"
 #include "MemoryMap.h"
 #include "Stream.h"
 #include <vector>
@@ -85,10 +86,13 @@ bool Cartridge::LoadRom(const char* file) {
 
 uint8_t Cartridge::Read(uint16_t address) const {
     auto mappedAddress = MemoryMap::Cartridge.MapAddress(address);
-    ASSERT_MSG(mappedAddress < m_data.size(), "Invalid Cartridge read at $%04x", address);
+    if (mappedAddress >= m_data.size()) {
+        ErrorHandler::Undefined("Invalid Cartridge read at $%04x\n", address);
+        return 0;
+    }
     return m_data[mappedAddress];
 }
 
 void Cartridge::Write(uint16_t /*address*/, uint8_t /*value*/) {
-    FAIL_MSG("Writes to Cartridge ROM not allowed");
+    ErrorHandler::Undefined("Writes to Cartridge ROM not allowed\n");
 }

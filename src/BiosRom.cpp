@@ -1,4 +1,5 @@
 #include "BiosRom.h"
+#include "ErrorHandler.h"
 #include "MemoryMap.h"
 #include "Stream.h"
 
@@ -16,5 +17,5 @@ uint8_t BiosRom::Read(uint16_t address) const {
 }
 
 void BiosRom::Write(uint16_t /*address*/, uint8_t /*value*/) {
-    FAIL_MSG("Writes to BIOS ROM not allowed");
+    ErrorHandler::Undefined("Writes to BIOS ROM not allowed\n");
 }

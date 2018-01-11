@@ -2,6 +2,7 @@
 #include "BitOps.h"
 #include "CpuHelpers.h"
 #include "CpuOpCodes.h"
+#include "ErrorHandler.h"
 #include "MemoryBus.h"
 #include <array>
 #include <type_traits>
@@ -874,7 +875,11 @@ public:
         //@TODO: Handle cycle counting for interrupts (SWI[2/3], [F]IRQ, NMI) and RTI
         m_cycles += cpuOp.cycles; // Base cycles for this instruction
 
-        ASSERT_MSG(cpuOp.addrMode != AddressingMode::Illegal, "Illegal instruction!");
+        if (cpuOp.addrMode == AddressingMode::Illegal) {
+            ErrorHandler::Undefined("Illegal instruction\n");
+            return m_cycles;
+        }
+
         ASSERT(cpuOp.addrMode != AddressingMode::Variant &&
                "Page 1/2 instruction, should have read next byte by now");
 
