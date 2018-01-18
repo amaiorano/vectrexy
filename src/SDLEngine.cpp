@@ -45,17 +45,15 @@ namespace {
     }
 
     bool FindAndSetRootPath(fs::path exePath) {
-        // Start by setting current directory to that of exectuable
-        // fs::current_path(exePath.remove_filename());
-
-        // Now look for bios file in current directory and up parent dirs
+        // Look for bios file in current directory and up parent dirs
         // and set current working directory to the one found.
         const char* biosRomFile = "bios_rom.bin";
 
         auto currDir = exePath.remove_filename();
 
-        // auto cwd = fs::current_path();
         do {
+            auto path = currDir / biosRomFile;
+
             if (fs::exists(currDir / biosRomFile)) {
                 fs::current_path(currDir);
                 Printf("Root path set to: %s\n", fs::current_path().string().c_str());
@@ -354,7 +352,7 @@ void SDLEngine::RegisterClient(IEngineClient& client) {
 }
 
 bool SDLEngine::Run(int argc, char** argv) {
-    if (!FindAndSetRootPath(fs::path(argv[0])))
+    if (!FindAndSetRootPath(fs::path(fs::absolute(argv[0]))))
         return false;
 
     const auto options = LoadOptionsFile("options.txt");
