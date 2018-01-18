@@ -639,7 +639,7 @@ namespace {
     }
 
     // Global variables
-    const size_t MaxTraceInstructions = 100'000;
+    const size_t MaxTraceInstructions = 1000'000;
     CircularBuffer<InstructionTraceInfo> g_instructionTraceBuffer(MaxTraceInstructions);
     InstructionTraceInfo* g_currTraceInfo = nullptr;
 
@@ -698,7 +698,8 @@ void Debugger::Init(MemoryBus& memoryBus, Cpu& cpu, Via& via) {
 
 void Debugger::Reset() {
     m_cpuCyclesLeft = 0;
-    m_breakpoints.Reset();
+    // We want to keep our breakpoints when resetting a game
+    // m_breakpoints.Reset();
     m_cpuCyclesTotal = 0;
     m_cpuCyclesLeft = 0;
     g_instructionTraceBuffer.Clear();
