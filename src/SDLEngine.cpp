@@ -7,6 +7,7 @@
 #include "StringHelpers.h"
 #include "imgui_impl/imgui_impl_sdl_gl3.h"
 #include <SDL.h>
+#include <SDL_net.h>
 #include <algorithm>
 #include <chrono>
 #include <filesystem>
@@ -362,6 +363,11 @@ bool SDLEngine::Run(int argc, char** argv) {
         return false;
     }
 
+    if (SDLNet_Init() < 0) {
+        std::cout << "SDLNet failed to init with error " << SDL_GetError() << std::endl;
+        return false;
+    }
+
     SetOpenGLVersion();
 
     const int windowX = options.windowX.value_or(SDL_WINDOWPOS_CENTERED);
@@ -445,6 +451,7 @@ bool SDLEngine::Run(int argc, char** argv) {
     g_client->Shutdown();
 
     SDL_DestroyWindow(g_window);
+    SDLNet_Quit();
     SDL_Quit();
 
     return true;
