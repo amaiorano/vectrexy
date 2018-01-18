@@ -5,6 +5,7 @@ project (vectrexy)
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
 find_package(SDL2 REQUIRED)
+find_package(SDL2_net REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(GLEW REQUIRED)
 find_package(GLM REQUIRED)
@@ -13,7 +14,7 @@ find_package(Imgui REQUIRED)
 
 # SDL2 dependent libs, required when linking against SDL2 static lib
 if (MSVC)
-	set(SDL2_REQUIRED_LIBS winmm.lib version.lib imm32.lib)
+	set(SDL2_REQUIRED_LIBS winmm.lib version.lib imm32.lib Ws2_32.lib Iphlpapi.lib)
 endif()
 
 # Enable DPI awareness on Windows 8+
@@ -31,8 +32,8 @@ source_group("src\\shaders" FILES ${SHADER_SRC})
 set(SRC ${SRC_ROOT} ${IMGUI_IMPL_SRC} ${SHADER_SRC})
 
 add_executable(vectrexy ${SRC} ${MANIFEST_FILE})
-include_directories(${SDL2_INCLUDE_DIR} ${GLEW_INCLUDE_DIRS} ${GLM_INCLUDE_DIRS} ${PNG_INCLUDE_DIRS} ${IMGUI_INCLUDE_PATH})
-target_link_libraries(vectrexy ${SDL2_LIBRARY} ${OPENGL_gl_LIBRARY} ${OPENGL_glu_LIBRARY} ${GLEW_LIBRARIES} ${SDL2_REQUIRED_LIBS} ${PNG_LIBRARIES} ${IMGUI_LIBRARY})
+include_directories(${SDL2_INCLUDE_DIR} ${SDL2_NET_INCLUDE_DIRS} ${GLEW_INCLUDE_DIRS} ${GLM_INCLUDE_DIRS} ${PNG_INCLUDE_DIRS} ${IMGUI_INCLUDE_PATH})
+target_link_libraries(vectrexy ${SDL2_LIBRARY} ${SDL2_NET_LIBRARIES} ${OPENGL_gl_LIBRARY} ${OPENGL_glu_LIBRARY} ${GLEW_LIBRARIES} ${SDL2_REQUIRED_LIBS} ${PNG_LIBRARIES} ${IMGUI_LIBRARY})
 target_compile_definitions(vectrexy PRIVATE ${GLEW_DEFINITIONS} ${PNG_DEFINITIONS})
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
