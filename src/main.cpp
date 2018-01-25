@@ -118,7 +118,7 @@ private:
             }
         }
 
-        bool keepGoing = m_debugger.Update(frameTime, input, emuEvents);
+        bool keepGoing = m_debugger.Update(frameTime, input, emuEvents, m_syncProtocol);
 
         if (m_syncProtocol.IsServer()) {
             m_syncProtocol.Server_RecvFrameEnd();

@@ -9,10 +9,7 @@
 
 namespace SyncMsg {
 
-    enum class Type {
-        FrameStart,
-        FrameEnd,
-    };
+    enum class Type { FrameStart, FrameEnd };
 
     struct FrameStart {
         double frameTime{};
@@ -20,6 +17,8 @@ namespace SyncMsg {
     };
 
 } // namespace SyncMsg
+
+enum class ConnectionType { Server, Client };
 
 class SyncProtocol {
 public:
@@ -35,11 +34,25 @@ public:
         Errorf("Server: Connected!\n");
     }
 
+    void ShutdownServer() {
+        if (m_server) {
+            m_server->Close();
+        }
+        m_server.release();
+    }
+
     void InitClient() {
         m_client = std::make_unique<TcpClient>();
         Errorf("Client: about to connect...\n");
         m_client->Open("127.0.0.1", 9123);
         Errorf("Client: Connected!\n");
+    }
+
+    void ShutdownClient() {
+        if (m_client) {
+            m_client->Close();
+        }
+        m_client.release();
     }
 
     bool IsServer() const { return m_server != nullptr; }
@@ -63,6 +76,33 @@ public:
     void Client_SendFrameEnd() { m_client->Send(SyncMsg::Type::FrameEnd); }
 
     void Server_RecvFrameEnd() { RecvType(m_server, SyncMsg::Type::FrameEnd); }
+
+    // Generic
+    template <typename T>
+    void SendValue(ConnectionType connType, const T& value) {
+        if (connType == ConnectionType::Server) {
+            m_server->Send(value);
+        } else if (connType == ConnectionType::Client) {
+            m_client->Send(value);
+        }
+    }
+
+    template <typename T>
+    void RecvValue(ConnectionType connType, T& value) {
+        if (connType == ConnectionType::Server) {
+            m_server->Receive(value);
+        } else if (connType == ConnectionType::Client) {
+            m_client->Receive(value);
+        }
+    }
+
+    void SendType(ConnectionType connType, SyncMsg::Type type) { SendValue(connType, type); }
+
+    void RecvType(ConnectionType connType, SyncMsg::Type expectedType) {
+        SyncMsg::Type type{};
+        RecvValue(connType, type);
+        ASSERT(type == expectedType);
+    }
 
 private:
     template <typename T>
