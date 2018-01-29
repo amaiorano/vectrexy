@@ -21,16 +21,22 @@ namespace {
 
 namespace Platform {
     void SetFocus(WindowHandle windowHandle) {
+        // Global mutex to avoid deadlock when multiple instances attempt to attach thread input
+        auto mutex = ::CreateMutex(NULL, FALSE, "Global\\VectrexySetFocusMutex");
+        ::WaitForSingleObject(mutex, INFINITE);
+
         HWND hwnd = std::any_cast<HWND>(windowHandle);
         auto foreThread = GetWindowThreadProcessId(GetForegroundWindow(), 0);
         auto appThread = GetCurrentThreadId();
         if (foreThread != appThread) {
-            AttachThreadInput(foreThread, appThread, true);
-            BringWindowToTop(hwnd);
+            if (AttachThreadInput(foreThread, appThread, true))
+                BringWindowToTop(hwnd);
             AttachThreadInput(foreThread, appThread, false);
         } else {
             BringWindowToTop(hwnd);
         }
+
+        ::ReleaseMutex(mutex);
     }
 
     void SetConsoleFocus() { Platform::SetFocus(::GetConsoleWindow()); }

@@ -1147,11 +1147,7 @@ bool Debugger::Update(double frameTime, const Input& input, const EmuEvents& emu
             syncInstructionHash = false;
             Errorf("Instruction hash mismatch in last %d instructions\n",
                    numInstructionsExecutedThisFrame);
-
-            //@TODO: fix BreakIntoDebugger so that it doesn't hang if called on multiple instances
-            // of the app (use a global semaphore)
-            // BreakIntoDebugger();
-            m_breakIntoDebugger = true;
+            BreakIntoDebugger();
 
             if (syncProtocol.IsServer())
                 syncProtocol.ShutdownServer();
