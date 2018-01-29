@@ -499,8 +499,9 @@ public:
     // INCA, INCB
     template <int page, uint8_t opCode>
     void OpINC(uint8_t& value) {
+        uint8_t origValue = value;
         ++value;
-        CC.Overflow = value == 0; // Overflowed if value became 0
+        CC.Overflow = origValue == 0b0111'1111;
         CC.Zero = CalcZero(value);
         CC.Negative = CalcNegative(value);
     }
