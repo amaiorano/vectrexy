@@ -57,6 +57,7 @@ public:
 
     bool IsServer() const { return m_server != nullptr; }
     bool IsClient() const { return m_client != nullptr; }
+    bool IsStandalone() const { return !IsServer() && !IsClient(); }
 
     void Server_SendFrameStart(double frameTime, const Input& input) {
         auto message = SyncMsg::FrameStart{frameTime, input};

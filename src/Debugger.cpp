@@ -661,6 +661,22 @@ namespace {
         return Crc32(crc, &value, sizeof(value));
     }
 
+    uint32_t HashInstructionTraceInfo(uint32_t currInstructionHash,
+                                      const InstructionTraceInfo& traceInfo) {
+        currInstructionHash += Crc32(currInstructionHash, traceInfo.instruction.cpuOp->opCode);
+        currInstructionHash += Crc32(currInstructionHash, traceInfo.instruction.cpuOp->addrMode);
+        currInstructionHash += Crc32(currInstructionHash, traceInfo.instruction.page);
+        currInstructionHash += Crc32(currInstructionHash, traceInfo.elapsedCycles);
+        for (size_t i = 0; i < traceInfo.numMemoryAccesses; ++i) {
+            currInstructionHash += Crc32(currInstructionHash, traceInfo.memoryAccesses[i].address);
+            currInstructionHash += Crc32(currInstructionHash, traceInfo.memoryAccesses[i].read);
+            currInstructionHash += Crc32(currInstructionHash, traceInfo.memoryAccesses[i].value);
+        }
+        currInstructionHash += Crc32(currInstructionHash, traceInfo.preOpCpuRegisters);
+        currInstructionHash += Crc32(currInstructionHash, traceInfo.postOpCpuRegisters);
+        return currInstructionHash;
+    }
+
     // Global variables
     const size_t MaxTraceInstructions = 1000'000;
     CircularBuffer<InstructionTraceInfo> g_instructionTraceBuffer(MaxTraceInstructions);
@@ -739,12 +755,45 @@ void Debugger::ResumeFromDebugger() {
     SetFocusMainWindow();
 }
 
+void Debugger::SyncInstructionHash(SyncProtocol& syncProtocol,
+                                   int numInstructionsExecutedThisFrame) {
+    if (syncProtocol.IsStandalone())
+        return;
+
+    bool hashMismatch = false;
+
+    // Sync hashes and compare
+    if (syncProtocol.IsServer()) {
+        syncProtocol.SendValue(ConnectionType::Server, m_instructionHash);
+
+    } else if (syncProtocol.IsClient()) {
+        uint32_t serverInstructionHash{};
+        syncProtocol.RecvValue(ConnectionType::Client, serverInstructionHash);
+        hashMismatch = m_instructionHash != serverInstructionHash;
+    }
+
+    // Sync whether to continue or stop
+    if (syncProtocol.IsClient()) {
+        syncProtocol.SendValue(ConnectionType::Client, hashMismatch);
+    } else if (syncProtocol.IsServer()) {
+        syncProtocol.RecvValue(ConnectionType::Server, hashMismatch);
+    }
+
+    if (hashMismatch) {
+        Errorf("Instruction hash mismatch in last %d instructions\n",
+               numInstructionsExecutedThisFrame);
+        BreakIntoDebugger();
+
+        if (syncProtocol.IsServer())
+            syncProtocol.ShutdownServer();
+        else
+            syncProtocol.ShutdownClient();
+    }
+}
+
 bool Debugger::Update(double frameTime, const Input& input, const EmuEvents& emuEvents,
                       SyncProtocol& syncProtocol) {
 
-    static bool syncInstructionHash = true;
-    static uint32_t instructionHash = 0;
-    instructionHash = 0; // Reset each frame
     int numInstructionsExecutedThisFrame = 0;
 
     auto PrintOp = [&](const InstructionTraceInfo& traceInfo) {
@@ -778,24 +827,18 @@ bool Debugger::Update(double frameTime, const Input& input, const EmuEvents& emu
             auto onExit = MakeScopedExit([&] {
                 if (m_traceEnabled) {
                     PostOpWriteTraceInfo(traceInfo, m_cpu->Registers(), elapsedCycles);
+
+                    // HACK: vecx cpu implementation sets HalfCarry differently than we do for when
+                    // it's undefined, so for now, as we compare trace logs, we just ignore this
+                    // field.
+                    traceInfo.preOpCpuRegisters.CC.HalfCarry = false;
+                    traceInfo.postOpCpuRegisters.CC.HalfCarry = false;
+
                     g_instructionTraceBuffer.PushBackMoveFront(traceInfo);
                     g_currTraceInfo = nullptr;
 
                     // Compute running hash of instruction trace
-                    instructionHash += Crc32(instructionHash, traceInfo.instruction.cpuOp->opCode);
-                    instructionHash +=
-                        Crc32(instructionHash, traceInfo.instruction.cpuOp->addrMode);
-                    instructionHash += Crc32(instructionHash, traceInfo.instruction.page);
-                    instructionHash += Crc32(instructionHash, traceInfo.elapsedCycles);
-                    for (size_t i = 0; i < traceInfo.numMemoryAccesses; ++i) {
-                        instructionHash +=
-                            Crc32(instructionHash, traceInfo.memoryAccesses[i].address);
-                        instructionHash += Crc32(instructionHash, traceInfo.memoryAccesses[i].read);
-                        instructionHash +=
-                            Crc32(instructionHash, traceInfo.memoryAccesses[i].value);
-                    }
-                    instructionHash += Crc32(instructionHash, traceInfo.preOpCpuRegisters);
-                    instructionHash += Crc32(instructionHash, traceInfo.postOpCpuRegisters);
+                    m_instructionHash = HashInstructionTraceInfo(m_instructionHash, traceInfo);
 
                     ++numInstructionsExecutedThisFrame;
                 }
@@ -1123,38 +1166,7 @@ bool Debugger::Update(double frameTime, const Input& input, const EmuEvents& emu
         }
     }
 
-    bool hashMismatch = false;
-
-    // Sync hashes and compare
-    if (syncInstructionHash) {
-        if (syncProtocol.IsServer()) {
-            syncProtocol.SendValue(ConnectionType::Server, instructionHash);
-
-        } else if (syncProtocol.IsClient()) {
-            uint32_t serverInstructionHash{};
-            syncProtocol.RecvValue(ConnectionType::Client, serverInstructionHash);
-            hashMismatch = instructionHash != serverInstructionHash;
-        }
-
-        // Sync whether to continue or stop
-        if (syncProtocol.IsClient()) {
-            syncProtocol.SendValue(ConnectionType::Client, hashMismatch);
-        } else if (syncProtocol.IsServer()) {
-            syncProtocol.RecvValue(ConnectionType::Server, hashMismatch);
-        }
-
-        if (hashMismatch) {
-            syncInstructionHash = false;
-            Errorf("Instruction hash mismatch in last %d instructions\n",
-                   numInstructionsExecutedThisFrame);
-            BreakIntoDebugger();
-
-            if (syncProtocol.IsServer())
-                syncProtocol.ShutdownServer();
-            else
-                syncProtocol.ShutdownClient();
-        }
-    }
+    SyncInstructionHash(syncProtocol, numInstructionsExecutedThisFrame);
 
     return true;
 }

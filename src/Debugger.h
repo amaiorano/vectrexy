@@ -24,6 +24,7 @@ public:
 private:
     void BreakIntoDebugger();
     void ResumeFromDebugger();
+    void SyncInstructionHash(SyncProtocol& syncProtocol, int numInstructionsExecutedThisFrame);
 
     MemoryBus* m_memoryBus = nullptr;
     Cpu* m_cpu = nullptr;
@@ -38,4 +39,5 @@ private:
     SymbolTable m_symbolTable; // Address to symbol name
     cycles_t m_cpuCyclesTotal = 0;
     double m_cpuCyclesLeft = 0;
+    uint32_t m_instructionHash = 0;
 };
