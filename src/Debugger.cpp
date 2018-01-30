@@ -1139,7 +1139,7 @@ bool Debugger::Update(double frameTime, const Input& input, const EmuEvents& emu
         // Sync whether to continue or stop
         if (syncProtocol.IsClient()) {
             syncProtocol.SendValue(ConnectionType::Client, hashMismatch);
-        } else {
+        } else if (syncProtocol.IsServer()) {
             syncProtocol.RecvValue(ConnectionType::Server, hashMismatch);
         }
 
