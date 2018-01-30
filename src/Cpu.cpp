@@ -573,8 +573,8 @@ public:
         uint8_t result = (value << 1) | CC.Carry;
         CC.Carry = TestBits01(value, BITS(7));
         //@TODO: Can we use CalcOverflow(value) instead?
-        CC.Overflow = (value & BITS(7)) ^ (value & BITS(6));
-        CC.Negative = CalcNegative(value);
+        CC.Overflow = ((value & BITS(7)) ^ ((value & BITS(6)) << 1)) != 0;
+        CC.Negative = CalcNegative(result);
         CC.Zero = CalcZero(result);
         value = result;
     }
