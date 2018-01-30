@@ -10,18 +10,21 @@
 class MemoryBus;
 class Cpu;
 class Via;
+class SyncProtocol;
 
 class Debugger {
 public:
     void Init(MemoryBus& memoryBus, Cpu& cpu, Via& via);
     void Reset();
-    bool Update(double frameTime, const Input& input, const EmuEvents& emuEvents);
+    bool Update(double frameTime, const Input& input, const EmuEvents& emuEvents,
+                SyncProtocol& syncProtocol);
 
     using SymbolTable = std::multimap<uint16_t, std::string>;
 
 private:
     void BreakIntoDebugger();
     void ResumeFromDebugger();
+    void SyncInstructionHash(SyncProtocol& syncProtocol, int numInstructionsExecutedThisFrame);
 
     MemoryBus* m_memoryBus = nullptr;
     Cpu* m_cpu = nullptr;
@@ -36,4 +39,5 @@ private:
     SymbolTable m_symbolTable; // Address to symbol name
     cycles_t m_cpuCyclesTotal = 0;
     double m_cpuCyclesLeft = 0;
+    uint32_t m_instructionHash = 0;
 };

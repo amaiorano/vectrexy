@@ -26,7 +26,7 @@ struct CpuOp {
     const char* description;
 };
 
-constexpr CpuOp CpuOpsPage0[] = {
+inline constexpr CpuOp CpuOpsPage0[] = {
     // clang-format off
     { 0x00, "NEG",       AddressingMode::Direct   ,  6, 2, "Negate memory location" },
     { 0x01, "Illegal",   AddressingMode::Illegal  ,  1, 1, "Illegal" },
@@ -288,7 +288,7 @@ constexpr CpuOp CpuOpsPage0[] = {
 };
 static_assert(sizeof(CpuOpsPage0) / sizeof(CpuOpsPage0[0]) == 256, "");
 
-constexpr CpuOp CpuOpsPage1[] = {
+inline constexpr CpuOp CpuOpsPage1[] = {
     // clang-format off
     { 0x21, "LBRN",      AddressingMode::Relative ,  5, 4, "Branch Never" },
     { 0x22, "LBHI",      AddressingMode::Relative ,  5, 4, "Branch if Higher" },
@@ -331,7 +331,7 @@ constexpr CpuOp CpuOpsPage1[] = {
     // clang-format on
 };
 
-constexpr CpuOp CpuOpsPage2[] = {
+inline constexpr CpuOp CpuOpsPage2[] = {
     // clang-format off
     { 0x3F, "SWI3     ", AddressingMode::Inherent , 20, 2, "Software Interrupt 3" },
     { 0x83, "CMPU",      AddressingMode::Immediate,  5, 4, "Compare User stack ptr" },

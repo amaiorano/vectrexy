@@ -12,6 +12,7 @@
 #include "Platform.h"
 #include "Ram.h"
 #include "SDLEngine.h"
+#include "SyncProtocol.h"
 #include "UnmappedMemoryDevice.h"
 #include "Via.h"
 #include <memory>
@@ -22,7 +23,20 @@ private:
     bool Init(int argc, char** argv) override {
         m_overlays.LoadOverlays();
 
-        std::string rom = argc == 2 ? argv[1] : "";
+        std::string rom = "";
+
+        for (int i = 1; i < argc; ++i) {
+            std::string arg = argv[i];
+            if (arg == "-server") {
+                m_syncProtocol.InitServer();
+            } else if (arg == "-client") {
+                m_syncProtocol.InitClient();
+            } else {
+                rom = arg;
+            }
+        }
+
+        // std::string rom = argc == 2 ? argv[1] : "";
 
         m_cpu.Init(m_memoryBus);
         m_via.Init(m_memoryBus);
@@ -54,8 +68,10 @@ private:
         m_debugger.Reset();
 
         // Some games rely on initial random state of memory (e.g. Mine Storm)
-        const unsigned int seed = std::random_device{}();
-        m_ram.Randomize(seed);
+        if (!m_syncProtocol.IsServer() && !m_syncProtocol.IsClient()) {
+            const unsigned int seed = std::random_device{}();
+            m_ram.Randomize(seed);
+        }
     }
 
     bool LoadRom(const char* file) {
@@ -79,7 +95,14 @@ private:
         return true;
     }
 
-    bool Update(double frameTime, const Input& input, const EmuEvents& emuEvents) override {
+    bool Update(double frameTime, const Input& inputArg, const EmuEvents& emuEvents) override {
+        Input input = inputArg;
+
+        if (m_syncProtocol.IsServer()) {
+            m_syncProtocol.Server_SendFrameStart(frameTime, input);
+        } else if (m_syncProtocol.IsClient()) {
+            m_syncProtocol.Client_RecvFrameStart(frameTime, input);
+        }
 
         if (find_if(emuEvents, [](auto& e) { return e.type == EmuEvent::Type::Reset; })) {
             Reset();
@@ -95,10 +118,15 @@ private:
             }
         }
 
-        if (!m_debugger.Update(frameTime, input, emuEvents))
-            return false;
+        bool keepGoing = m_debugger.Update(frameTime, input, emuEvents, m_syncProtocol);
 
-        return true;
+        if (m_syncProtocol.IsServer()) {
+            m_syncProtocol.Server_RecvFrameEnd();
+        } else if (m_syncProtocol.IsClient()) {
+            m_syncProtocol.Client_SendFrameEnd();
+        }
+
+        return keepGoing;
     }
 
     void Render(double frameTime, Display& display) override {
@@ -120,6 +148,7 @@ private:
     Debugger m_debugger;
     Overlays m_overlays;
     fs::path m_lastOpenedFile;
+    SyncProtocol m_syncProtocol;
 };
 
 int main(int argc, char** argv) {
