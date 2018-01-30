@@ -593,6 +593,7 @@ public:
         CC.Carry = TestBits01(value, BITS(0));
         CC.Negative = CalcNegative(result);
         CC.Zero = CalcZero(result);
+        value = result;
     }
 
     template <int page, uint8_t opCode>
