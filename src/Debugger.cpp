@@ -782,7 +782,11 @@ void Debugger::SyncInstructionHash(SyncProtocol& syncProtocol,
     if (hashMismatch) {
         Errorf("Instruction hash mismatch in last %d instructions\n",
                numInstructionsExecutedThisFrame);
-        BreakIntoDebugger();
+
+        // @TODO: Unfortunately, we still deadlock when multiple instances call BreakIntoDebugger at
+        // the same time, so for now, just don't do it.
+        // BreakIntoDebugger();
+        m_breakIntoDebugger = true;
 
         if (syncProtocol.IsServer())
             syncProtocol.ShutdownServer();
