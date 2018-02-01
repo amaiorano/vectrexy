@@ -3,11 +3,12 @@
 // This header mainly contains functions needed by both Cpu and Debugger
 
 #include "Base.h"
+#include <type_traits>
 
 // Convenience cast functions
 template <typename T>
 constexpr int16_t S16(T v) {
-    return static_cast<int16_t>(v);
+    return static_cast<int16_t>(static_cast<std::make_signed_t<T>>(v));
 }
 template <typename T>
 constexpr uint16_t U16(T v) {
