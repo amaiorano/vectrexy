@@ -831,13 +831,6 @@ bool Debugger::Update(double frameTime, const Input& input, const EmuEvents& emu
             auto onExit = MakeScopedExit([&] {
                 if (m_traceEnabled) {
                     PostOpWriteTraceInfo(traceInfo, m_cpu->Registers(), elapsedCycles);
-
-                    // HACK: vecx cpu implementation sets HalfCarry differently than we do for when
-                    // it's undefined, so for now, as we compare trace logs, we just ignore this
-                    // field.
-                    traceInfo.preOpCpuRegisters.CC.HalfCarry = false;
-                    traceInfo.postOpCpuRegisters.CC.HalfCarry = false;
-
                     g_instructionTraceBuffer.PushBackMoveFront(traceInfo);
                     g_currTraceInfo = nullptr;
 

@@ -31,11 +31,11 @@ namespace {
     constexpr uint8_t CalcCarry(uint32_t r) { return (r & 0xFFFF'0000) != 0; }
     uint8_t CalcCarry(uint8_t r) = delete; // Result must be larger than 8 or 16 bits
 
-    constexpr uint8_t CalcHalfCarryFromAdd(uint8_t a, uint8_t b) {
-        return (((a & 0x0F) + (b & 0x0F)) & 0xF0) != 0;
+    constexpr uint8_t CalcHalfCarryFromAdd(uint8_t a, uint8_t b, uint8_t carry) {
+        return (((a & 0x0F) + (b & 0x0F) + carry) & 0x10) != 0;
     }
-    uint8_t CalcHalfCarryFromAdd(uint16_t a,
-                                 uint16_t b) = delete; // Only 8-bit add computes half-carry
+    uint8_t CalcHalfCarryFromAdd(uint16_t a, uint16_t b,
+                                 uint8_t carry) = delete; // Only 8-bit add computes half-carry
 
     constexpr uint8_t CalcOverflow(uint8_t a, uint8_t b, uint16_t r) {
         // Given r = a + b, overflow occurs if both a and b are negative and r is positive, or both
@@ -378,15 +378,10 @@ public:
         CC.Carry = 0;
     }
 
-    enum class UpdateHalfCarry { False, True };
-
-    static uint8_t AddImpl(uint8_t a, uint8_t b, uint8_t carry, ConditionCode& CC,
-                           UpdateHalfCarry updateHalfCarry) {
+    static uint8_t AddImpl(uint8_t a, uint8_t b, uint8_t carry, ConditionCode& CC) {
         uint16_t r16 = U16(a) + U16(b) + U16(carry);
-        if (updateHalfCarry == UpdateHalfCarry::True) {
-            CC.HalfCarry =
-                CalcHalfCarryFromAdd(a, b); //@TODO: Should ONLY be computed for ADDA/ADDB
-        }
+        CC.HalfCarry =
+            CalcHalfCarryFromAdd(a, b, carry); //@TODO: Should ONLY be computed for ADDA/ADDB
         CC.Carry = CalcCarry(r16);
         CC.Overflow = CalcOverflow(a, b, r16);
         uint8_t r = U8(r16);
@@ -394,13 +389,9 @@ public:
         CC.Negative = CalcNegative(r);
         return r;
     }
-    static uint16_t AddImpl(uint16_t a, uint16_t b, uint16_t carry, ConditionCode& CC,
-                            UpdateHalfCarry updateHalfCarry) {
-        (void)updateHalfCarry;
-        ASSERT(updateHalfCarry == UpdateHalfCarry::False); // 16-bit version never updates this
-
+    static uint16_t AddImpl(uint16_t a, uint16_t b, uint16_t carry, ConditionCode& CC) {
         uint32_t r32 = U16(a) + U16(b) + U16(carry);
-        // CC.HalfCarry = CalcHalfCarryFromAdd(a, b);
+        // CC.HalfCarry = CalcHalfCarryFromAdd(a, b, carry);
         CC.Carry = CalcCarry(r32);
         CC.Overflow = CalcOverflow(a, b, r32);
         uint16_t r = U16(r32);
@@ -410,12 +401,12 @@ public:
     }
 
     static uint8_t SubtractImpl(uint8_t a, uint8_t b, uint8_t carry, ConditionCode& CC) {
-        auto result = AddImpl(a, ~b, 1 + carry, CC, UpdateHalfCarry::False);
+        auto result = AddImpl(a, ~b, 1 + carry, CC);
         CC.Carry = !CC.Carry; // Carry is set if no borrow occurs
         return result;
     }
     static uint16_t SubtractImpl(uint16_t a, uint16_t b, uint16_t carry, ConditionCode& CC) {
-        auto result = AddImpl(a, ~b, 1 + carry, CC, UpdateHalfCarry::False);
+        auto result = AddImpl(a, ~b, 1 + carry, CC);
         CC.Carry = !CC.Carry; // Carry is set if no borrow occurs
         return result;
     }
@@ -424,21 +415,21 @@ public:
     template <int page, uint8_t opCode>
     void OpADD(uint8_t& reg) {
         uint8_t b = ReadOperandValue8<LookupCpuOp(page, opCode).addrMode>();
-        reg = AddImpl(reg, b, 0, CC, UpdateHalfCarry::True);
+        reg = AddImpl(reg, b, 0, CC);
     }
 
     // ADDD
     template <int page, uint8_t opCode>
     void OpADD(uint16_t& reg) {
         uint16_t b = ReadOperandValue16<LookupCpuOp(page, opCode).addrMode>();
-        reg = AddImpl(reg, b, 0, CC, UpdateHalfCarry::False);
+        reg = AddImpl(reg, b, 0, CC);
     }
 
     // ADCA, ADCB
     template <int page, uint8_t opCode>
     void OpADC(uint8_t& reg) {
         uint8_t b = ReadOperandValue8<LookupCpuOp(page, opCode).addrMode>();
-        reg = AddImpl(reg, b, CC.Carry, CC, UpdateHalfCarry::True);
+        reg = AddImpl(reg, b, CC.Carry, CC);
     }
 
     // SUBA, SUBB
@@ -479,12 +470,8 @@ public:
     // NEGA, NEGB
     template <int page, uint8_t opCode>
     void OpNEG(uint8_t& value) {
-        auto origValue = value;
-        value = -value;
-        CC.Overflow = origValue == BITS(7);
-        CC.Zero = CalcZero(value);
-        CC.Negative = CalcNegative(value);
-        CC.Carry = origValue != 0; //@TODO: double check this
+        // Negating is 0 - value
+        value = SubtractImpl(0, value, 0, CC);
     }
 
     // NEG <address>
@@ -623,13 +610,8 @@ public:
 
     template <int page, uint8_t opCode>
     void OpASL(uint8_t& value) {
-        auto origValue = value;
-        value = (value << 1);
-        CC.Zero = CalcZero(value);
-        CC.Negative = CalcNegative(value);
-        CC.Carry = TestBits01(origValue, BITS(7));
-        // Overflow (sign change) happens if bit 7 or 6 was set, but not both
-        CC.Overflow = (origValue >> 7) ^ ((origValue >> 6) & 1);
+        // Shifting left is same as adding value + value (aka value * 2)
+        value = AddImpl(value, value, 0, CC);
     }
 
     template <int page, uint8_t opCode>
