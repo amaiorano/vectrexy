@@ -380,33 +380,32 @@ public:
 
     static uint8_t AddImpl(uint8_t a, uint8_t b, uint8_t carry, ConditionCode& CC) {
         uint16_t r16 = U16(a) + U16(b) + U16(carry);
-        CC.HalfCarry =
-            CalcHalfCarryFromAdd(a, b, carry); //@TODO: Should ONLY be computed for ADDA/ADDB
+        CC.HalfCarry = CalcHalfCarryFromAdd(a, b, carry);
         CC.Carry = CalcCarry(r16);
         CC.Overflow = CalcOverflow(a, b, r16);
-        uint8_t r = U8(r16);
-        CC.Zero = CalcZero(r);
-        CC.Negative = CalcNegative(r);
-        return r;
+        uint8_t r8 = U8(r16);
+        CC.Zero = CalcZero(r8);
+        CC.Negative = CalcNegative(r8);
+        return r8;
     }
     static uint16_t AddImpl(uint16_t a, uint16_t b, uint16_t carry, ConditionCode& CC) {
         uint32_t r32 = U16(a) + U16(b) + U16(carry);
         // CC.HalfCarry = CalcHalfCarryFromAdd(a, b, carry);
         CC.Carry = CalcCarry(r32);
         CC.Overflow = CalcOverflow(a, b, r32);
-        uint16_t r = U16(r32);
-        CC.Zero = CalcZero(r);
-        CC.Negative = CalcNegative(r);
-        return r;
+        uint16_t r16 = U16(r32);
+        CC.Zero = CalcZero(r16);
+        CC.Negative = CalcNegative(r16);
+        return r16;
     }
 
     static uint8_t SubtractImpl(uint8_t a, uint8_t b, uint8_t carry, ConditionCode& CC) {
-        auto result = AddImpl(a, ~b, 1 + carry, CC);
+        auto result = AddImpl(a, ~b, 1 - carry, CC);
         CC.Carry = !CC.Carry; // Carry is set if no borrow occurs
         return result;
     }
     static uint16_t SubtractImpl(uint16_t a, uint16_t b, uint16_t carry, ConditionCode& CC) {
-        auto result = AddImpl(a, ~b, 1 + carry, CC);
+        auto result = AddImpl(a, ~b, 1 - carry, CC);
         CC.Carry = !CC.Carry; // Carry is set if no borrow occurs
         return result;
     }
