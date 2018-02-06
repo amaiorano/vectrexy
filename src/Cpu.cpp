@@ -769,6 +769,11 @@ public:
         }
     }
 
+    void OpLBRA() {
+        int16_t offset = ReadRelativeOffset16();
+        PC += offset;
+    }
+
     void OpBSR() {
         int8_t offset = ReadRelativeOffset8();
         Push16(S, PC);
@@ -1069,7 +1074,7 @@ public:
 
             case 0x16:
                 // Note: LBRA is in table 0, while all other long branch instructions are in table 1
-                OpLongBranch([this] { return true; });
+                OpLBRA();
                 break;
 
             case 0x1E: // EXG (exchange/swap register values)
