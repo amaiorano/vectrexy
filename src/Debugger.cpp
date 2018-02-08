@@ -835,7 +835,8 @@ bool Debugger::Update(double frameTime, const Input& input, const EmuEvents& emu
                     g_currTraceInfo = nullptr;
 
                     // Compute running hash of instruction trace
-                    m_instructionHash = HashInstructionTraceInfo(m_instructionHash, traceInfo);
+                    if (!syncProtocol.IsStandalone())
+                        m_instructionHash = HashInstructionTraceInfo(m_instructionHash, traceInfo);
 
                     ++numInstructionsExecutedThisFrame;
                 }
