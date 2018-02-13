@@ -796,7 +796,7 @@ void Debugger::SyncInstructionHash(SyncProtocol& syncProtocol,
 }
 
 bool Debugger::Update(double frameTime, const Input& input, const EmuEvents& emuEvents,
-                      SyncProtocol& syncProtocol) {
+                      RenderContext& renderContext, SyncProtocol& syncProtocol) {
 
     int numInstructionsExecutedThisFrame = 0;
 
@@ -844,7 +844,7 @@ bool Debugger::Update(double frameTime, const Input& input, const EmuEvents& emu
 
             elapsedCycles = m_cpu->ExecuteInstruction();
 
-            m_via->Update(elapsedCycles, input);
+            m_via->Update(elapsedCycles, input, renderContext);
             return elapsedCycles;
 
         } catch (std::exception& ex) {

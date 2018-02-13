@@ -438,6 +438,11 @@ bool SDLEngine::Run(int argc, char** argv) {
         ImGui::Render();
         SDL_GL_SwapWindow(g_window);
 
+        // Don't clear lines when paused
+        if (frameTime > 0) {
+            renderContext.lines.clear();
+        }
+
         g_keyboard.PostFrameUpdateKeyStates();
         for (auto& kvp : g_playerIndexToGamepad) {
             kvp.second.PostFrameUpdateStates();

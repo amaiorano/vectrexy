@@ -119,11 +119,8 @@ private:
             }
         }
 
-        bool keepGoing = m_debugger.Update(frameTime, input, emuEvents, m_syncProtocol);
-
-        renderContext.lines = m_via.GetLines();
-        if (frameTime > 0)
-            m_via.ClearLines();
+        bool keepGoing =
+            m_debugger.Update(frameTime, input, emuEvents, renderContext, m_syncProtocol);
 
         if (m_syncProtocol.IsServer()) {
             m_syncProtocol.Server_RecvFrameEnd();

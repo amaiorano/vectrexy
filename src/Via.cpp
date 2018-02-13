@@ -112,7 +112,7 @@ void Via::Reset() {
     SetBits(m_portB, PortB::RampDisabled, true);
 }
 
-void Via::Update(cycles_t cycles, const Input& input) {
+void Via::Update(cycles_t cycles, const Input& input, RenderContext& renderContext) {
     // Update cached input state
     m_joystickButtonState = input.ButtonStateMask();
     for (uint8_t i = 0; i < 4; ++i) {
@@ -158,7 +158,7 @@ void Via::Update(cycles_t cycles, const Input& input) {
         // We might draw even when integrators are disabled (e.g. drawing dots)
         bool drawingEnabled = !m_blank && (m_brightness > 0.f && m_brightness <= 128.f);
         if (drawingEnabled) {
-            m_lines.emplace_back(Line{lastPos, m_pos});
+            renderContext.lines.emplace_back(Line{lastPos, m_pos});
         }
     }
 }
