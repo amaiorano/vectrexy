@@ -169,7 +169,6 @@ namespace {
 
     Viewport g_windowViewport{};
 
-    std::vector<Line> g_lines;
     std::vector<VertexData> g_quadVA;
     std::vector<VertexData> g_lineVA, g_pointVA;
 
@@ -545,7 +544,7 @@ namespace GLRender {
         return true;
     }
 
-    void RenderScene(double frameTime) {
+    void RenderScene(double frameTime, const RenderContext& renderContext) {
         // Force resize on crt scale change
         {
             static float scaleX = CRT_SCALE_X;
@@ -583,12 +582,12 @@ namespace GLRender {
         static bool thickBaseLines = false;
         ImGui::Checkbox("thickBaseLines", &thickBaseLines);
         if (!thickBaseLines) {
-            std::tie(g_lineVA, g_pointVA) = CreateLineAndPointVertexArrays(g_lines);
+            std::tie(g_lineVA, g_pointVA) = CreateLineAndPointVertexArrays(renderContext.lines);
             g_drawVectorsPass.Draw(g_lineVA, GL_LINES, g_pointVA, GL_POINTS, currVectorsTexture0);
         } else {
             static float lineWidthNormal = 0.75f;
             ImGui::SliderFloat("lineWidthNormal", &lineWidthNormal, 0.1f, 2.0f);
-            g_quadVA = CreateQuadVertexArray(g_lines, lineWidthNormal);
+            g_quadVA = CreateQuadVertexArray(renderContext.lines, lineWidthNormal);
             g_drawVectorsPass.Draw(g_quadVA, GL_TRIANGLES, {}, {}, currVectorsTexture0);
         }
         g_darkenTexturePass.Draw(currVectorsTexture0, currVectorsTexture1,
@@ -601,7 +600,7 @@ namespace GLRender {
             // Render thicker lines for blurring, darken, and apply glow
             static float lineWidthGlow = 1.2f;
             ImGui::SliderFloat("lineWidthGlow", &lineWidthGlow, 0.1f, 2.0f);
-            g_quadVA = CreateQuadVertexArray(g_lines, lineWidthGlow);
+            g_quadVA = CreateQuadVertexArray(renderContext.lines, lineWidthGlow);
             g_drawVectorsPass.Draw(g_quadVA, GL_TRIANGLES, {}, {}, currVectorsThickTexture0);
             g_darkenTexturePass.Draw(currVectorsThickTexture0, currVectorsThickTexture1,
                                      static_cast<float>(frameTime));
@@ -622,12 +621,3 @@ namespace GLRender {
     }
 
 } // namespace GLRender
-
-void Display::Clear() {
-    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-}
-
-void Display::DrawLines(const std::vector<Line>& lines) {
-    g_lines = lines; //@TODO: move?
-}

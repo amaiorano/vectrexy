@@ -20,6 +20,9 @@ public:
     void Reset();
     void Update(cycles_t cycles, const Input& input);
 
+    std::vector<Line> GetLines() const { return m_lines; }
+    void ClearLines() { m_lines.clear(); }
+
 private:
     uint8_t Read(uint16_t address) const override;
     void Write(uint16_t address, uint8_t value) override;
@@ -49,7 +52,6 @@ private:
     float m_brightness = 0.f;
     bool m_blank = false;
 
-public:
     Timer1 m_timer1;
     Timer2 m_timer2;
     ShiftRegister m_shiftRegister;

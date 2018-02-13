@@ -95,7 +95,8 @@ private:
         return true;
     }
 
-    bool Update(double frameTime, const Input& inputArg, const EmuEvents& emuEvents) override {
+    bool Update(double frameTime, const Input& inputArg, const EmuEvents& emuEvents,
+                RenderContext& renderContext) override {
         Input input = inputArg;
 
         if (m_syncProtocol.IsServer()) {
@@ -120,6 +121,10 @@ private:
 
         bool keepGoing = m_debugger.Update(frameTime, input, emuEvents, m_syncProtocol);
 
+        renderContext.lines = m_via.GetLines();
+        if (frameTime > 0)
+            m_via.ClearLines();
+
         if (m_syncProtocol.IsServer()) {
             m_syncProtocol.Server_RecvFrameEnd();
         } else if (m_syncProtocol.IsClient()) {
@@ -127,13 +132,6 @@ private:
         }
 
         return keepGoing;
-    }
-
-    void Render(double frameTime, Display& display) override {
-        display.DrawLines(m_via.m_lines);
-
-        if (frameTime > 0)
-            m_via.m_lines.clear();
     }
 
     void Shutdown() override {}

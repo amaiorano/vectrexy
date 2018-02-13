@@ -398,9 +398,7 @@ bool SDLEngine::Run(int argc, char** argv) {
         return false;
     }
 
-    Display display;
-    // Clear at least once, required for certain drivers that don't clear the buffers
-    display.Clear();
+    RenderContext renderContext{};
 
     bool quit = false;
     while (!quit) {
@@ -433,12 +431,10 @@ bool SDLEngine::Run(int argc, char** argv) {
 
         ImGui_ImplSdlGL3_NewFrame(g_window);
 
-        if (!g_client->Update(frameTime, input, emuEvents))
+        if (!g_client->Update(frameTime, input, emuEvents, renderContext))
             quit = true;
 
-        g_client->Render(frameTime, display);
-
-        GLRender::RenderScene(frameTime);
+        GLRender::RenderScene(frameTime, renderContext);
         ImGui::Render();
         SDL_GL_SwapWindow(g_window);
 
