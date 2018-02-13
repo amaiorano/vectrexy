@@ -9,6 +9,27 @@ namespace {
         ShiftOutUnder02
     };
 
+    namespace Register {
+        enum Type {
+            PortB = 0x0,
+            PortA = 0x1,
+            DataDirB = 0x2,
+            DataDirA = 0x3,
+            Timer1Low = 0x4,
+            Timer1High = 0x5,
+            Timer1LatchLow = 0x6,
+            Timer1LatchHigh = 0x7,
+            Timer2Low = 0x8,
+            Timer2High = 0x9,
+            Shift = 0xA,
+            AuxCntl = 0xB,
+            PeriphCntl = 0xC,
+            InterruptFlag = 0xD,
+            InterruptEnable = 0xE,
+            PortANoHandshake = 0xF,
+        };
+    }
+
     namespace PortB {
         const uint8_t MuxDisabled = BITS(0);
         const uint8_t MuxSelMask = BITS(1, 2);
@@ -145,7 +166,7 @@ void Via::Update(cycles_t cycles, const Input& input) {
 uint8_t Via::Read(uint16_t address) const {
     const uint16_t index = MemoryMap::Via.MapAddress(address);
     switch (index) {
-    case 0x0: {
+    case Register::PortB: {
         uint8_t result = m_portB;
 
         // Analog input
@@ -158,7 +179,7 @@ uint8_t Via::Read(uint16_t address) const {
 
         return result;
     }
-    case 0x1: {
+    case Register::PortA: {
         uint8_t result = m_portA;
 
         // Digital input
@@ -172,25 +193,34 @@ uint8_t Via::Read(uint16_t address) const {
 
         return result;
     }
-    case 0x2:
+    case Register::DataDirB:
         return m_dataDirB;
-    case 0x3:
+
+    case Register::DataDirA:
         return m_dataDirA;
-    case 0x4:
+
+    case Register::Timer1Low:
         return m_timer1.ReadCounterLow();
-    case 0x5:
+
+    case Register::Timer1High:
         return m_timer1.ReadCounterHigh();
-    case 0x6:
+
+    case Register::Timer1LatchLow:
         return m_timer1.ReadLatchLow();
-    case 0x7:
+
+    case Register::Timer1LatchHigh:
         return m_timer1.ReadLatchHigh();
-    case 0x8:
+
+    case Register::Timer2Low:
         return m_timer2.ReadCounterLow();
-    case 0x9:
+
+    case Register::Timer2High:
         return m_timer2.ReadCounterHigh();
-    case 0xA:
+
+    case Register::Shift:
         return m_shiftRegister.Value();
-    case 0xB: {
+
+    case Register::AuxCntl: {
         uint8_t auxCntl = 0;
         SetBits(auxCntl, 0b110 << AuxCntl::ShiftRegisterModeShift, true); //@HACK
         SetBits(auxCntl, AuxCntl::Timer1FreeRunning,
@@ -200,20 +230,24 @@ uint8_t Via::Read(uint16_t address) const {
         SetBits(auxCntl, AuxCntl::PB7Flag, m_timer1.PB7Flag());
         return auxCntl;
     }
-    case 0xC:
+    case Register::PeriphCntl:
         return m_periphCntl;
-    case 0xD: {
+
+    case Register::InterruptFlag: {
         uint8_t interruptFlag = 0;
         SetBits(interruptFlag, InterruptFlag::Timer1, m_timer1.InterruptFlag());
         SetBits(interruptFlag, InterruptFlag::Timer2, m_timer2.InterruptFlag());
         return interruptFlag;
     }
-    case 0xE:
+
+    case Register::InterruptEnable:
         FAIL_MSG("Read InterruptEnable not implemented");
         return m_interruptEnable;
-    case 0xF:
+
+    case Register::PortANoHandshake:
         FAIL_MSG("A without handshake not implemented yet");
         break;
+
     default:
         FAIL();
         break;
@@ -250,11 +284,12 @@ void Via::Write(uint16_t address, uint8_t value) {
 
     const uint16_t index = MemoryMap::Via.MapAddress(address);
     switch (index) {
-    case 0x0:
+    case Register::PortB:
         m_portB = value;
         UpdateIntegrators();
         break;
-    case 0x1:
+
+    case Register::PortA:
         // Port A is connected directly to the DAC, which in turn is connected to both a MUX with 4
         // outputs, and to the X-axis integrator.
         m_portA = value;
@@ -262,36 +297,46 @@ void Via::Write(uint16_t address, uint8_t value) {
             UpdateIntegrators();
         }
         break;
-    case 0x2:
+
+    case Register::DataDirB:
         m_dataDirB = value;
         break;
-    case 0x3:
+
+    case Register::DataDirA:
         m_dataDirA = value;
         ASSERT_MSG(m_dataDirA == 0 || m_dataDirA == 0xFF,
                    "Expecting DDR for A to be either all 0s or all 1s");
         break;
-    case 0x4:
+
+    case Register::Timer1Low:
         m_timer1.WriteCounterLow(value);
         break;
-    case 0x5:
+
+    case Register::Timer1High:
         m_timer1.WriteCounterHigh(value);
         break;
-    case 0x6:
+
+    case Register::Timer1LatchLow:
         m_timer1.WriteLatchLow(value);
         break;
-    case 0x7:
+
+    case Register::Timer1LatchHigh:
         m_timer1.WriteLatchHigh(value);
         break;
-    case 0x8:
+
+    case Register::Timer2Low:
         m_timer2.WriteCounterLow(value);
         break;
-    case 0x9:
+
+    case Register::Timer2High:
         m_timer2.WriteCounterHigh(value);
         break;
-    case 0xA:
+
+    case Register::Shift:
         m_shiftRegister.SetValue(value);
         break;
-    case 0xB: {
+
+    case Register::AuxCntl: {
         // For now just read the shift register mode, which will assert if it's invalid/unexpected
         auto shiftRegisterMode = AuxCntl::GetShiftRegisterMode(value);
         (void)shiftRegisterMode;
@@ -306,7 +351,8 @@ void Via::Write(uint16_t address, uint8_t value) {
         m_timer1.SetPB7Flag(TestBits(value, AuxCntl::PB7Flag));
 
     } break;
-    case 0xC: {
+
+    case Register::PeriphCntl: {
         ASSERT_MSG(ReadBitsWithShift(value, PeriphCntl::CA2Mask, PeriphCntl::CA2Shift) == 0b110 ||
                        ReadBitsWithShift(value, PeriphCntl::CA2Mask, PeriphCntl::CA2Shift) == 0b111,
                    "Unexpected value for Zero bits");
@@ -320,17 +366,21 @@ void Via::Write(uint16_t address, uint8_t value) {
             m_blank = PeriphCntl::IsBlankEnabled(m_periphCntl);
         }
     } break;
-    case 0xD:
+
+    case Register::InterruptFlag:
         //@TODO: handle setting all other interrupt flags
         m_timer1.SetInterruptFlag(TestBits(value, InterruptFlag::Timer1));
         break;
-    case 0xE:
+
+    case Register::InterruptEnable:
         // FAIL_MSG("Write InterruptEnable not implemented");
         m_interruptEnable = value;
         break;
-    case 0xF:
+
+    case Register::PortANoHandshake:
         FAIL_MSG("A without handshake not implemented yet");
         break;
+
     default:
         FAIL();
         break;
