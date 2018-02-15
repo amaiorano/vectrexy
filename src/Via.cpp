@@ -170,12 +170,17 @@ uint8_t Via::Read(uint16_t address) const {
         uint8_t result = m_portB;
 
         // Analog input
-        const bool muxEnabled = !TestBits(m_portB, PortB::MuxDisabled);
-        if (!muxEnabled) {
-            uint8_t muxSel = ReadBitsWithShift(m_portB, PortB::MuxSelMask, PortB::MuxSelShift);
-            int8_t portASigned = static_cast<int8_t>(m_portA);
-            SetBits(result, PortB::Comparator, portASigned < m_joystickAnalogState[muxSel]);
-        }
+        // @TODO: Looks like reading analog inputs doesn't necessarily require that the MUX be
+        // disabled. If we look at the BIOS Joy_Analog routine, when it reads analog values, it
+        // doesn't make sure to disable the MUX before reading the comparator bit, although it does
+        // so for digital Joy_Digital. Try to figure out why this is the case.
+        //
+        // const bool muxEnabled = !TestBits(m_portB, PortB::MuxDisabled);
+        // if (!muxEnabled) {
+        uint8_t muxSel = ReadBitsWithShift(m_portB, PortB::MuxSelMask, PortB::MuxSelShift);
+        int8_t portASigned = static_cast<int8_t>(m_portA);
+        SetBits(result, PortB::Comparator, portASigned < m_joystickAnalogState[muxSel]);
+        //}
 
         return result;
     }
