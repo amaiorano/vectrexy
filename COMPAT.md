@@ -11,96 +11,95 @@
 * IllegalInstr
 * MaybeMusicOnly
 * NoBoot - Black screen after title screen, or doesn't progress further
-* AnalogNoCenter - Analog input always returns that it's locked in one direction
 
 ## Commercial Released Roms
 
-| Rom                                                          | Status            | Comment                                                                |
-| ------------------------------------------------------------ | ----------------- | ---------------------------------------------------------------------- |
-| 3-D Mine Storm (1983)                                        | NoBoot            | [VecxSame]                                                             |
-| 3-D Mine Storm (1983) [b1]                                   | ViaNotImplemented | Read InterruptEnable not implemented                                   |
-| 3-D Narrow Escape (1983)                                     | NoBoot            | [VecxSame]                                                             |
-| 3-D Narrow Escape (1983) [b1]                                | NoBoot            |                                                                        |
-| 3-D Narrow Escape (1983) [b2]                                | NoBoot            |                                                                        |
-| 3-D Narrow Escape (1983) [b3]                                | InvalidWrite      | Write to unmapped range of value $86 at address $c7ff                  |
-| Animaction (1983) (light pen)                                | InvalidWrite      | Writes to Cartridge ROM not allowed                                    |
-| Animaction (1983) (light pen) [b1]                           | ViaNotImplemented | Also IllegalInstr but maybe bug in cart (vecx same).                   |
-| Armor Attack (1982)                                          | Great             |                                                                        |
-| Armor Attack (1982) (Spinner Hack)                           | InvalidRead       | [VecxSame] Invalid Cartridge read at $10ad                             |
-| Armor Attack (1982) (Spinner Hack) [a1]                      | InvalidRead       | Invalid Cartridge read at $10ad                                        |
-| Armor Attack (1982) [b1]                                     | MissingOp         | Unhandled Op: SWI                                                      |
-| Art Master (1983) (light pen)                                | Good?             | Can't get past the first screen, maybe emulate light pen?              |
-| Art Master (1983) (light pen) [b1]                           | InvalidRead       | Invalid Cartridge read at $2803                                        |
-| Bedlam (1983)                                                | MissingOp         | Unhandled Op: CWAI                                                     |
-| Bedlam (1983) (Spinner Hack)                                 | MissingOp         | Unhandled Op: CWAI                                                     |
-| Bedlam (1983) [b1]                                           | InvalidRead       | [VecxSame] Invalid Cartridge read at $0ea3                             |
-| Bedlam (1983) [b2]                                           | ViaNotImplemented | A without handshake not implemented yet                                |
-| Bedlam (1983) [b3]                                           | MissingOp         | Unhandled Op: CWAI                                                     |
-| Berzerk (1982)                                               | Good              | Characters are squished                                                |
-| Berzerk (1982) (Bugfixed Prototype)                          | UNTESTED          |                                                                        |
-| Berzerk (1982) (Bugfixed Prototype) [o1]                     | UNTESTED          |                                                                        |
-| Blitz! - Action Football (1982)                              | Great             |                                                                        |
-| Blitz! - Action Football (1982) [b1]                         | UNTESTED          |                                                                        |
-| Blitz! - Action Football (1982) [b2]                         | UNTESTED          |                                                                        |
-| Clean Sweep (1982)                                           | InvalidRead       | [VecxSame] Invalid Cartridge read at $1051                             |
-| Clean Sweep (1982) [b1]                                      | InvalidRead       | Invalid Cartridge read at $4d20                                        |
-| Clean Sweep (Mr Boston Version) (1982)                       | InvalidRead       | Invalid Cartridge read at $20cc                                        |
-| Cosmic Chasm (1982)                                          | Great             |                                                                        |
-| Fortress of Narzod (1982)                                    | Great             |                                                                        |
-| Fortress of Narzod (1982) [b1]                               | MissingOp         | Unhandled Op: SWI                                                      |
-| Heads Up - Action Soccer (1983)                              | Great             |                                                                        |
-| Heads Up - Action Soccer (1983) [b1]                         | NoBoot            | [VecxSame] Stuck on title screen.                                      |
-| Hyperchase (1982)                                            | Great             |                                                                        |
-| Hyperchase (1982) [b1]                                       | IllegalInstr      | cpuOp.addrMode != AddressingMode::Illegal                              |
-| Melody Master (1983) (light pen)                             | UNTESTED          |                                                                        |
-| Melody Master (1983) (light pen) [b1]                        | UNTESTED          |                                                                        |
-| Mine Storm (1982)                                            | Great             |                                                                        |
-| Mine Storm (1982) (Karrsoft Hack) [h1]                       | Great             |                                                                        |
-| Mine Storm (1982) (RLB Hack) [b1]                            | InvalidRead       | [VecxSame] Invalid Cartridge read at $7fc8                             |
-| Mine Storm (1982) (RLB Hack) [b1][o1]                        | InvalidRead       | Invalid Cartridge read at $7fc8                                        |
-| Mine Storm (1982) (RLB Hack) [b1][o2]                        | InvalidRead       | Invalid Cartridge read at $7fc8                                        |
-| Mine Storm (1982) (RLB Hack) [h1]                            | Good              | Invalid Cartridge read at $3409 on shoot spawned enemy                 |
-| Mine Storm (1982) (RLB Hack) [o1]                            | Good              |                                                                        |
-| Mine Storm (1982) (RLB Hack) [o2]                            | Good              |                                                                        |
-| Mine Storm II (1983)                                         | Good              |                                                                        |
-| Mine Storm II (1983) (Fred Taft Hack) [h1]                   | UNTESTED          |                                                                        |
-| Mine Storm II (1983) (Spinner Hack)                          | UNTESTED          |                                                                        |
-| Narrow Escape (2-D Version by Fred Taft) (1983) [h1]         | Great             |                                                                        |
-| Polar Rescue (1983)                                          | InvalidRead       | [VecxSame] Invalid Cartridge read at $2055                             |
-| Polar Rescue (1983) [a1]                                     | UNTESTED          |                                                                        |
-| Polar Rescue (1983) [a1][o1]                                 | UNTESTED          |                                                                        |
-| Polar Rescue (1983) [b1]                                     | UNTESTED          |                                                                        |
-| Pole Position (1982)                                         | AnalogNoCenter    | Input doesn't work (can't drive straight). Invalid reads (code error). |
-| Pole Position (1982) (Spinner Hack)                          | UNTESTED          |                                                                        |
-| Pole Position (1982) [b1]                                    | UNTESTED          |                                                                        |
-| Pole Position (1982) [f1]                                    | UNTESTED          |                                                                        |
-| Rip-Off (1982)                                               | Great             |                                                                        |
-| Rip-Off (1982) [b1]                                          | UNTESTED          |                                                                        |
-| Scramble (1982)                                              | Great             | Invalid Cartridge read at $1000 (code error?)                          |
-| Scramble (1982) [b1]                                         | IllegalInstr      | [VecxSame] Lots of errors. Investigate.                                |
-| Solar Quest (1982)                                           | AnalogNoCenter    | Ship keeps turning (input issue)                                       |
-| Solar Quest (1982) (Spinner Hack)                            | UNTESTED          |                                                                        |
-| Solar Quest (1982) [b1]                                      | UNTESTED          |                                                                        |
-| Space Wars (1982)                                            | Great             |                                                                        |
-| Space Wars (1982) [b1]                                       | UNTESTED          |                                                                        |
-| Spike (1983)                                                 | Great             |                                                                        |
-| Spinball (1983)                                              | Great             |                                                                        |
-| Spinball (1983) [b1]                                         | UNTESTED          |                                                                        |
-| Spinball (1983) [b2]                                         | UNTESTED          |                                                                        |
-| Star Castle (1983)                                           | Great             |                                                                        |
-| Star Castle (1983) (Spinner Hack)                            | UNTESTED          |                                                                        |
-| Star Castle (1983) [b1]                                      | UNTESTED          |                                                                        |
-| Star Hawk (1982)                                             | AnalogNoCenter    | Works, but aim input doesn't work properly (keeps moving)              |
-| Star Hawk (1982) [b1]                                        | UNTESTED          |                                                                        |
-| Star Ship (1982)                                             | Great             |                                                                        |
-| Star Trek - The Motion Picture (1982)                        | Good              | Font render not perfect, bars crooked at bottom                        |
-| Star Trek - The Motion Picture (1982) (controller hack) [h1] | UNTESTED          |                                                                        |
-| Star Trek - The Motion Picture (1982) [a1]                   | UNTESTED          |                                                                        |
-| Star Trek - The Motion Picture (1982) [b1]                   | UNTESTED          |                                                                        |
-| Star Trek - The Motion Picture (1982) [o1]                   | UNTESTED          |                                                                        |
-| Web Warp (1983)                                              | Great             |                                                                        |
-| Web Wars (1983)                                              | UNTESTED          |                                                                        |
-| Web Wars (1983) [b1]                                         | UNTESTED          |                                                                        |
+| Rom                                                          | Status            | Comment                                                   |
+| ------------------------------------------------------------ | ----------------- | --------------------------------------------------------- |
+| 3-D Mine Storm (1983)                                        | NoBoot            | [VecxSame]                                                |
+| 3-D Mine Storm (1983) [b1]                                   | ViaNotImplemented | Read InterruptEnable not implemented                      |
+| 3-D Narrow Escape (1983)                                     | NoBoot            | [VecxSame]                                                |
+| 3-D Narrow Escape (1983) [b1]                                | NoBoot            |                                                           |
+| 3-D Narrow Escape (1983) [b2]                                | NoBoot            |                                                           |
+| 3-D Narrow Escape (1983) [b3]                                | InvalidWrite      | Write to unmapped range of value $86 at address $c7ff     |
+| Animaction (1983) (light pen)                                | InvalidWrite      | Writes to Cartridge ROM not allowed                       |
+| Animaction (1983) (light pen) [b1]                           | ViaNotImplemented | Also IllegalInstr but maybe bug in cart (vecx same).      |
+| Armor Attack (1982)                                          | Great             |                                                           |
+| Armor Attack (1982) (Spinner Hack)                           | InvalidRead       | [VecxSame] Invalid Cartridge read at $10ad                |
+| Armor Attack (1982) (Spinner Hack) [a1]                      | InvalidRead       | Invalid Cartridge read at $10ad                           |
+| Armor Attack (1982) [b1]                                     | MissingOp         | Unhandled Op: SWI                                         |
+| Art Master (1983) (light pen)                                | Good?             | Can't get past the first screen, maybe emulate light pen? |
+| Art Master (1983) (light pen) [b1]                           | InvalidRead       | Invalid Cartridge read at $2803                           |
+| Bedlam (1983)                                                | MissingOp         | Unhandled Op: CWAI                                        |
+| Bedlam (1983) (Spinner Hack)                                 | MissingOp         | Unhandled Op: CWAI                                        |
+| Bedlam (1983) [b1]                                           | InvalidRead       | [VecxSame] Invalid Cartridge read at $0ea3                |
+| Bedlam (1983) [b2]                                           | ViaNotImplemented | A without handshake not implemented yet                   |
+| Bedlam (1983) [b3]                                           | MissingOp         | Unhandled Op: CWAI                                        |
+| Berzerk (1982)                                               | Good              | Characters are squished                                   |
+| Berzerk (1982) (Bugfixed Prototype)                          | UNTESTED          |                                                           |
+| Berzerk (1982) (Bugfixed Prototype) [o1]                     | UNTESTED          |                                                           |
+| Blitz! - Action Football (1982)                              | Great             |                                                           |
+| Blitz! - Action Football (1982) [b1]                         | UNTESTED          |                                                           |
+| Blitz! - Action Football (1982) [b2]                         | UNTESTED          |                                                           |
+| Clean Sweep (1982)                                           | InvalidRead       | [VecxSame] Invalid Cartridge read at $1051                |
+| Clean Sweep (1982) [b1]                                      | InvalidRead       | Invalid Cartridge read at $4d20                           |
+| Clean Sweep (Mr Boston Version) (1982)                       | InvalidRead       | Invalid Cartridge read at $20cc                           |
+| Cosmic Chasm (1982)                                          | Great             |                                                           |
+| Fortress of Narzod (1982)                                    | Great             |                                                           |
+| Fortress of Narzod (1982) [b1]                               | MissingOp         | Unhandled Op: SWI                                         |
+| Heads Up - Action Soccer (1983)                              | Great             |                                                           |
+| Heads Up - Action Soccer (1983) [b1]                         | NoBoot            | [VecxSame] Stuck on title screen.                         |
+| Hyperchase (1982)                                            | Great             |                                                           |
+| Hyperchase (1982) [b1]                                       | IllegalInstr      | cpuOp.addrMode != AddressingMode::Illegal                 |
+| Melody Master (1983) (light pen)                             | UNTESTED          |                                                           |
+| Melody Master (1983) (light pen) [b1]                        | UNTESTED          |                                                           |
+| Mine Storm (1982)                                            | Great             |                                                           |
+| Mine Storm (1982) (Karrsoft Hack) [h1]                       | Great             |                                                           |
+| Mine Storm (1982) (RLB Hack) [b1]                            | InvalidRead       | [VecxSame] Invalid Cartridge read at $7fc8                |
+| Mine Storm (1982) (RLB Hack) [b1][o1]                        | InvalidRead       | Invalid Cartridge read at $7fc8                           |
+| Mine Storm (1982) (RLB Hack) [b1][o2]                        | InvalidRead       | Invalid Cartridge read at $7fc8                           |
+| Mine Storm (1982) (RLB Hack) [h1]                            | Good              | Invalid Cartridge read at $3409 on shoot spawned enemy    |
+| Mine Storm (1982) (RLB Hack) [o1]                            | Good              |                                                           |
+| Mine Storm (1982) (RLB Hack) [o2]                            | Good              |                                                           |
+| Mine Storm II (1983)                                         | Good              |                                                           |
+| Mine Storm II (1983) (Fred Taft Hack) [h1]                   | UNTESTED          |                                                           |
+| Mine Storm II (1983) (Spinner Hack)                          | UNTESTED          |                                                           |
+| Narrow Escape (2-D Version by Fred Taft) (1983) [h1]         | Great             |                                                           |
+| Polar Rescue (1983)                                          | InvalidRead       | [VecxSame] Invalid Cartridge read at $2055                |
+| Polar Rescue (1983) [a1]                                     | UNTESTED          |                                                           |
+| Polar Rescue (1983) [a1][o1]                                 | UNTESTED          |                                                           |
+| Polar Rescue (1983) [b1]                                     | UNTESTED          |                                                           |
+| Pole Position (1982)                                         | Great             | Invalid reads (code error).                               |
+| Pole Position (1982) (Spinner Hack)                          | UNTESTED          |                                                           |
+| Pole Position (1982) [b1]                                    | UNTESTED          |                                                           |
+| Pole Position (1982) [f1]                                    | UNTESTED          |                                                           |
+| Rip-Off (1982)                                               | Great             |                                                           |
+| Rip-Off (1982) [b1]                                          | UNTESTED          |                                                           |
+| Scramble (1982)                                              | Great             | Invalid Cartridge read at $1000 (code error?)             |
+| Scramble (1982) [b1]                                         | IllegalInstr      | [VecxSame] Lots of errors. Investigate.                   |
+| Solar Quest (1982)                                           | Great             |                                                           |
+| Solar Quest (1982) (Spinner Hack)                            | UNTESTED          |                                                           |
+| Solar Quest (1982) [b1]                                      | UNTESTED          |                                                           |
+| Space Wars (1982)                                            | Great             |                                                           |
+| Space Wars (1982) [b1]                                       | UNTESTED          |                                                           |
+| Spike (1983)                                                 | Great             |                                                           |
+| Spinball (1983)                                              | Great             |                                                           |
+| Spinball (1983) [b1]                                         | UNTESTED          |                                                           |
+| Spinball (1983) [b2]                                         | UNTESTED          |                                                           |
+| Star Castle (1983)                                           | Great             |                                                           |
+| Star Castle (1983) (Spinner Hack)                            | UNTESTED          |                                                           |
+| Star Castle (1983) [b1]                                      | UNTESTED          |                                                           |
+| Star Hawk (1982)                                             | Great             |                                                           |
+| Star Hawk (1982) [b1]                                        | UNTESTED          |                                                           |
+| Star Ship (1982)                                             | Great             |                                                           |
+| Star Trek - The Motion Picture (1982)                        | Good              | Font render not perfect, bars crooked at bottom           |
+| Star Trek - The Motion Picture (1982) (controller hack) [h1] | UNTESTED          |                                                           |
+| Star Trek - The Motion Picture (1982) [a1]                   | UNTESTED          |                                                           |
+| Star Trek - The Motion Picture (1982) [b1]                   | UNTESTED          |                                                           |
+| Star Trek - The Motion Picture (1982) [o1]                   | UNTESTED          |                                                           |
+| Web Warp (1983)                                              | Great             |                                                           |
+| Web Wars (1983)                                              | UNTESTED          |                                                           |
+| Web Wars (1983) [b1]                                         | UNTESTED          |                                                           |
 
 ## Commercial Unreleased Roms
 
@@ -153,7 +152,7 @@
 | BCor-FTS Demo by Clay Cowgill (1997) (PD)                    | Good           | Bottom render cut off                                            |
 | Bebop Best Sound by Chris Salomon (1998) (PD)                | MaybeMusicOnly |                                                                  |
 | Bebop Sound by Chris Salomon (1998) (PD)                     | MaybeMusicOnly |                                                                  |
-| Birds of Prey by John Dondzila (1999)                        | InvalidRead    | Invalid Cartridge read at $1bf4                                  |
+| Birds of Prey by John Dondzila (1999)                        | Good           | Invalid Cartridge read at $1bf4 (cart bug?)                      |
 | Bubble Bobble (Diamond Room) by Chris Salomon (1998) (PD)    | MaybeMusicOnly |                                                                  |
 | Bubble Bobble Sound 0 by Chris Salomon (1998) (PD)           | MaybeMusicOnly |                                                                  |
 | Bubble Bobble Sound 1 by Chris Salomon (1998) (PD)           | MaybeMusicOnly |                                                                  |
