@@ -16,7 +16,7 @@
 
 | Rom                                                          | Status            | Comment                                                   |
 | ------------------------------------------------------------ | ----------------- | --------------------------------------------------------- |
-| 3-D Mine Storm (1983)                                        | NoBoot            | [VecxSame]                                                |
+| 3-D Mine Storm (1983)                                        | NoBoot            | [VecxSame] TODO: probably interrupt not being handled     |
 | 3-D Mine Storm (1983) [b1]                                   | ViaNotImplemented | Read InterruptEnable not implemented                      |
 | 3-D Narrow Escape (1983)                                     | NoBoot            | [VecxSame]                                                |
 | 3-D Narrow Escape (1983) [b1]                                | NoBoot            |                                                           |
@@ -115,10 +115,10 @@
 | Dual Vectrex Test #2 (1983) (PD)                    | UNTESTED |           |
 | Dual Vectrex Test #2 (1983) (PD) [b1]               | UNTESTED |           |
 | Engine Analyzer (1983) (light pen)                  | UNTESTED |           |
-| Spectrum I+ Demo (1982) (PD)                        |          |           |
-| Test Rev. 4 (1982) (PD)                             |          |           |
+| Spectrum I+ Demo (1982) (PD)                        | Good?    |           |
+| Test Rev. 4 (1982) (PD)                             | Good     |           |
 | Test Rev. 4 (1982) (PD) [b1]                        |          |           |
-| Tour De France (1983) (Prototype)                   |          |           |
+| Tour De France (1983) (Prototype)                   | Good     |           |
 | Vectrex BIOS (1982)                                 |          |           |
 
 ## Homebrew Roms
@@ -129,7 +129,7 @@
 | 0ldsk00l Demo by Manu (2002) (PD)                            | NoBoot         |                                                                  |
 | 3-D Demo by Chris (Mar 06) (2000) (PD)                       | InvalidRead    | Read from unmapped range at address $a813                        |
 | 3-D Demo by Chris (Mar 08) (2000) (PD)                       | InvalidRead    | Read from unmapped range at address $c5d8                        |
-| 3-D Scrolling Demo by Christopher Tumber (2001) (PD)         | Meh            | Mountain renders at first, but moving right screws up render     |
+| 3-D Scrolling Demo by Christopher Tumber (2001) (PD)         | Good?          |                                                                  |
 | 4-D Rotating Cube Demo (19xx) (PD)                           | Great          |                                                                  |
 | 8Ball by Christopher Tumber (2001) (PD)                      | Good           | Text renders off screen                                          |
 | Abyss Demo (1999) (PD)                                       | Good           | Writes to Cartridge ROM not allowed                              |
