@@ -115,8 +115,12 @@ void Via::Reset() {
 void Via::Update(cycles_t cycles, const Input& input, RenderContext& renderContext) {
     // Update cached input state
     m_joystickButtonState = input.ButtonStateMask();
-    for (uint8_t i = 0; i < 4; ++i) {
-        m_joystickAnalogState[i] = input.AnalogStateMask(i);
+
+    // Analog input: update POT value if MUX is enabled, otherwise it keeps its last value
+    const bool muxEnabled = !TestBits(m_portB, PortB::MuxDisabled);
+    if (muxEnabled) {
+        uint8_t muxSel = ReadBitsWithShift(m_portB, PortB::MuxSelMask, PortB::MuxSelShift);
+        m_joystickPot = input.AnalogStateMask(muxSel);
     }
 
     // For cycle-accurate drawing, we update our timers, shift register, and beam movement 1 cycle
@@ -169,18 +173,9 @@ uint8_t Via::Read(uint16_t address) const {
     case Register::PortB: {
         uint8_t result = m_portB;
 
-        // Analog input
-        // @TODO: Looks like reading analog inputs doesn't necessarily require that the MUX be
-        // disabled. If we look at the BIOS Joy_Analog routine, when it reads analog values, it
-        // doesn't make sure to disable the MUX before reading the comparator bit, although it does
-        // so for digital Joy_Digital. Try to figure out why this is the case.
-        //
-        // const bool muxEnabled = !TestBits(m_portB, PortB::MuxDisabled);
-        // if (!muxEnabled) {
-        uint8_t muxSel = ReadBitsWithShift(m_portB, PortB::MuxSelMask, PortB::MuxSelShift);
+        // Set comparator bit to port A (DAC) value < joystick POT value
         int8_t portASigned = static_cast<int8_t>(m_portA);
-        SetBits(result, PortB::Comparator, portASigned < m_joystickAnalogState[muxSel]);
-        //}
+        SetBits(result, PortB::Comparator, portASigned < m_joystickPot);
 
         return result;
     }

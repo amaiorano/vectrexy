@@ -33,7 +33,7 @@ private:
     uint8_t m_periphCntl;
     uint8_t m_interruptEnable;
 
-    // State
+    // Render state
     Vector2 m_pos;
     Vector2 m_velocity;
     float m_xyOffset = 0.f;
@@ -44,5 +44,5 @@ private:
     Timer2 m_timer2;
     ShiftRegister m_shiftRegister;
     uint8_t m_joystickButtonState;
-    std::array<int8_t, 4> m_joystickAnalogState;
+    int8_t m_joystickPot{};
 };
