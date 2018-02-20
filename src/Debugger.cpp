@@ -619,8 +619,8 @@ namespace {
         std::string line;
         while (std::getline(fin, line)) {
             auto tokens = Tokenize(line);
-            if (tokens.size() >= 3 &&
-                ((tokens[1].find("EQU") != -1) || (tokens[1].find("equ") != -1))) {
+            if (tokens.size() >= 3 && ((tokens[1].find("EQU") != -1) ||
+                                       (tokens[1].find("equ") != -1) || (tokens[1] == ":"))) {
                 auto address = StringToIntegral<uint16_t>(tokens[2]);
                 symbolTable.insert({address, tokens[0]});
             }
