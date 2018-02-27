@@ -9,10 +9,6 @@
 
 class Input {
 public:
-    // Read by emulator
-    uint8_t ButtonStateMask() const { return m_joystickButtonState; }
-    int8_t AnalogStateMask(int joyAxis) const { return m_joystickAnalogState[joyAxis]; }
-
     // Set by engine
     void SetButton(uint8_t joystickIndex, uint8_t buttonIndex, bool enable) {
         assert(joystickIndex < 2);
@@ -26,6 +22,17 @@ public:
 
     void SetAnalogAxisY(int joystickIndex, int8_t value) {
         m_joystickAnalogState[joystickIndex * 2 + 1] = value;
+    }
+
+    // Read by emulator
+    uint8_t ButtonStateMask() const { return m_joystickButtonState; }
+    int8_t AnalogStateMask(int joyAxis) const { return m_joystickAnalogState[joyAxis]; }
+
+    bool IsButtonDown(uint8_t joystickIndex, uint8_t buttonIndex) const {
+        assert(joystickIndex < 2);
+        assert(buttonIndex < 4);
+        const uint8_t mask = 1 << (buttonIndex + joystickIndex * 4);
+        return TestBits(m_joystickButtonState, mask) == false;
     }
 
 private:

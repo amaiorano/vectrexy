@@ -48,4 +48,5 @@ private:
     ShiftRegister m_shiftRegister;
     uint8_t m_joystickButtonState;
     int8_t m_joystickPot{};
+    bool m_ca1Enabled{};
 };

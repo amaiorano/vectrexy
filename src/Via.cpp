@@ -150,6 +150,10 @@ void Via::Update(cycles_t cycles, const Input& input, RenderContext& renderConte
         m_joystickPot = input.AnalogStateMask(muxSel);
     }
 
+    // CA1 is set when joystick 2 button 4 is pressed, which is usually always on for peripherals
+    // like the 3D imager goggles.
+    m_ca1Enabled = input.IsButtonDown(1, 3);
+
     // For cycle-accurate drawing, we update our timers, shift register, and beam movement 1 cycle
     // at a time
     cycles_t cyclesLeft = cycles;
@@ -425,6 +429,7 @@ bool Via::IrqEnabled() const {
 
 uint8_t Via::GetInterruptFlagValue() const {
     uint8_t result = 0;
+    SetBits(result, InterruptFlag::CA1, m_ca1Enabled);
     SetBits(result, InterruptFlag::Shift, m_shiftRegister.InterruptFlag());
     SetBits(result, InterruptFlag::Timer2, m_timer2.InterruptFlag());
     SetBits(result, InterruptFlag::Timer1, m_timer1.InterruptFlag());
