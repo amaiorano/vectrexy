@@ -25,24 +25,24 @@ inline void SetBits(T& target, U mask, bool enable) {
 
 // Returns target with mask applied to it
 template <typename T, typename U>
-inline T ReadBits(T& target, U mask) {
+inline T ReadBits(T target, U mask) {
     return target & mask;
 }
 
 // Returns target with mask applied to it and shifted
 template <typename T, typename U>
-inline T ReadBitsWithShift(T& target, U mask, U shift) {
+inline T ReadBitsWithShift(T target, U mask, U shift) {
     return (target & mask) >> shift;
 }
 
 // Returns true if any of the masked bits are 1, false otherwise
 template <typename T, typename U>
-inline bool TestBits(T& target, U mask) {
+inline bool TestBits(T target, U mask) {
     return ReadBits(target, mask) != 0;
 }
 
 // Returns 1 if any of the masked bits are 1, 0 otherwise
 template <typename T, typename U>
-inline T TestBits01(T& target, U mask) {
+inline T TestBits01(T target, U mask) {
     return ReadBits(target, mask) != 0 ? 1 : 0;
 }

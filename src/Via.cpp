@@ -93,9 +93,36 @@ namespace {
     } // namespace PeriphCntl
 
     namespace InterruptFlag {
+        // How each IFR bit is cleared:
+        // 0 CA2 interrupt flag            reading or writing port a i / o
+        // 1 CA1 interrupt flag            reading or writing port a i / o
+        // 2 shift register interrupt flag reading or writing shift register
+        // 3 CB2 interrupt flag            reading or writing port b i / o
+        // 4 CB1 interrupt flag            reading or writing port a i / o
+        // 5 timer 2 interrupt flag        read t2 low or write t2 high
+        // 6 timer 1 interrupt flag        read t1 count low or write t1 high
+        // 7 irq status flag               write logic 0 to ier or ifr bit
+
+        const uint8_t CA2 = BITS(0);
+        const uint8_t CA1 = BITS(1);
+        const uint8_t Shift = BITS(2);
+        const uint8_t CB2 = BITS(3);
+        const uint8_t CB1 = BITS(4);
         const uint8_t Timer2 = BITS(5);
         const uint8_t Timer1 = BITS(6);
+        const uint8_t IrqEnabled = BITS(7);
     }; // namespace InterruptFlag
+
+    namespace InterruptEnable {
+        const uint8_t CA2 = BITS(0);
+        const uint8_t CA1 = BITS(1);
+        const uint8_t Shift = BITS(2);
+        const uint8_t CB2 = BITS(3);
+        const uint8_t CB1 = BITS(4);
+        const uint8_t Timer2 = BITS(5);
+        const uint8_t Timer1 = BITS(6);
+        const uint8_t SetClearControl = BITS(7);
+    } // namespace InterruptEnable
 
 } // namespace
 
@@ -218,7 +245,7 @@ uint8_t Via::Read(uint16_t address) const {
         return m_timer2.ReadCounterHigh();
 
     case Register::Shift:
-        return m_shiftRegister.Value();
+        return m_shiftRegister.ReadValue();
 
     case Register::AuxCntl: {
         uint8_t auxCntl = 0;
@@ -233,15 +260,11 @@ uint8_t Via::Read(uint16_t address) const {
     case Register::PeriphCntl:
         return m_periphCntl;
 
-    case Register::InterruptFlag: {
-        uint8_t interruptFlag = 0;
-        SetBits(interruptFlag, InterruptFlag::Timer1, m_timer1.InterruptFlag());
-        SetBits(interruptFlag, InterruptFlag::Timer2, m_timer2.InterruptFlag());
-        return interruptFlag;
-    }
+    case Register::InterruptFlag:
+        return GetInterruptFlagValue();
 
     case Register::InterruptEnable:
-        FAIL_MSG("Read InterruptEnable not implemented");
+        // FAIL_MSG("Read InterruptEnable not implemented");
         return m_interruptEnable;
 
     case Register::PortANoHandshake:
@@ -369,13 +392,22 @@ void Via::Write(uint16_t address, uint8_t value) {
 
     case Register::InterruptFlag:
         //@TODO: handle setting all other interrupt flags
-        m_timer1.SetInterruptFlag(TestBits(value, InterruptFlag::Timer1));
+
+        // Clear interrupt flags for any bits that are enabled
+        if (TestBits(value, InterruptFlag::Shift))
+            m_shiftRegister.SetInterruptFlag(false);
+        if (TestBits(value, InterruptFlag::Timer2))
+            m_timer2.SetInterruptFlag(false);
+        if (TestBits(value, InterruptFlag::Timer1))
+            m_timer1.SetInterruptFlag(false);
         break;
 
-    case Register::InterruptEnable:
-        // FAIL_MSG("Write InterruptEnable not implemented");
-        m_interruptEnable = value;
-        break;
+    case Register::InterruptEnable: {
+        // When bit 7 = 0 : Each 1 in a bit position is cleared (disabled).
+        // When bit 7 = 1 : Each 1 in a bit position enables that bit.
+        // (Zeros in bit positions are left unchanged)
+        SetBits(m_interruptEnable, (value & 0x7F), TestBits(value, BITS(7)));
+    } break;
 
     case Register::PortANoHandshake:
         FAIL_MSG("A without handshake not implemented yet");
@@ -385,4 +417,25 @@ void Via::Write(uint16_t address, uint8_t value) {
         FAIL();
         break;
     }
+}
+
+bool Via::IrqEnabled() const {
+    return TestBits(GetInterruptFlagValue(), InterruptFlag::IrqEnabled);
+}
+
+uint8_t Via::GetInterruptFlagValue() const {
+    uint8_t result = 0;
+    SetBits(result, InterruptFlag::Shift, m_shiftRegister.InterruptFlag());
+    SetBits(result, InterruptFlag::Timer2, m_timer2.InterruptFlag());
+    SetBits(result, InterruptFlag::Timer1, m_timer1.InterruptFlag());
+
+    // Set IRQ enable (bit 7) if any bits are on in both result and interruptEnable
+    //@TODO: Shouldn't we only enable IRQ if any of the bits in IFR is also enabled in IER?
+    // SetBits(result, InterruptFlag::IrqEnabled,
+    //        TestBits(result, 0x7F) && TestBits(m_interruptEnable, 0x7F));
+
+    // Enable IRQ if any IFR bits are also enabled in IER
+    SetBits(result, InterruptFlag::IrqEnabled, ((result & m_interruptEnable) & 0x7F) != 0);
+
+    return result;
 }

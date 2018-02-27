@@ -4,7 +4,14 @@
 void ShiftRegister::SetValue(uint8_t value) {
     m_value = value;
     m_shiftCyclesLeft = 18;
+    m_interruptFlag = false;
     Update(2);
+}
+
+uint8_t ShiftRegister::ReadValue() const {
+    m_shiftCyclesLeft = 18;
+    m_interruptFlag = false;
+    return m_value;
 }
 
 void ShiftRegister::Update(cycles_t cycles) {
@@ -25,6 +32,10 @@ void ShiftRegister::Update(cycles_t cycles) {
                 }
             }
             --m_shiftCyclesLeft;
+
+            // Interrupt enable once we're done shifting
+            if (m_shiftCyclesLeft == 0)
+                m_interruptFlag = true;
         }
     }
 }

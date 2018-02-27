@@ -21,9 +21,12 @@ public:
     void Reset();
     void Update(cycles_t cycles, const Input& input, RenderContext& renderContext);
 
+    bool IrqEnabled() const;
+
 private:
     uint8_t Read(uint16_t address) const override;
     void Write(uint16_t address, uint8_t value) override;
+    uint8_t GetInterruptFlagValue() const;
 
     // Registers
     uint8_t m_portB;

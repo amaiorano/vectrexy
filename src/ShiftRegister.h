@@ -8,7 +8,7 @@
 class ShiftRegister {
 public:
     void SetValue(uint8_t value);
-    uint8_t Value() const { return m_value; }
+    uint8_t ReadValue() const;
     bool CB2Active() const { return m_cb2Active; }
     bool Enabled() const {
         // For now, always return true as it seems the shift register isn't disabled by games on
@@ -19,8 +19,12 @@ public:
     }
     void Update(cycles_t cycles);
 
+    void SetInterruptFlag(bool enabled) { m_interruptFlag = enabled; }
+    bool InterruptFlag() const { return m_interruptFlag; }
+
 private:
     uint8_t m_value = 0;
-    int m_shiftCyclesLeft = 0;
+    mutable int m_shiftCyclesLeft = 0;
     bool m_cb2Active = false;
+    mutable bool m_interruptFlag = false;
 };

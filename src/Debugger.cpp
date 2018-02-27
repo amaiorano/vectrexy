@@ -842,6 +842,10 @@ bool Debugger::Update(double frameTime, const Input& input, const EmuEvents& emu
                 }
             });
 
+            if (m_via->IrqEnabled()) {
+                Errorf("Via IRQ enabled\n");
+            }
+
             elapsedCycles = m_cpu->ExecuteInstruction();
 
             m_via->Update(elapsedCycles, input, renderContext);
