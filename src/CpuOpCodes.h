@@ -88,7 +88,7 @@ inline constexpr CpuOp CpuOpsPage0[] = {
     { 0x39, "RTS",       AddressingMode::Inherent ,  5, 1, "Return from Subroutine" },
     { 0x3A, "ABX",       AddressingMode::Inherent ,  3, 1, "Add B into X" },
     { 0x3B, "RTI",       AddressingMode::Inherent , -1, 1, "Return from Interrupt" },
-    { 0x3C, "CWAI",      AddressingMode::Inherent , 21, 2, "AND CCR, Wait for int." },
+    { 0x3C, "CWAI",      AddressingMode::Immediate, 20, 2, "AND CCR, Wait for int." },
     { 0x3D, "MUL",       AddressingMode::Inherent , 11, 1, "Multiply" },
     { 0x3E, "RESET*",    AddressingMode::Inherent , -1, 1, "N/A" },
     { 0x3F, "SWI",       AddressingMode::Inherent , 19, 1, "Software Interrupt 1" },

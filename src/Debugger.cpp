@@ -816,7 +816,6 @@ bool Debugger::Update(double frameTime, const Input& input, const EmuEvents& emu
     };
 
     auto ExecuteInstruction = [&] {
-        ++m_instructionCount;
         try {
             InstructionTraceInfo traceInfo;
             if (m_traceEnabled) {
@@ -824,13 +823,21 @@ bool Debugger::Update(double frameTime, const Input& input, const EmuEvents& emu
                 PreOpWriteTraceInfo(traceInfo, m_cpu->Registers(), *m_memoryBus);
             }
 
-            cycles_t elapsedCycles = 0;
+            cycles_t cpuCycles = 0;
 
             // In case exception is thrown below, we still want to add the current instruction trace
             // info, so wrap the call in a ScopedExit
             auto onExit = MakeScopedExit([&] {
                 if (m_traceEnabled) {
-                    PostOpWriteTraceInfo(traceInfo, m_cpu->Registers(), elapsedCycles);
+
+                    // If the CPU didn't do anything (e.g. waiting for interrupts), we have nothing
+                    // to log or hash
+                    if (cpuCycles == 0) {
+                        g_currTraceInfo = nullptr;
+                        return;
+                    }
+
+                    PostOpWriteTraceInfo(traceInfo, m_cpu->Registers(), cpuCycles);
                     g_instructionTraceBuffer.PushBackMoveFront(traceInfo);
                     g_currTraceInfo = nullptr;
 
@@ -842,14 +849,15 @@ bool Debugger::Update(double frameTime, const Input& input, const EmuEvents& emu
                 }
             });
 
-            if (m_via->IrqEnabled()) {
-                Errorf("Via IRQ enabled\n");
-            }
+            cpuCycles = m_cpu->ExecuteInstruction(m_via->IrqEnabled());
 
-            elapsedCycles = m_cpu->ExecuteInstruction();
+            if (cpuCycles > 0)
+                ++m_instructionCount;
 
-            m_via->Update(elapsedCycles, input, renderContext);
-            return elapsedCycles;
+            cycles_t effectiveCycles = cpuCycles == 0 ? 10 : cpuCycles;
+
+            m_via->Update(effectiveCycles, input, renderContext);
+            return effectiveCycles;
 
         } catch (std::exception& ex) {
             Printf("Exception caught:\n%s\n", ex.what());

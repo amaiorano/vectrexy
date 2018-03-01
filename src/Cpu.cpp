@@ -49,12 +49,18 @@ namespace {
     template <typename T>
     uint8_t CalcOverflow(T a, T b, uint8_t r) = delete; // Result must be larger than 8 or 16 bits
 
+    namespace VectorTable {
+        const uint16_t Reset = 0xFFFE;
+        const uint16_t Irq = 0xFFF8;
+    } // namespace VectorTable
+
 } // namespace
 
 class CpuImpl : public CpuRegisters {
 public:
-    MemoryBus* m_memoryBus = nullptr;
-    cycles_t m_cycles = 0;
+    MemoryBus* m_memoryBus{};
+    cycles_t m_cycles{};
+    bool m_waitingForInterrupts{}; // Set by CWAI
 
     void Init(MemoryBus& memoryBus) { m_memoryBus = &memoryBus; }
 
@@ -66,11 +72,14 @@ public:
         DP = 0;
 
         CC.Value = 0;
-        CC.InterruptMask = true;
-        CC.FastInterruptMask = true;
+        // @TODO: I read somewhere that InterruptMask should be reset to 1, but games like "3D Mine
+        // Storm" don't explicitly set it to 0 and expect IRQs to trigger, so it looks like we need
+        // to reset it to 0. Look into this.
+        // CC.InterruptMask = 1;
+        CC.FastInterruptMask = 1;
 
         // Read initial location from last 2 bytes of address-space (is 0xF000 on Vectrex)
-        PC = Read16(0xFFFE);
+        PC = Read16(VectorTable::Reset);
     }
 
     uint8_t Read8(uint16_t address) { return m_memoryBus->Read(address); }
@@ -729,6 +738,15 @@ public:
     }
 
     template <int page, uint8_t opCode>
+    void OpCWAI() {
+        uint8_t value = ReadOperandValue8<LookupCpuOp(page, opCode).addrMode>();
+        CC.Value = CC.Value & value;
+        PushCCState(true);
+        ASSERT(!m_waitingForInterrupts);
+        m_waitingForInterrupts = true;
+    }
+
+    template <int page, uint8_t opCode>
     void OpCMP(const uint8_t& reg) {
         // Subtract to update CC, but discard result
         uint8_t discard =
@@ -835,7 +853,20 @@ public:
         CC.Carry = (CC.Carry == 1) || CalcCarry(r16);
     }
 
-    cycles_t ExecuteInstruction() {
+    void PushCCState(bool entire) {
+        CC.Entire = entire ? 1 : 0;
+
+        Push16(S, PC);
+        Push16(S, U);
+        Push16(S, Y);
+        Push16(S, X);
+        Push8(S, DP);
+        Push8(S, B);
+        Push8(S, A);
+        Push8(S, CC.Value);
+    }
+
+    cycles_t ExecuteInstruction(bool irqEnabled) {
         m_cycles = 0;
 
         auto UnhandledOp = [this](const CpuOp& cpuOp) {
@@ -846,6 +877,27 @@ public:
         // Just for debugging, keep a copy in case we assert
         auto currInstructionPC = PC;
         (void)currInstructionPC;
+
+        if (m_waitingForInterrupts) {
+            if (irqEnabled) {
+                m_waitingForInterrupts = false;
+                CC.InterruptMask = 1;
+                PC = Read16(VectorTable::Irq);
+                return 0; // Already returned CWAI's total cycles the first time we executed it
+            }
+            // @TODO: else if (firqEnabled)...
+            else {
+                return 0; // No cycles while we wait for an interrupt
+            }
+        }
+
+        if (irqEnabled && (CC.InterruptMask == 0)) {
+            PushCCState(true);
+            CC.InterruptMask = 1;
+            PC = Read16(VectorTable::Irq);
+            m_cycles += 19;
+            return m_cycles;
+        }
 
         int cpuOpPage = 0;
         uint8_t opCodeByte = ReadPC8();
@@ -1584,6 +1636,10 @@ public:
                 OpBIT<0, 0xF5>(B);
                 break;
 
+            case 0x3C:
+                OpCWAI<0, 0x3C>();
+                break;
+
             default:
                 UnhandledOp(cpuOp);
             }
@@ -1767,8 +1823,8 @@ void Cpu::Reset() {
     m_impl->Reset();
 }
 
-cycles_t Cpu::ExecuteInstruction() {
-    return m_impl->ExecuteInstruction();
+cycles_t Cpu::ExecuteInstruction(bool irqEnabled) {
+    return m_impl->ExecuteInstruction(irqEnabled);
 }
 
 const CpuRegisters& Cpu::Registers() {

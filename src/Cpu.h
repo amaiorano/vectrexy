@@ -67,10 +67,10 @@ public:
 
     void Init(MemoryBus& memoryBus);
     void Reset();
-    cycles_t ExecuteInstruction();
+    cycles_t ExecuteInstruction(bool irqEnabled);
 
     const CpuRegisters& Registers();
 
 private:
-    pimpl::Pimpl<class CpuImpl, 32> m_impl;
+    pimpl::Pimpl<class CpuImpl, 48> m_impl;
 };
