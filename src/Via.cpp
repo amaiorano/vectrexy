@@ -151,8 +151,12 @@ void Via::Update(cycles_t cycles, const Input& input, RenderContext& renderConte
     }
 
     // CA1 is set when joystick 2 button 4 is pressed, which is usually always on for peripherals
-    // like the 3D imager goggles.
+    // like the 3D imager goggles. Interrupt flag for CA1 is set when CA1 line goes from disabled to
+    // enabled, and is cleared by read/write on Port A.
+    const auto ca1Prev = m_ca1Enabled;
     m_ca1Enabled = input.IsButtonDown(1, 3);
+    if (!ca1Prev && m_ca1Enabled)
+        m_ca1InterruptFlag = true;
 
     // For cycle-accurate drawing, we update our timers, shift register, and beam movement 1 cycle
     // at a time
@@ -211,6 +215,8 @@ uint8_t Via::Read(uint16_t address) const {
         return result;
     }
     case Register::PortA: {
+        m_ca1InterruptFlag = false; // Cleared by read/write of Port A
+
         uint8_t result = m_portA;
 
         // Digital input
@@ -317,6 +323,8 @@ void Via::Write(uint16_t address, uint8_t value) {
         break;
 
     case Register::PortA:
+        m_ca1InterruptFlag = false; // Cleared by read/write of Port A
+
         // Port A is connected directly to the DAC, which in turn is connected to both a MUX with 4
         // outputs, and to the X-axis integrator.
         m_portA = value;
@@ -395,9 +403,12 @@ void Via::Write(uint16_t address, uint8_t value) {
     } break;
 
     case Register::InterruptFlag:
-        //@TODO: handle setting all other interrupt flags
-
         // Clear interrupt flags for any bits that are enabled
+        //@TODO: validate if this is the correct behaviour
+        //@TODO: assert if trying to clear a flag we don't handle yet
+        //@TODO: handle setting all other interrupt flags
+        if (TestBits(value, InterruptFlag::CA1))
+            m_ca1InterruptFlag = false;
         if (TestBits(value, InterruptFlag::Shift))
             m_shiftRegister.SetInterruptFlag(false);
         if (TestBits(value, InterruptFlag::Timer2))
@@ -429,7 +440,7 @@ bool Via::IrqEnabled() const {
 
 uint8_t Via::GetInterruptFlagValue() const {
     uint8_t result = 0;
-    SetBits(result, InterruptFlag::CA1, m_ca1Enabled);
+    SetBits(result, InterruptFlag::CA1, m_ca1InterruptFlag);
     SetBits(result, InterruptFlag::Shift, m_shiftRegister.InterruptFlag());
     SetBits(result, InterruptFlag::Timer2, m_timer2.InterruptFlag());
     SetBits(result, InterruptFlag::Timer1, m_timer1.InterruptFlag());

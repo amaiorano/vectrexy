@@ -49,4 +49,5 @@ private:
     uint8_t m_joystickButtonState;
     int8_t m_joystickPot{};
     bool m_ca1Enabled{};
+    mutable bool m_ca1InterruptFlag{};
 };
