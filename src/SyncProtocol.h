@@ -102,6 +102,7 @@ public:
     void RecvType(ConnectionType connType, SyncMsg::Type expectedType) {
         SyncMsg::Type type{};
         RecvValue(connType, type);
+        (void)expectedType;
         ASSERT(type == expectedType);
     }
 
@@ -110,6 +111,7 @@ private:
     void RecvType(const T& connection, SyncMsg::Type expectedType) {
         SyncMsg::Type type;
         connection->Receive(type);
+        (void)expectedType;
         ASSERT(type == expectedType);
     }
 

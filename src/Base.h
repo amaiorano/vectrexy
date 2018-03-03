@@ -129,7 +129,12 @@ auto MakeScopedExit(Func func) {
     return ScopedExit<Func>(std::move(func));
 }
 
-// ASSERT macro
+// ASSERT macros
+#ifndef ASSERT_ENABLED
+#define ASSERT_ENABLED 0
+#endif
+
+#if ASSERT_ENABLED
 inline void AssertHandler(const char* file, int line, const char* condition, const char* msg) {
     throw std::logic_error(
         FormattedString<>("Assertion Failed!\n Condition: %s\n File: %s(%d)\n Message: %s\n",
@@ -150,6 +155,13 @@ inline void AssertHandler(const char* file, int line, const char* condition, con
 // FAIL macro
 #define FAIL() ASSERT(false)
 #define FAIL_MSG(msg, ...) ASSERT_MSG(false, msg, __VA_ARGS__)
+
+#else
+#define ASSERT(condition) (void)0
+#define ASSERT_MSG(condition, msg, ...) (void)0
+#define FAIL() (void)0
+#define FAIL_MSG(msg, ...) (void)0
+#endif
 
 // Type aliases
 using cycles_t = uint64_t;

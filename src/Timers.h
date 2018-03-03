@@ -10,6 +10,7 @@ enum class TimerMode { FreeRunning, OneShot, PulseCounting };
 class Timer1 {
 public:
     void SetTimerMode(TimerMode mode) {
+        (void)mode;
         ASSERT_MSG(mode == TimerMode::OneShot, "Only supports one-shot mode for now");
     }
     TimerMode TimerMode() const { return TimerMode::OneShot; }
@@ -74,6 +75,7 @@ private:
 class Timer2 {
 public:
     void SetTimerMode(TimerMode mode) {
+        (void)mode;
         ASSERT_MSG(mode == TimerMode::OneShot, "Only supports one-shot mode for now");
     }
     TimerMode TimerMode() const { return TimerMode::OneShot; }
