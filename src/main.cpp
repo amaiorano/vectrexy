@@ -119,8 +119,23 @@ private:
             }
         }
 
+#define DEBUGGER_ENABLED 0
+#if DEBUGGER_ENABLED
         bool keepGoing =
             m_debugger.Update(frameTime, input, emuEvents, renderContext, m_syncProtocol);
+#else
+        static double m_cpuCyclesLeft = 0;      // @TODO: make data member
+        const double cpuHz = 6'000'000.0 / 4.0; // Frequency of the CPU (cycles/second)
+        const double cpuCyclesThisFrame = cpuHz * frameTime;
+        m_cpuCyclesLeft += cpuCyclesThisFrame;
+        while (m_cpuCyclesLeft > 0) {
+            auto cpuCycles = m_cpu.ExecuteInstruction(m_via.IrqEnabled());
+            cycles_t effectiveCycles = cpuCycles == 0 ? 10 : cpuCycles;
+            m_via.Update(effectiveCycles, input, renderContext);
+            m_cpuCyclesLeft -= effectiveCycles;
+        }
+        auto keepGoing = true;
+#endif
 
         if (m_syncProtocol.IsServer()) {
             m_syncProtocol.Server_RecvFrameEnd();
