@@ -181,8 +181,9 @@ namespace {
     Texture g_vectorsTexture1;
     Texture g_vectorsThickTexture0;
     Texture g_vectorsThickTexture1;
-    Texture g_tempTexture;
+    Texture g_glowTempTexture;
     Texture g_glowTexture;
+    Texture g_crtTempTexture;
     Texture g_crtTexture;
     Texture g_overlayTexture;
 
@@ -527,12 +528,18 @@ namespace GLRender {
         // (Re)create resources that depend on viewport size
         g_vectorsTexture0.Allocate(crtWidth, crtHeight, GL_RGB32F);
         g_vectorsTexture1.Allocate(crtWidth, crtHeight, GL_RGB32F);
-        g_vectorsThickTexture0.Allocate(crtWidth, crtHeight, GL_RGB32F);
-        g_vectorsThickTexture1.Allocate(crtWidth, crtHeight, GL_RGB32F);
-        g_tempTexture.Allocate(crtWidth, crtHeight, GL_RGB32F);
-        glObjectLabel(GL_TEXTURE, g_tempTexture.Id(), -1, "g_tempTexture");
-        g_glowTexture.Allocate(crtWidth, crtHeight, GL_RGB32F);
+
+        const auto glowTexWidth = crtWidth / 2;
+        const auto glowTexHeight = crtHeight / 2;
+        g_vectorsThickTexture0.Allocate(glowTexWidth, glowTexHeight, GL_RGB32F);
+        g_vectorsThickTexture1.Allocate(glowTexWidth, glowTexHeight, GL_RGB32F);
+        g_glowTempTexture.Allocate(glowTexWidth, glowTexHeight, GL_RGB);
+        glObjectLabel(GL_TEXTURE, g_glowTempTexture.Id(), -1, "g_glowTempTexture");
+        g_glowTexture.Allocate(glowTexWidth, glowTexHeight, GL_RGB, GL_LINEAR);
         glObjectLabel(GL_TEXTURE, g_glowTexture.Id(), -1, "g_glowTexture");
+
+        g_crtTempTexture.Allocate(crtWidth, crtHeight, GL_RGB, GL_LINEAR);
+        glObjectLabel(GL_TEXTURE, g_crtTempTexture.Id(), -1, "g_crtTempTexture");
         g_crtTexture.Allocate(overlayWidth, overlayHeight, GL_RGB);
         glObjectLabel(GL_TEXTURE, g_crtTexture.Id(), -1, "g_crtTexture");
 
@@ -604,13 +611,13 @@ namespace GLRender {
             g_drawVectorsPass.Draw(g_quadVA, GL_TRIANGLES, {}, {}, currVectorsThickTexture0);
             g_darkenTexturePass.Draw(currVectorsThickTexture0, currVectorsThickTexture1,
                                      static_cast<float>(frameTime));
-            g_glowPass.Draw(currVectorsThickTexture0, g_tempTexture, g_glowTexture);
+            g_glowPass.Draw(currVectorsThickTexture0, g_glowTempTexture, g_glowTexture);
 
             // Combine glow and normal lines
-            g_combineVectorsAndGlowPass.Draw(currVectorsTexture0, g_glowTexture, g_tempTexture);
+            g_combineVectorsAndGlowPass.Draw(currVectorsTexture0, g_glowTexture, g_crtTempTexture);
 
             // Scale game screen (lines) to CRT texture
-            g_gameScreenToCrtTexturePass.Draw(g_tempTexture, g_crtTexture);
+            g_gameScreenToCrtTexturePass.Draw(g_crtTempTexture, g_crtTexture);
         } else {
             // Scale game screen (lines) to CRT texture
             g_gameScreenToCrtTexturePass.Draw(currVectorsTexture0, g_crtTexture);
