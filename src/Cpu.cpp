@@ -738,6 +738,13 @@ public:
     }
 
     template <int page, uint8_t opCode>
+    void OpRTI() {
+        bool poppedEntire{};
+        PopCCState(poppedEntire);
+        m_cycles += poppedEntire ? 15 : 6;
+    }
+
+    template <int page, uint8_t opCode>
     void OpCWAI() {
         uint8_t value = ReadOperandValue8<LookupCpuOp(page, opCode).addrMode>();
         CC.Value = CC.Value & value;
@@ -866,6 +873,23 @@ public:
         Push8(S, CC.Value);
     }
 
+    void PopCCState(bool poppedEntire) {
+        CC.Value = Pop8(S);
+        poppedEntire = CC.Entire != 0;
+        if (CC.Entire) {
+            A = Pop8(S);
+            B = Pop8(S);
+            DP = Pop8(S);
+            X = Pop16(S);
+            Y = Pop16(S);
+            U = Pop16(S);
+            PC = Pop16(S);
+        } else {
+            PC = Pop16(S);
+        }
+        //@TODO: CC.Entire = 0; ?
+    }
+
     cycles_t ExecuteInstruction(bool irqEnabled) {
         m_cycles = 0;
 
@@ -911,7 +935,8 @@ public:
 
         const CpuOp& cpuOp = LookupCpuOpRuntime(cpuOpPage, opCodeByte);
 
-        ASSERT_MSG(cpuOp.cycles > 0, "TODO: look at how to handle cycles for this instruction");
+        ASSERT_MSG(cpuOp.cycles >= 0, "TODO: look at how to handle cycles for instruction: %s",
+                   cpuOp.name);
         //@TODO: Handle cycle counting for interrupts (SWI[2/3], [F]IRQ, NMI) and RTI
         m_cycles += cpuOp.cycles; // Base cycles for this instruction
 
@@ -1636,6 +1661,9 @@ public:
                 OpBIT<0, 0xF5>(B);
                 break;
 
+            case 0x3B:
+                OpRTI<0, 0x3B>();
+                break;
             case 0x3C:
                 OpCWAI<0, 0x3C>();
                 break;
