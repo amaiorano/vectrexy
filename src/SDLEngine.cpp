@@ -333,6 +333,22 @@ namespace {
         }
     }
 
+    void HACK_Simulate3dImager(double frameTime, Input& input) {
+        // @TODO: The 3D imager repeatedly sends button presses of joystick 2 button 4 at a given
+        // frequency (apparently different depending on game). For now, I just enable it with a
+        // static bool. Eventually, need to give user the option to enable the imager, etc.
+        static volatile bool enabled = false;
+        if (enabled) {
+            const double imagerJoy1Button4PressRate = 1 / 26.0;
+            static double timeLeft = imagerJoy1Button4PressRate;
+            timeLeft -= frameTime;
+            if (timeLeft <= 0) {
+                input.SetButton(1, 3, true);
+                timeLeft += imagerJoy1Button4PressRate;
+            }
+        }
+    }
+
 } // namespace
 
 // Implement EngineClient free-standing functions
@@ -430,6 +446,8 @@ bool SDLEngine::Run(int argc, char** argv) {
         }
 
         ImGui_ImplSdlGL3_NewFrame(g_window);
+
+        HACK_Simulate3dImager(frameTime, input);
 
         if (!g_client->Update(frameTime, input, emuEvents, renderContext))
             quit = true;
