@@ -405,8 +405,15 @@ void Via::Write(uint16_t address, uint8_t value) {
     case Register::InterruptFlag:
         // Clear interrupt flags for any bits that are enabled
         //@TODO: validate if this is the correct behaviour
-        //@TODO: assert if trying to clear a flag we don't handle yet
-        //@TODO: handle setting all other interrupt flags
+
+        // Assert if trying to clear an interrupt we don't handle yet
+#define ASSERT_UNHANDLED(flag)                                                                     \
+    ASSERT_MSG(!TestBits(value, flag), "Write to clear interrupt not supported yet: %s", #flag)
+        ASSERT_UNHANDLED(InterruptFlag::CA2);
+        ASSERT_UNHANDLED(InterruptFlag::CB1);
+        ASSERT_UNHANDLED(InterruptFlag::CB2);
+#undef ASSERT_UNHANDLED
+
         if (TestBits(value, InterruptFlag::CA1))
             m_ca1InterruptFlag = false;
         if (TestBits(value, InterruptFlag::Shift))
@@ -422,6 +429,16 @@ void Via::Write(uint16_t address, uint8_t value) {
         // When bit 7 = 1 : Each 1 in a bit position enables that bit.
         // (Zeros in bit positions are left unchanged)
         SetBits(m_interruptEnable, (value & 0x7F), TestBits(value, BITS(7)));
+
+        // Assert if trying to enable interrupt we don't handle yet
+#define ASSERT_UNHANDLED(flag)                                                                     \
+    ASSERT_MSG(!TestBits(m_interruptEnable, flag),                                                 \
+               "Write to enable interrupt not supported yet: %s", #flag)
+        ASSERT_UNHANDLED(InterruptFlag::CA2);
+        ASSERT_UNHANDLED(InterruptFlag::CB1);
+        ASSERT_UNHANDLED(InterruptFlag::CB2);
+#undef ASSERT_UNHANDLED
+
     } break;
 
     case Register::PortANoHandshake:
