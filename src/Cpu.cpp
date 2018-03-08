@@ -72,10 +72,7 @@ public:
         DP = 0;
 
         CC.Value = 0;
-        // @TODO: I read somewhere that InterruptMask should be reset to 1, but games like "3D Mine
-        // Storm" don't explicitly set it to 0 and expect IRQs to trigger, so it looks like we need
-        // to reset it to 0. Look into this.
-        // CC.InterruptMask = 1;
+        CC.InterruptMask = 1;
         CC.FastInterruptMask = 1;
 
         // Read initial location from last 2 bytes of address-space (is 0xF000 on Vectrex)
