@@ -902,7 +902,7 @@ public:
         (void)currInstructionPC;
 
         if (m_waitingForInterrupts) {
-            if (irqEnabled) {
+            if (irqEnabled && (CC.InterruptMask == 0)) {
                 m_waitingForInterrupts = false;
                 CC.InterruptMask = 1;
                 PC = Read16(VectorTable::Irq);
@@ -936,7 +936,6 @@ public:
 
         ASSERT_MSG(cpuOp.cycles >= 0, "TODO: look at how to handle cycles for instruction: %s",
                    cpuOp.name);
-        //@TODO: Handle cycle counting for interrupts (SWI[2/3], [F]IRQ, NMI) and RTI
         m_cycles += cpuOp.cycles; // Base cycles for this instruction
 
         if (cpuOp.addrMode == AddressingMode::Illegal) {
