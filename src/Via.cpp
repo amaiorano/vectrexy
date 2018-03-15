@@ -158,6 +158,8 @@ void Via::Update(cycles_t cycles, const Input& input, RenderContext& renderConte
     if (!ca1Prev && m_ca1Enabled)
         m_ca1InterruptFlag = true;
 
+    m_firqEnabled = input.IsButtonDown(0, 3);
+
     // For cycle-accurate drawing, we update our timers, shift register, and beam movement 1 cycle
     // at a time
     cycles_t cyclesLeft = cycles;
@@ -453,6 +455,10 @@ void Via::Write(uint16_t address, uint8_t value) {
 
 bool Via::IrqEnabled() const {
     return TestBits(GetInterruptFlagValue(), InterruptFlag::IrqEnabled);
+}
+
+bool Via::FirqEnabled() const {
+    return m_firqEnabled;
 }
 
 uint8_t Via::GetInterruptFlagValue() const {

@@ -889,7 +889,7 @@ public:
         //@TODO: CC.Entire = 0; ?
     }
 
-    cycles_t ExecuteInstruction(bool irqEnabled) {
+    cycles_t ExecuteInstruction(bool irqEnabled, bool firqEnabled) {
         m_cycles = 0;
 
         auto UnhandledOp = [this](const CpuOp& cpuOp) {
@@ -907,9 +907,12 @@ public:
                 CC.InterruptMask = 1;
                 PC = Read16(VectorTable::Irq);
                 return 0; // Already returned CWAI's total cycles the first time we executed it
-            }
-            // @TODO: else if (firqEnabled)...
-            else {
+
+            } else if (firqEnabled && (CC.FastInterruptMask == 0)) {
+                FAIL_MSG("Implement FIRQ after CWAI");
+                return 0;
+
+            } else {
                 return 0; // No cycles while we wait for an interrupt
             }
         }
@@ -920,6 +923,11 @@ public:
             PC = Read16(VectorTable::Irq);
             m_cycles += 19;
             return m_cycles;
+        }
+
+        if (firqEnabled && (CC.FastInterruptMask == 0)) {
+            FAIL_MSG("Implement FIRQ");
+            return 0;
         }
 
         int cpuOpPage = 0;
@@ -1849,8 +1857,8 @@ void Cpu::Reset() {
     m_impl->Reset();
 }
 
-cycles_t Cpu::ExecuteInstruction(bool irqEnabled) {
-    return m_impl->ExecuteInstruction(irqEnabled);
+cycles_t Cpu::ExecuteInstruction(bool irqEnabled, bool firqEnabled) {
+    return m_impl->ExecuteInstruction(irqEnabled, firqEnabled);
 }
 
 const CpuRegisters& Cpu::Registers() {

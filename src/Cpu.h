@@ -67,7 +67,7 @@ public:
 
     void Init(MemoryBus& memoryBus);
     void Reset();
-    cycles_t ExecuteInstruction(bool irqEnabled);
+    cycles_t ExecuteInstruction(bool irqEnabled, bool firqEnabled);
 
     const CpuRegisters& Registers();
 

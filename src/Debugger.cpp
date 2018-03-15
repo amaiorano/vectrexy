@@ -849,7 +849,7 @@ bool Debugger::Update(double frameTime, const Input& input, const EmuEvents& emu
                 }
             });
 
-            cpuCycles = m_cpu->ExecuteInstruction(m_via->IrqEnabled());
+            cpuCycles = m_cpu->ExecuteInstruction(m_via->IrqEnabled(), m_via->FirqEnabled());
 
             if (cpuCycles > 0)
                 ++m_instructionCount;

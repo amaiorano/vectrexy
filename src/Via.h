@@ -22,6 +22,7 @@ public:
     void Update(cycles_t cycles, const Input& input, RenderContext& renderContext);
 
     bool IrqEnabled() const;
+    bool FirqEnabled() const;
 
 private:
     uint8_t Read(uint16_t address) const override;
@@ -50,4 +51,5 @@ private:
     int8_t m_joystickPot{};
     bool m_ca1Enabled{};
     mutable bool m_ca1InterruptFlag{};
+    bool m_firqEnabled{};
 };
