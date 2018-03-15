@@ -77,6 +77,8 @@ public:
 
         // Read initial location from last 2 bytes of address-space (is 0xF000 on Vectrex)
         PC = Read16(VectorTable::Reset);
+
+        m_waitingForInterrupts = false;
     }
 
     uint8_t Read8(uint16_t address) { return m_memoryBus->Read(address); }
@@ -913,8 +915,8 @@ public:
         }
 
         if (irqEnabled && (CC.InterruptMask == 0)) {
-            PushCCState(true);
             CC.InterruptMask = 1;
+            PushCCState(true);
             PC = Read16(VectorTable::Irq);
             m_cycles += 19;
             return m_cycles;
