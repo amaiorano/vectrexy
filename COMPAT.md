@@ -16,7 +16,7 @@
 
 | Rom                                                          | Status            | Comment                                                   |
 | ------------------------------------------------------------ | ----------------- | --------------------------------------------------------- |
-| 3-D Mine Storm (1983)                                        | NoBoot            | [VecxSame] TODO: probably interrupt not being handled     |
+| 3-D Mine Storm (1983)                                        | NoBoot            | [VecxSame] Imager game, looks for CA1 (joy 2 button 4)    |
 | 3-D Mine Storm (1983) [b1]                                   | ViaNotImplemented | Read InterruptEnable not implemented                      |
 | 3-D Narrow Escape (1983)                                     | NoBoot            | [VecxSame]                                                |
 | 3-D Narrow Escape (1983) [b1]                                | NoBoot            |                                                           |
@@ -30,11 +30,11 @@
 | Armor Attack (1982) [b1]                                     | MissingOp         | Unhandled Op: SWI                                         |
 | Art Master (1983) (light pen)                                | Good?             | Can't get past the first screen, maybe emulate light pen? |
 | Art Master (1983) (light pen) [b1]                           | InvalidRead       | Invalid Cartridge read at $2803                           |
-| Bedlam (1983)                                                | MissingOp         | Unhandled Op: CWAI                                        |
-| Bedlam (1983) (Spinner Hack)                                 | MissingOp         | Unhandled Op: CWAI                                        |
-| Bedlam (1983) [b1]                                           | InvalidRead       | [VecxSame] Invalid Cartridge read at $0ea3                |
-| Bedlam (1983) [b2]                                           | ViaNotImplemented | A without handshake not implemented yet                   |
-| Bedlam (1983) [b3]                                           | MissingOp         | Unhandled Op: CWAI                                        |
+| Bedlam (1983)                                                | Great             |                                                           |
+| Bedlam (1983) (Spinner Hack)                                 | MissingOp         |                                                           |
+| Bedlam (1983) [b1]                                           | InvalidRead       |                                                           |
+| Bedlam (1983) [b2]                                           | ViaNotImplemented |                                                           |
+| Bedlam (1983) [b3]                                           | MissingOp         |                                                           |
 | Berzerk (1982)                                               | Good              | Characters are squished                                   |
 | Berzerk (1982) (Bugfixed Prototype)                          | UNTESTED          |                                                           |
 | Berzerk (1982) (Bugfixed Prototype) [o1]                     | UNTESTED          |                                                           |
