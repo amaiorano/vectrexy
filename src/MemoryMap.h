@@ -23,7 +23,9 @@ namespace MemoryMap {
         // Maps input address to [0, range.first + logicalSize]
         //@TODO: Better name (Normalize? Wrap?)
         uint16_t MapAddress(uint16_t address) const {
-            ASSERT(IsInRange(address, range));
+            ASSERT_MSG(IsInRange(address, range),
+                       "Mapping address out of range! Value: $%04x, Range: [$%04x, $%04x]", address,
+                       range.first, range.second);
             return (address - range.first) % logicalSize;
         }
     };

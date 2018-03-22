@@ -6,6 +6,7 @@
 #include "Debugger.h"
 #include "EngineClient.h"
 #include "FileSystemUtil.h"
+#include "IllegalMemoryDevice.h"
 #include "MemoryBus.h"
 #include "MemoryMap.h"
 #include "Overlays.h"
@@ -43,6 +44,7 @@ private:
         m_ram.Init(m_memoryBus);
         m_biosRom.Init(m_memoryBus);
         m_unmapped.Init(m_memoryBus);
+        m_illegal.Init(m_memoryBus);
         m_cartridge.Init(m_memoryBus);
         m_debugger.Init(m_memoryBus, m_cpu, m_via);
 
@@ -139,6 +141,7 @@ private:
     Ram m_ram;
     BiosRom m_biosRom;
     UnmappedMemoryDevice m_unmapped;
+    IllegalMemoryDevice m_illegal;
     Cartridge m_cartridge;
     Debugger m_debugger;
     Overlays m_overlays;
