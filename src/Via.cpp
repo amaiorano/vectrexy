@@ -2,14 +2,8 @@
 #include "BitOps.h"
 #include "EngineClient.h"
 #include "MemoryMap.h"
-#include <imgui.h>
 
 namespace {
-    //@TODO: make these conditionally const for "shipping" build
-    static int32_t RampUpDelay = 5;
-    static int32_t RampDownDelay = 10;
-    static int32_t VelocityXDelay = 6;
-
     enum class ShiftRegisterMode {
         // There are actually many more modes, but I think Vectrex only uses one
         ShiftOutUnder02
@@ -134,7 +128,6 @@ namespace {
 
 void Via::Init(MemoryBus& memoryBus) {
     memoryBus.ConnectDevice(*this, MemoryMap::Via.range);
-    m_velocityX.CyclesToUpdateValue = VelocityXDelay;
 }
 
 void Via::Reset() {
@@ -176,13 +169,10 @@ void Via::Update(cycles_t cycles, const Input& input, RenderContext& renderConte
         m_timer2.Update(cycles);
         m_shiftRegister.Update(cycles);
 
-        m_velocityX.Update(cycles);
-        m_velocityY.Update(cycles);
-
         // Shift register's CB2 line drives /BLANK
         //@TODO: check some flag on the shift register to know whether it's active
         if (m_shiftRegister.Enabled()) {
-            m_blank = m_shiftRegister.CB2Active();
+            m_screen.SetBlankEnabled(m_shiftRegister.CB2Active());
         }
 
         // If the Timer1 PB7 flag is set, then PB7 drives /RAMP
@@ -191,77 +181,19 @@ void Via::Update(cycles_t cycles, const Input& input, RenderContext& renderConte
         }
 
         if (PeriphCntl::IsZeroEnabled(m_periphCntl)) {
-            //@TODO: move beam towards 0,0 over time
-            m_pos = {0.f, 0.f};
+            m_screen.ZeroBeam();
         }
-
-        const auto lastPos = m_pos;
-        Vector2 delta = {0.f, 0.f};
 
         // Integrators are enabled while RAMP line is active (low)
-        const bool integratorsEnabled = !TestBits(m_portB, PortB::RampDisabled);
+        m_screen.SetIntegratorsEnabled(!TestBits(m_portB, PortB::RampDisabled));
 
-        // Handle switching to RampUp/RampDown
-        switch (m_rampPhase) {
-        case RampPhase::RampOff:
-        case RampPhase::RampDown:
-            if (integratorsEnabled) {
-                m_rampPhase = RampPhase::RampUp;
-                m_rampDelay = RampUpDelay;
-            }
-            break;
-
-        case RampPhase::RampOn:
-        case RampPhase::RampUp:
-            if (!integratorsEnabled) {
-                m_rampPhase = RampPhase::RampDown;
-                m_rampDelay = RampDownDelay;
-            }
-        }
-
-        // Handle switching to RampOn/RampOff
-        switch (m_rampPhase) {
-        case RampPhase::RampUp:
-            // Wait some cycles, then go to RampOn
-            if (--m_rampDelay <= 0) {
-                m_rampPhase = RampPhase::RampOn;
-            }
-            break;
-
-        case RampPhase::RampDown:
-            // Wait some cycles, then go to RampOff
-            if (--m_rampDelay <= 0) {
-                m_rampPhase = RampPhase::RampOff;
-            }
-        }
-
-        // Move beam while ramp is on or its way down
-        switch (m_rampPhase) {
-        case RampPhase::RampDown:
-        case RampPhase::RampOn: {
-            const auto offset = Vector2{m_xyOffset, m_xyOffset};
-            Vector2 velocity{m_velocityX, m_velocityY};
-            delta = (velocity + offset) / 128.f * static_cast<float>(cycles);
-            m_pos += delta;
-            m_pos.x = std::clamp(m_pos.x, -128.f, 127.f);
-            m_pos.y = std::clamp(m_pos.y, -128.f, 127.f);
-            break;
-        }
-        }
-
-        // We might draw even when integrators are disabled (e.g. drawing dots)
-        bool drawingEnabled = !m_blank && (m_brightness > 0.f && m_brightness <= 128.f);
-        if (drawingEnabled) {
-            renderContext.lines.emplace_back(Line{lastPos, m_pos});
-        }
+        // Update screen, which populates the lines in the renderContext
+        m_screen.Update(cycles, renderContext);
     }
 }
 
 void Via::FrameUpdate() {
-    ImGui::SliderInt("RampUpDelay", &RampUpDelay, 0, 20);
-    ImGui::SliderInt("RampDownDelay", &RampDownDelay, 0, 20);
-    ImGui::SliderInt("VelocityXDelay", &VelocityXDelay, 0, 30);
-    m_velocityX.CyclesToUpdateValue = VelocityXDelay;
+    m_screen.FrameUpdate();
 }
 
 uint8_t Via::Read(uint16_t address) const {
@@ -358,13 +290,13 @@ void Via::Write(uint16_t address, uint8_t value) {
         if (muxEnabled) {
             switch (ReadBitsWithShift(m_portB, PortB::MuxSelMask, PortB::MuxSelShift)) {
             case 0: // Y-axis integrator
-                m_velocityY = static_cast<int8_t>(m_portA);
+                m_screen.SetIntegratorY(static_cast<int8_t>(m_portA));
                 break;
             case 1: // X,Y Axis integrator offset
-                m_xyOffset = static_cast<int8_t>(m_portA);
+                m_screen.SetIntegratorXYOffset(static_cast<int8_t>(m_portA));
                 break;
             case 2: // Z Axis (Vector Brightness) level
-                m_brightness = m_portA;
+                m_screen.SetBrightness(m_portA);
                 break;
             case 3: // Connected to sound output line via divider network
                 //@TODO
@@ -375,7 +307,7 @@ void Via::Write(uint16_t address, uint8_t value) {
             }
         }
         // Always output to X-axis integrator
-        m_velocityX = static_cast<int8_t>(m_portA);
+        m_screen.SetIntegratorX(static_cast<int8_t>(m_portA));
     };
 
     const uint16_t index = MemoryMap::Via.MapAddress(address);
@@ -461,7 +393,7 @@ void Via::Write(uint16_t address, uint8_t value) {
 
         m_periphCntl = value;
         if (!m_shiftRegister.Enabled()) {
-            m_blank = PeriphCntl::IsBlankEnabled(m_periphCntl);
+            m_screen.SetBlankEnabled(PeriphCntl::IsBlankEnabled(m_periphCntl));
         }
     } break;
 

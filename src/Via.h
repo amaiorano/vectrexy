@@ -1,13 +1,11 @@
 #pragma once
 
-#include "DelayedValueStore.h"
 #include "Line.h"
 #include "MemoryBus.h"
 #include "MemoryMap.h"
 #include "ShiftRegister.h"
 #include "Timers.h"
-#include "Vector2.h"
-#include <array>
+#include "Screen.h"
 
 class Input;
 struct RenderContext;
@@ -39,16 +37,7 @@ private:
     uint8_t m_periphCntl;
     uint8_t m_interruptEnable;
 
-    // Render state
-    Vector2 m_pos;
-    DelayedValueStore<float> m_velocityX;
-    DelayedValueStore<float> m_velocityY;
-    float m_xyOffset = 0.f;
-    float m_brightness = 0.f;
-    bool m_blank = false;
-    enum class RampPhase { RampOff, RampUp, RampOn, RampDown } m_rampPhase = RampPhase::RampOff;
-    int32_t m_rampDelay = 0;
-
+    Screen m_screen;
     Timer1 m_timer1;
     Timer2 m_timer2;
     ShiftRegister m_shiftRegister;
