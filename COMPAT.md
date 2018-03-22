@@ -16,11 +16,11 @@
 
 | Rom                                                          | Status            | Comment                                                   |
 | ------------------------------------------------------------ | ----------------- | --------------------------------------------------------- |
-| 3-D Mine Storm (1983)                                        | NoBoot            | [VecxSame] Imager game, looks for CA1 (joy 2 button 4)    |
-| 3-D Mine Storm (1983) [b1]                                   | ViaNotImplemented | Read InterruptEnable not implemented                      |
-| 3-D Narrow Escape (1983)                                     | NoBoot            | [VecxSame]                                                |
-| 3-D Narrow Escape (1983) [b1]                                | NoBoot            |                                                           |
-| 3-D Narrow Escape (1983) [b2]                                | NoBoot            |                                                           |
+| 3-D Mine Storm (1983)                                        | Good              |                                                           |
+| 3-D Mine Storm (1983) [b1]                                   | ViaNotImplemented | Via Unexpected value for CA2 bits                         |
+| 3-D Narrow Escape (1983)                                     |                   |                                                           |
+| 3-D Narrow Escape (1983) [b1]                                |                   |                                                           |
+| 3-D Narrow Escape (1983) [b2]                                |                   |                                                           |
 | 3-D Narrow Escape (1983) [b3]                                | InvalidWrite      | Write to unmapped range of value $86 at address $c7ff     |
 | Animaction (1983) (light pen)                                | InvalidWrite      | Writes to Cartridge ROM not allowed                       |
 | Animaction (1983) (light pen) [b1]                           | ViaNotImplemented | Also IllegalInstr but maybe bug in cart (vecx same).      |
@@ -48,7 +48,7 @@
 | Fortress of Narzod (1982)                                    | Great             |                                                           |
 | Fortress of Narzod (1982) [b1]                               | MissingOp         | Unhandled Op: SWI                                         |
 | Heads Up - Action Soccer (1983)                              | Great             |                                                           |
-| Heads Up - Action Soccer (1983) [b1]                         | NoBoot            | [VecxSame] Stuck on title screen.                         |
+| Heads Up - Action Soccer (1983) [b1]                         | ViaNotImplemented | Write to IER not supported yet: InterruptFlag::CB2        |
 | Hyperchase (1982)                                            | Great             |                                                           |
 | Hyperchase (1982) [b1]                                       | IllegalInstr      | cpuOp.addrMode != AddressingMode::Illegal                 |
 | Melody Master (1983) (light pen)                             | UNTESTED          |                                                           |
@@ -126,7 +126,7 @@
 | Rom                                                          | Status         | Comment                                                          |
 | ------------------------------------------------------------ | -------------- | ---------------------------------------------------------------- |
 | 'NO' Sound by Chris Salomon (1998) (PD)                      | Good           | Text render incomplete                                           |
-| 0ldsk00l Demo by Manu (2002) (PD)                            | NoBoot         |                                                                  |
+| 0ldsk00l Demo by Manu (2002) (PD)                            | Good           |                                                                  |
 | 3-D Demo by Chris (Mar 06) (2000) (PD)                       | InvalidRead    | Read from unmapped range at address $a813                        |
 | 3-D Demo by Chris (Mar 08) (2000) (PD)                       | InvalidRead    | Read from unmapped range at address $c5d8                        |
 | 3-D Scrolling Demo by Christopher Tumber (2001) (PD)         | Good?          |                                                                  |
@@ -143,9 +143,9 @@
 | Axel F - Beverly Hills Cop by Chris Salomon (1998) (PD) [a1] | MaybeMusicOnly |                                                                  |
 | Bach Prelude #1 by Jeff Woolsey (1985) (PD)                  | MaybeMusicOnly |                                                                  |
 | Battle Earth Terror Hazard & Vecsports Boxing (2000) (PD)    | Great          |                                                                  |
-| Battle Earth Terror Hazard V1 by Manu (2000) (PD)            | Good           | Bottom renders squished                                          |
-| Battle Earth Terror Hazard V2 by Manu (2000) (PD)            | IllegalInstr   | cpuOp.addrMode != AddressingMode::Illegal                        |
-| Battle Earth Terror Hazard V3 by Manu (2000) (PD)            | IllegalInstr   | cpuOp.addrMode != AddressingMode::Illegal                        |
+| Battle Earth Terror Hazard V1 by Manu (2000) (PD)            | Good           | Font/score render not quite right                                |
+| Battle Earth Terror Hazard V2 by Manu (2000) (PD)            | Good           |                                                                  |
+| Battle Earth Terror Hazard V3 by Manu (2000) (PD)            | Good           |                                                                  |
 | Battle Earth Terror Hazard V4 by Manu (2000) (PD)            | Good           | Bottom render cut off                                            |
 | Battlezone Demo by Christopher Tumber (2001) (PD)            | Meh            | Rendering glitches: looks like beam off not working near edge    |
 | BB2 Demo by Manu (2002) (PD)                                 | Good           | Font render glitched                                             |
