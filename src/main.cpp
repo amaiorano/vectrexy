@@ -97,8 +97,8 @@ private:
         return true;
     }
 
-    bool Update(double frameTime, const Input& inputArg, const EmuEvents& emuEvents,
-                RenderContext& renderContext) override {
+    bool FrameUpdate(double frameTime, const Input& inputArg, const EmuEvents& emuEvents,
+                     RenderContext& renderContext) override {
         Input input = inputArg;
 
         if (m_syncProtocol.IsServer()) {
@@ -122,7 +122,9 @@ private:
         }
 
         bool keepGoing =
-            m_debugger.Update(frameTime, input, emuEvents, renderContext, m_syncProtocol);
+            m_debugger.FrameUpdate(frameTime, input, emuEvents, renderContext, m_syncProtocol);
+
+        m_via.FrameUpdate();
 
         if (m_syncProtocol.IsServer()) {
             m_syncProtocol.Server_RecvFrameEnd();

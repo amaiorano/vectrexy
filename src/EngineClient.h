@@ -56,8 +56,8 @@ struct RenderContext {
 class IEngineClient {
 public:
     virtual bool Init(int argc, char** argv) = 0;
-    virtual bool Update(double frameTime, const Input& input, const EmuEvents& emuEvents,
-                        RenderContext& renderContext) = 0;
+    virtual bool FrameUpdate(double frameTime, const Input& input, const EmuEvents& emuEvents,
+                             RenderContext& renderContext) = 0;
     virtual void Shutdown() = 0;
 };
 

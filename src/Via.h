@@ -1,5 +1,6 @@
 #pragma once
 
+#include "DelayedValueStore.h"
 #include "Line.h"
 #include "MemoryBus.h"
 #include "MemoryMap.h"
@@ -20,6 +21,7 @@ public:
     void Init(MemoryBus& memoryBus);
     void Reset();
     void Update(cycles_t cycles, const Input& input, RenderContext& renderContext);
+    void FrameUpdate();
 
     bool IrqEnabled() const;
     bool FirqEnabled() const;
@@ -39,10 +41,13 @@ private:
 
     // Render state
     Vector2 m_pos;
-    Vector2 m_velocity;
+    DelayedValueStore<float> m_velocityX;
+    DelayedValueStore<float> m_velocityY;
     float m_xyOffset = 0.f;
     float m_brightness = 0.f;
     bool m_blank = false;
+    enum class RampPhase { RampOff, RampUp, RampOn, RampDown } m_rampPhase = RampPhase::RampOff;
+    int32_t m_rampDelay = 0;
 
     Timer1 m_timer1;
     Timer2 m_timer2;

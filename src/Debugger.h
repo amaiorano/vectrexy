@@ -16,8 +16,8 @@ class Debugger {
 public:
     void Init(MemoryBus& memoryBus, Cpu& cpu, Via& via);
     void Reset();
-    bool Update(double frameTime, const Input& input, const EmuEvents& emuEvents,
-                RenderContext& renderContext, SyncProtocol& syncProtocol);
+    bool FrameUpdate(double frameTime, const Input& input, const EmuEvents& emuEvents,
+                     RenderContext& renderContext, SyncProtocol& syncProtocol);
 
     using SymbolTable = std::multimap<uint16_t, std::string>;
 

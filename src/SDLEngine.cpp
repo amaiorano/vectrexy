@@ -449,7 +449,7 @@ bool SDLEngine::Run(int argc, char** argv) {
 
         HACK_Simulate3dImager(frameTime, input);
 
-        if (!g_client->Update(frameTime, input, emuEvents, renderContext))
+        if (!g_client->FrameUpdate(frameTime, input, emuEvents, renderContext))
             quit = true;
 
         GLRender::RenderScene(frameTime, renderContext);

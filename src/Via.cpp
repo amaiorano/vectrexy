@@ -2,8 +2,14 @@
 #include "BitOps.h"
 #include "EngineClient.h"
 #include "MemoryMap.h"
+#include <imgui.h>
 
 namespace {
+    //@TODO: make these conditionally const for "shipping" build
+    static int32_t RampUpDelay = 5;
+    static int32_t RampDownDelay = 10;
+    static int32_t VelocityXDelay = 6;
+
     enum class ShiftRegisterMode {
         // There are actually many more modes, but I think Vectrex only uses one
         ShiftOutUnder02
@@ -128,6 +134,7 @@ namespace {
 
 void Via::Init(MemoryBus& memoryBus) {
     memoryBus.ConnectDevice(*this, MemoryMap::Via.range);
+    m_velocityX.CyclesToUpdateValue = VelocityXDelay;
 }
 
 void Via::Reset() {
@@ -169,6 +176,9 @@ void Via::Update(cycles_t cycles, const Input& input, RenderContext& renderConte
         m_timer2.Update(cycles);
         m_shiftRegister.Update(cycles);
 
+        m_velocityX.Update(cycles);
+        m_velocityY.Update(cycles);
+
         // Shift register's CB2 line drives /BLANK
         //@TODO: check some flag on the shift register to know whether it's active
         if (m_shiftRegister.Enabled()) {
@@ -189,11 +199,54 @@ void Via::Update(cycles_t cycles, const Input& input, RenderContext& renderConte
         Vector2 delta = {0.f, 0.f};
 
         // Integrators are enabled while RAMP line is active (low)
-        bool integratorsEnabled = !TestBits(m_portB, PortB::RampDisabled);
-        if (integratorsEnabled) {
-            auto offset = Vector2{m_xyOffset, m_xyOffset};
-            delta = (m_velocity + offset) / 128.f * static_cast<float>(cycles);
+        const bool integratorsEnabled = !TestBits(m_portB, PortB::RampDisabled);
+
+        // Handle switching to RampUp/RampDown
+        switch (m_rampPhase) {
+        case RampPhase::RampOff:
+        case RampPhase::RampDown:
+            if (integratorsEnabled) {
+                m_rampPhase = RampPhase::RampUp;
+                m_rampDelay = RampUpDelay;
+            }
+            break;
+
+        case RampPhase::RampOn:
+        case RampPhase::RampUp:
+            if (!integratorsEnabled) {
+                m_rampPhase = RampPhase::RampDown;
+                m_rampDelay = RampDownDelay;
+            }
+        }
+
+        // Handle switching to RampOn/RampOff
+        switch (m_rampPhase) {
+        case RampPhase::RampUp:
+            // Wait some cycles, then go to RampOn
+            if (--m_rampDelay <= 0) {
+                m_rampPhase = RampPhase::RampOn;
+            }
+            break;
+
+        case RampPhase::RampDown:
+            // Wait some cycles, then go to RampOff
+            if (--m_rampDelay <= 0) {
+                m_rampPhase = RampPhase::RampOff;
+            }
+        }
+
+        // Move beam while ramp is on or its way down
+        switch (m_rampPhase) {
+        case RampPhase::RampDown:
+        case RampPhase::RampOn: {
+            const auto offset = Vector2{m_xyOffset, m_xyOffset};
+            Vector2 velocity{m_velocityX, m_velocityY};
+            delta = (velocity + offset) / 128.f * static_cast<float>(cycles);
             m_pos += delta;
+            m_pos.x = std::clamp(m_pos.x, -128.f, 127.f);
+            m_pos.y = std::clamp(m_pos.y, -128.f, 127.f);
+            break;
+        }
         }
 
         // We might draw even when integrators are disabled (e.g. drawing dots)
@@ -202,6 +255,13 @@ void Via::Update(cycles_t cycles, const Input& input, RenderContext& renderConte
             renderContext.lines.emplace_back(Line{lastPos, m_pos});
         }
     }
+}
+
+void Via::FrameUpdate() {
+    ImGui::SliderInt("RampUpDelay", &RampUpDelay, 0, 20);
+    ImGui::SliderInt("RampDownDelay", &RampDownDelay, 0, 20);
+    ImGui::SliderInt("VelocityXDelay", &VelocityXDelay, 0, 30);
+    m_velocityX.CyclesToUpdateValue = VelocityXDelay;
 }
 
 uint8_t Via::Read(uint16_t address) const {
@@ -224,8 +284,9 @@ uint8_t Via::Read(uint16_t address) const {
         // Digital input
         if (!TestBits(m_portB, PortB::SoundBDir) && TestBits(m_portB, PortB::SoundBC1)) {
             if (m_dataDirA == 0) { // Input mode
-                                   // @TODO: in this mode, we're reading the PSG's port A, not the
-                                   // VIA's DAC, so this is probably wrong
+
+                // @TODO: in this mode, we're reading the PSG's port A, not the
+                // VIA's DAC, so this is probably wrong
                 result = m_joystickButtonState;
             }
         }
@@ -297,7 +358,7 @@ void Via::Write(uint16_t address, uint8_t value) {
         if (muxEnabled) {
             switch (ReadBitsWithShift(m_portB, PortB::MuxSelMask, PortB::MuxSelShift)) {
             case 0: // Y-axis integrator
-                m_velocity.y = static_cast<int8_t>(m_portA);
+                m_velocityY = static_cast<int8_t>(m_portA);
                 break;
             case 1: // X,Y Axis integrator offset
                 m_xyOffset = static_cast<int8_t>(m_portA);
@@ -314,7 +375,7 @@ void Via::Write(uint16_t address, uint8_t value) {
             }
         }
         // Always output to X-axis integrator
-        m_velocity.x = static_cast<int8_t>(m_portA);
+        m_velocityX = static_cast<int8_t>(m_portA);
     };
 
     const uint16_t index = MemoryMap::Via.MapAddress(address);

@@ -795,8 +795,8 @@ void Debugger::SyncInstructionHash(SyncProtocol& syncProtocol,
     }
 }
 
-bool Debugger::Update(double frameTime, const Input& input, const EmuEvents& emuEvents,
-                      RenderContext& renderContext, SyncProtocol& syncProtocol) {
+bool Debugger::FrameUpdate(double frameTime, const Input& input, const EmuEvents& emuEvents,
+                           RenderContext& renderContext, SyncProtocol& syncProtocol) {
 
     int numInstructionsExecutedThisFrame = 0;
 
