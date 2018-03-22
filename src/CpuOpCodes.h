@@ -390,5 +390,7 @@ inline const CpuOp& LookupCpuOpRuntime(int page, uint8_t opCode) {
     };
 
     static const auto& lookupTables = InitLookupTables();
-    return *lookupTables[page][opCode];
+    auto cpuOp = lookupTables[page][opCode];
+    ASSERT_MSG(cpuOp != nullptr, "Invalid CPU opcode: %d, page: %d", opCode, page);
+    return *cpuOp;
 }
