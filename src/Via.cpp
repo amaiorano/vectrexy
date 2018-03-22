@@ -385,7 +385,7 @@ void Via::Write(uint16_t address, uint8_t value) {
     case Register::PeriphCntl: {
         ASSERT_MSG(ReadBitsWithShift(value, PeriphCntl::CA2Mask, PeriphCntl::CA2Shift) == 0b110 ||
                        ReadBitsWithShift(value, PeriphCntl::CA2Mask, PeriphCntl::CA2Shift) == 0b111,
-                   "Unexpected value for Zero bits");
+                   "Unexpected value for CA2 bits");
 
         ASSERT_MSG(ReadBitsWithShift(value, PeriphCntl::CB2Mask, PeriphCntl::CB2Shift) == 0b110 ||
                        ReadBitsWithShift(value, PeriphCntl::CB2Mask, PeriphCntl::CB2Shift) == 0b111,

@@ -898,7 +898,7 @@ public:
         };
 
         // Just for debugging, keep a copy in case we assert
-        auto currInstructionPC = PC;
+        const auto currInstructionPC = PC;
         (void)currInstructionPC;
 
         if (m_waitingForInterrupts) {
@@ -930,6 +930,7 @@ public:
             return 0;
         }
 
+        // Read op code byte and page
         int cpuOpPage = 0;
         uint8_t opCodeByte = ReadPC8();
         if (IsOpCodePage1(opCodeByte)) {
