@@ -948,7 +948,8 @@ public:
         m_cycles += cpuOp.cycles; // Base cycles for this instruction
 
         if (cpuOp.addrMode == AddressingMode::Illegal) {
-            ErrorHandler::Undefined("Illegal instruction\n");
+            ErrorHandler::Undefined("Illegal instruction at $%04x, opcode: %02x, page: %d\n",
+                                    currInstructionPC, opCodeByte, cpuOpPage);
             return m_cycles;
         }
 
