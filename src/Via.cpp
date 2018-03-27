@@ -136,6 +136,15 @@ void Via::Reset() {
     m_periphCntl = 0;
     m_interruptEnable = 0;
 
+    m_screen = Screen{};
+    m_timer1 = Timer1{};
+    m_timer2 = Timer2{};
+    m_shiftRegister = ShiftRegister{};
+    m_joystickButtonState = {};
+    m_ca1Enabled = {};
+    m_ca1InterruptFlag = {};
+    m_firqEnabled = {};
+
     SetBits(m_portB, PortB::RampDisabled, true);
 }
 

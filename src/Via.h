@@ -3,9 +3,9 @@
 #include "Line.h"
 #include "MemoryBus.h"
 #include "MemoryMap.h"
+#include "Screen.h"
 #include "ShiftRegister.h"
 #include "Timers.h"
-#include "Screen.h"
 
 class Input;
 struct RenderContext;
@@ -41,7 +41,7 @@ private:
     Timer1 m_timer1;
     Timer2 m_timer2;
     ShiftRegister m_shiftRegister;
-    uint8_t m_joystickButtonState;
+    uint8_t m_joystickButtonState{};
     int8_t m_joystickPot{};
     bool m_ca1Enabled{};
     mutable bool m_ca1InterruptFlag{};
