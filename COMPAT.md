@@ -11,6 +11,7 @@
 * IllegalInstr
 * MaybeMusicOnly
 * NoBoot - Black screen after title screen, or doesn't progress further
+* BrokenRom
 
 ## Commercial Released Roms
 
@@ -27,7 +28,7 @@
 | Armor Attack (1982)                                          | Great             |                                                           |
 | Armor Attack (1982) (Spinner Hack)                           | InvalidRead       | [VecxSame] Invalid Cartridge read at $10ad                |
 | Armor Attack (1982) (Spinner Hack) [a1]                      | InvalidRead       | Invalid Cartridge read at $10ad                           |
-| Armor Attack (1982) [b1]                                     | MissingOp         | Unhandled Op: SWI                                         |
+| Armor Attack (1982) [b1]                                     | BrokenRom         | Doesn't run in VIDE nor Vecx                              |
 | Art Master (1983) (light pen)                                | Good?             | Can't get past the first screen, maybe emulate light pen? |
 | Art Master (1983) (light pen) [b1]                           | InvalidRead       | Invalid Cartridge read at $2803                           |
 | Bedlam (1983)                                                | Great             |                                                           |
@@ -46,9 +47,9 @@
 | Clean Sweep (Mr Boston Version) (1982)                       | InvalidRead       | Invalid Cartridge read at $20cc                           |
 | Cosmic Chasm (1982)                                          | Great             |                                                           |
 | Fortress of Narzod (1982)                                    | Great             |                                                           |
-| Fortress of Narzod (1982) [b1]                               | MissingOp         | Unhandled Op: SWI                                         |
+| Fortress of Narzod (1982) [b1]                               | BrokenRom         | Doesn't run in VIDE nor Vecx                              |
 | Heads Up - Action Soccer (1983)                              | Great             |                                                           |
-| Heads Up - Action Soccer (1983) [b1]                         | ViaNotImplemented | Write to IER not supported yet: InterruptFlag::CB2        |
+| Heads Up - Action Soccer (1983) [b1]                         | BrokenRom         | Doesn't run in VIDE nor Vecx                              |
 | Hyperchase (1982)                                            | Great             |                                                           |
 | Hyperchase (1982) [b1]                                       | IllegalInstr      | cpuOp.addrMode != AddressingMode::Illegal                 |
 | Melody Master (1983) (light pen)                             | UNTESTED          |                                                           |
