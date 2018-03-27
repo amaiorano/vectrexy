@@ -15,6 +15,7 @@ public:
 
     void ZeroBeam();
     void SetBlankEnabled(bool enabled) { m_blank = enabled; }
+    bool BlankEnabled() const { return m_blank; }
     void SetIntegratorsEnabled(bool enabled) { m_integratorsEnabled = enabled; }
     void SetIntegratorX(int8_t value) { m_velocityX = value; }
     void SetIntegratorY(int8_t value) { m_velocityY = value; }

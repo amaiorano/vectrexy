@@ -45,5 +45,6 @@ private:
     int8_t m_joystickPot{};
     bool m_ca1Enabled{};
     mutable bool m_ca1InterruptFlag{};
+    mutable bool m_cb2InterruptFlag{};
     bool m_firqEnabled{};
 };

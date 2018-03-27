@@ -143,6 +143,7 @@ void Via::Reset() {
     m_joystickButtonState = {};
     m_ca1Enabled = {};
     m_ca1InterruptFlag = {};
+    m_cb2InterruptFlag = {};
     m_firqEnabled = {};
 
     SetBits(m_portB, PortB::RampDisabled, true);
@@ -181,6 +182,10 @@ void Via::Update(cycles_t cycles, const Input& input, RenderContext& renderConte
         // Shift register's CB2 line drives /BLANK
         //@TODO: check some flag on the shift register to know whether it's active
         if (m_shiftRegister.Enabled()) {
+            const bool cb2Prev = m_screen.BlankEnabled();
+            if (!cb2Prev && m_shiftRegister.CB2Active())
+                m_cb2InterruptFlag = true;
+
             m_screen.SetBlankEnabled(m_shiftRegister.CB2Active());
         }
 
@@ -209,6 +214,8 @@ uint8_t Via::Read(uint16_t address) const {
     const uint16_t index = MemoryMap::Via.MapAddress(address);
     switch (index) {
     case Register::PortB: {
+        m_cb2InterruptFlag = false; // Cleared by read/write of Port B
+
         uint8_t result = m_portB;
 
         // Set comparator bit to port A (DAC) value < joystick POT value
@@ -322,6 +329,8 @@ void Via::Write(uint16_t address, uint8_t value) {
     const uint16_t index = MemoryMap::Via.MapAddress(address);
     switch (index) {
     case Register::PortB:
+        m_cb2InterruptFlag = false; // Cleared by read/write of Port B
+
         m_portB = value;
         UpdateIntegrators();
         break;
@@ -415,13 +424,14 @@ void Via::Write(uint16_t address, uint8_t value) {
     ASSERT_MSG(!TestBits(value, flag), "Write to clear interrupt not supported yet: %s", #flag)
         ASSERT_UNHANDLED(InterruptFlag::CA2);
         ASSERT_UNHANDLED(InterruptFlag::CB1);
-        ASSERT_UNHANDLED(InterruptFlag::CB2);
 #undef ASSERT_UNHANDLED
 
         if (TestBits(value, InterruptFlag::CA1))
             m_ca1InterruptFlag = false;
         if (TestBits(value, InterruptFlag::Shift))
             m_shiftRegister.SetInterruptFlag(false);
+        if (TestBits(value, InterruptFlag::CB2))
+            m_cb2InterruptFlag = false;
         if (TestBits(value, InterruptFlag::Timer2))
             m_timer2.SetInterruptFlag(false);
         if (TestBits(value, InterruptFlag::Timer1))
@@ -440,7 +450,7 @@ void Via::Write(uint16_t address, uint8_t value) {
                "Write to enable interrupt not supported yet: %s", #flag)
         ASSERT_UNHANDLED(InterruptFlag::CA2);
         ASSERT_UNHANDLED(InterruptFlag::CB1);
-        ASSERT_UNHANDLED(InterruptFlag::CB2);
+        // ASSERT_UNHANDLED(InterruptFlag::CB2);
 #undef ASSERT_UNHANDLED
 
     } break;
@@ -467,6 +477,7 @@ uint8_t Via::GetInterruptFlagValue() const {
     uint8_t result = 0;
     SetBits(result, InterruptFlag::CA1, m_ca1InterruptFlag);
     SetBits(result, InterruptFlag::Shift, m_shiftRegister.InterruptFlag());
+    SetBits(result, InterruptFlag::CB2, m_cb2InterruptFlag);
     SetBits(result, InterruptFlag::Timer2, m_timer2.InterruptFlag());
     SetBits(result, InterruptFlag::Timer1, m_timer1.InterruptFlag());
 
