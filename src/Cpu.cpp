@@ -49,10 +49,17 @@ namespace {
     template <typename T>
     uint8_t CalcOverflow(T a, T b, uint8_t r) = delete; // Result must be larger than 8 or 16 bits
 
-    namespace VectorTable {
-        const uint16_t Reset = 0xFFFE;
-        const uint16_t Irq = 0xFFF8;
-    } // namespace VectorTable
+    namespace InterruptVector {
+        enum Type : uint16_t {
+            Swi2 = 0xFFF2,
+            Swi3 = 0xFFF4,
+            Firq = 0xFFF6,
+            Irq = 0xFFF8,
+            Swi = 0xFFFA,
+            Nmi = 0xFFFC,
+            Reset = 0xFFFE,
+        };
+    } // namespace InterruptVector
 
 } // namespace
 
@@ -76,7 +83,7 @@ public:
         CC.FastInterruptMask = 1;
 
         // Read initial location from last 2 bytes of address-space (is 0xF000 on Vectrex)
-        PC = Read16(VectorTable::Reset);
+        PC = Read16(InterruptVector::Reset);
 
         m_waitingForInterrupts = false;
     }
@@ -859,6 +866,22 @@ public:
         CC.Carry = (CC.Carry == 1) || CalcCarry(r16);
     }
 
+    void OpRESET() {
+        // I think this right?
+        Reset();
+    }
+
+    void OpSWI(InterruptVector::Type type) {
+        assert(type == InterruptVector::Swi || type == InterruptVector::Swi2 ||
+               type == InterruptVector::Swi3);
+        PushCCState(true);
+        if (type == InterruptVector::Swi) {
+            CC.InterruptMask = 1;
+            CC.FastInterruptMask = 1;
+        }
+        PC = Read16(type);
+    }
+
     void PushCCState(bool entire) {
         CC.Entire = entire ? 1 : 0;
 
@@ -905,7 +928,7 @@ public:
             if (irqEnabled && (CC.InterruptMask == 0)) {
                 m_waitingForInterrupts = false;
                 CC.InterruptMask = 1;
-                PC = Read16(VectorTable::Irq);
+                PC = Read16(InterruptVector::Irq);
                 return 0; // Already returned CWAI's total cycles the first time we executed it
 
             } else if (firqEnabled && (CC.FastInterruptMask == 0)) {
@@ -920,7 +943,7 @@ public:
         if (irqEnabled && (CC.InterruptMask == 0)) {
             CC.InterruptMask = 1;
             PushCCState(true);
-            PC = Read16(VectorTable::Irq);
+            PC = Read16(InterruptVector::Irq);
             m_cycles += 19;
             return m_cycles;
         }
@@ -959,6 +982,13 @@ public:
         switch (cpuOpPage) {
         case 0:
             switch (cpuOp.opCode) {
+            case 0x3E:
+                OpRESET();
+                break;
+            case 0x3F:
+                OpSWI(InterruptVector::Swi);
+                break;
+
             case 0x12:
                 // NOP
                 break;
@@ -1683,6 +1713,10 @@ public:
 
         case 1:
             switch (cpuOp.opCode) {
+            case 0x3F:
+                OpSWI(InterruptVector::Swi2);
+                break;
+
             // 16-bit LD
             case 0x8E:
                 OpLD<1, 0x8E>(Y);
@@ -1808,8 +1842,8 @@ public:
 
         case 2:
             switch (cpuOp.opCode) {
-            case 0x00:
-                UnhandledOp(cpuOp);
+            case 0x3F:
+                OpSWI(InterruptVector::Swi3);
                 break;
 
             // CMP
