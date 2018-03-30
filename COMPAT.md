@@ -28,15 +28,15 @@
 |                                                      | Bedlam (1983) [b1]                                           | InvalidRead       |                                                        |
 |                                                      | Bedlam (1983) [b2]                                           | ViaNotImplemented |                                                        |
 |                                                      | Bedlam (1983) [b3]                                           | MissingOp         |                                                        |
-| Berzerk (1982)                                       |                                                              | Good              | Characters are squished                                |
+| Berzerk (1982)                                       |                                                              | Great             |                                                        |
 |                                                      | Berzerk (1982) (Bugfixed Prototype)                          |                   |                                                        |
 |                                                      | Berzerk (1982) (Bugfixed Prototype) [o1]                     |                   |                                                        |
 | Blitz! - Action Football (1982)                      |                                                              | Great             |                                                        |
 |                                                      | Blitz! - Action Football (1982) [b1]                         |                   |                                                        |
 |                                                      | Blitz! - Action Football (1982) [b2]                         |                   |                                                        |
-| Clean Sweep (1982)                                   |                                                              | InvalidRead       | [VecxSame] Invalid Cartridge read at $1051             |
-|                                                      | Clean Sweep (1982) [b1]                                      | InvalidRead       | Invalid Cartridge read at $4d20                        |
-|                                                      | Clean Sweep (Mr Boston Version) (1982)                       | InvalidRead       | Invalid Cartridge read at $20cc                        |
+| Clean Sweep (1982)                                   |                                                              | Great             | But need to disable undefined logging                  |
+|                                                      | Clean Sweep (1982) [b1]                                      |                   |                                                        |
+|                                                      | Clean Sweep (Mr Boston Version) (1982)                       |                   |                                                        |
 | Cosmic Chasm (1982)                                  |                                                              | Great             |                                                        |
 | Fortress of Narzod (1982)                            |                                                              | Great             |                                                        |
 |                                                      | Fortress of Narzod (1982) [b1]                               | BrokenRom         | Doesn't run in VIDE nor Vecx                           |
@@ -52,11 +52,11 @@
 |                                                      | Mine Storm (1982) (RLB Hack) [h1]                            | Good              | Invalid Cartridge read at $3409 on shoot spawned enemy |
 |                                                      | Mine Storm (1982) (RLB Hack) [o1]                            | Good              |                                                        |
 |                                                      | Mine Storm (1982) (RLB Hack) [o2]                            | Good              |                                                        |
-| Mine Storm II (1983)                                 |                                                              | Good              |                                                        |
+| Mine Storm II (1983)                                 |                                                              | Great             |                                                        |
 |                                                      | Mine Storm II (1983) (Fred Taft Hack) [h1]                   |                   |                                                        |
 |                                                      | Mine Storm II (1983) (Spinner Hack)                          |                   |                                                        |
 | Narrow Escape (2-D Version by Fred Taft) (1983) [h1] |                                                              | Great             |                                                        |
-| Polar Rescue (1983)                                  |                                                              | InvalidRead       | [VecxSame] Invalid Cartridge read at $2055             |
+| Polar Rescue (1983)                                  |                                                              | InvalidRead       | Almost working, but somehow get killed at start        |
 |                                                      | Polar Rescue (1983) [a1]                                     |                   |                                                        |
 |                                                      | Polar Rescue (1983) [a1][o1]                                 |                   |                                                        |
 |                                                      | Polar Rescue (1983) [b1]                                     |                   |                                                        |
