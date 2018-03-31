@@ -1882,21 +1882,81 @@ public:
     }
 };
 
+#ifndef USE_VECX_CPU_IMPL
+#define USE_VECX_CPU_IMPL 1
+#endif
+
+#if USE_VECX_CPU_IMPL
+extern "C" {
+#include "e6809.h"
+
+extern unsigned reg_x;
+extern unsigned reg_y;
+extern unsigned reg_u;
+extern unsigned reg_s;
+extern unsigned reg_pc;
+extern unsigned reg_a;
+extern unsigned reg_b;
+extern unsigned reg_dp;
+extern unsigned reg_cc;
+}
+
+MemoryBus* g_memoryBus = nullptr;
+
+unsigned char e6809_read8_impl(unsigned address) {
+    return g_memoryBus->Read(static_cast<uint16_t>(address));
+}
+
+void e6809_write8_impl(unsigned address, unsigned char data) {
+    g_memoryBus->Write(static_cast<uint16_t>(address), data);
+}
+
+#endif
+
 Cpu::Cpu() = default;
 Cpu::~Cpu() = default;
 
 void Cpu::Init(MemoryBus& memoryBus) {
+#if USE_VECX_CPU_IMPL
+    g_memoryBus = &memoryBus;
+    e6809_read8 = &e6809_read8_impl;
+    e6809_write8 = &e6809_write8_impl;
+#else
     m_impl->Init(memoryBus);
+#endif
 }
 
 void Cpu::Reset() {
+#if USE_VECX_CPU_IMPL
+    e6809_reset();
+#else
     m_impl->Reset();
+#endif
 }
 
 cycles_t Cpu::ExecuteInstruction(bool irqEnabled, bool firqEnabled) {
+#if USE_VECX_CPU_IMPL
+    return e6809_sstep(irqEnabled, firqEnabled);
+#else
     return m_impl->ExecuteInstruction(irqEnabled, firqEnabled);
+#endif
 }
 
 const CpuRegisters& Cpu::Registers() {
+#if USE_VECX_CPU_IMPL
+    static CpuRegisters cpuRegisters;
+    cpuRegisters.A = static_cast<decltype(cpuRegisters.A)>(reg_a);
+    cpuRegisters.B = static_cast<decltype(cpuRegisters.B)>(reg_b);
+    cpuRegisters.CC.Value = static_cast<decltype(cpuRegisters.CC.Value)>(reg_cc);
+    cpuRegisters.DP = static_cast<decltype(cpuRegisters.DP)>(reg_dp);
+    cpuRegisters.PC = static_cast<decltype(cpuRegisters.PC)>(reg_pc);
+    cpuRegisters.S = static_cast<decltype(cpuRegisters.S)>(reg_s);
+    cpuRegisters.U = static_cast<decltype(cpuRegisters.U)>(reg_u);
+    cpuRegisters.X = static_cast<decltype(cpuRegisters.X)>(reg_x);
+    cpuRegisters.Y = static_cast<decltype(cpuRegisters.Y)>(reg_y);
+
+    return cpuRegisters;
+#else
     return *m_impl;
+#endif
 }
