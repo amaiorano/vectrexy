@@ -7,6 +7,10 @@ namespace {
     static int32_t RampUpDelay = 5;
     static int32_t RampDownDelay = 10;
     static int32_t VelocityXDelay = 7;
+    // LineDrawScale is required because introducing ramp and velX delays means we now create lines
+    // that go outside the 256x256 grid. So we scale down the line drawing values a little to make
+    // it fit within the grid again.
+    static float LineDrawScale = 0.9f;
 } // namespace
 
 void Screen::Init() {
@@ -59,7 +63,7 @@ void Screen::Update(cycles_t cycles, RenderContext& renderContext) {
     case RampPhase::RampOn: {
         const auto offset = Vector2{m_xyOffset, m_xyOffset};
         Vector2 velocity{m_velocityX, m_velocityY};
-        Vector2 delta = (velocity + offset) / 128.f * static_cast<float>(cycles);
+        Vector2 delta = (velocity + offset) / 128.f * static_cast<float>(cycles) * LineDrawScale;
         m_pos += delta;
         break;
     }
@@ -76,6 +80,7 @@ void Screen::FrameUpdate() {
     ImGui::SliderInt("RampUpDelay", &RampUpDelay, 0, 20);
     ImGui::SliderInt("RampDownDelay", &RampDownDelay, 0, 20);
     ImGui::SliderInt("VelocityXDelay", &VelocityXDelay, 0, 30);
+    ImGui::SliderFloat("LineDrawScale", &LineDrawScale, 0.1f, 1.f);
     m_velocityX.CyclesToUpdateValue = VelocityXDelay;
 }
 
