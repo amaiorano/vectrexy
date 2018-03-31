@@ -61,8 +61,6 @@ void Screen::Update(cycles_t cycles, RenderContext& renderContext) {
         Vector2 velocity{m_velocityX, m_velocityY};
         Vector2 delta = (velocity + offset) / 128.f * static_cast<float>(cycles);
         m_pos += delta;
-        m_pos.x = std::clamp(m_pos.x, -128.f, 127.f);
-        m_pos.y = std::clamp(m_pos.y, -128.f, 127.f);
         break;
     }
     }

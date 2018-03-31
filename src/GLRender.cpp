@@ -15,8 +15,12 @@
 using namespace GLUtil;
 
 // Vectrex screen dimensions
-const int VECTREX_SCREEN_WIDTH = 256;
-const int VECTREX_SCREEN_HEIGHT = 256;
+// Rendering-related delays make it so that values in 256x256 grid end up outside this grid, so we
+// make sure to draw a slightly larger grid. These real delays mean that in actual hardware, the
+// logical 256x256 grid mapped to a larger physical area, so this isn't unrealistic.
+const int VECTREX_SCREEN_BORDER = 24;
+const int VECTREX_SCREEN_WIDTH = 256 + VECTREX_SCREEN_BORDER * 2;
+const int VECTREX_SCREEN_HEIGHT = 256 + VECTREX_SCREEN_BORDER * 2;
 
 namespace {
     struct Viewport {
