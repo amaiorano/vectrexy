@@ -6,7 +6,7 @@ namespace {
     //@TODO: make these conditionally const for "shipping" build
     static int32_t RampUpDelay = 5;
     static int32_t RampDownDelay = 10;
-    static int32_t VelocityXDelay = 6;
+    static int32_t VelocityXDelay = 7;
 } // namespace
 
 void Screen::Init() {

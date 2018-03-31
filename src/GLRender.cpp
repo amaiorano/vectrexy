@@ -167,8 +167,8 @@ namespace {
     };
 
     // Globals
-    float CRT_SCALE_X = 0.93f;
-    float CRT_SCALE_Y = 0.76f;
+    float CRT_SCALE_X = 1.f;
+    float CRT_SCALE_Y = 0.83f;
     int g_windowWidth{}, g_windowHeight{};
 
     Viewport g_windowViewport{};
