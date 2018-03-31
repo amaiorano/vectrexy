@@ -23,7 +23,8 @@ std::optional<fs::path> Overlays::FindOverlay(const char* romFile) {
 }
 
 int Overlays::OverlayFileFuzzyMatch(const fs::path& p1, const fs::path& p2) {
-    auto TrimFileName = [](const std::string& s) {
+    auto TrimFileName = [](std::string s) {
+        s = Join(Split(s, "-"), " "); // Replace dashes with space
         auto index = s.find(" by GCE");
         if (index != std::string::npos) {
             return s.substr(0, index);
