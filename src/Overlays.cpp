@@ -11,18 +11,24 @@ void Overlays::LoadOverlays() {
 
 std::optional<fs::path> Overlays::FindOverlay(const char* romFile) {
     std::optional<fs::path> bestMatch{};
-    int bestConfidence = 0;
+    float bestConfidence = 0;
     for (auto& overlayFile : m_overlayFiles) {
-        int c = OverlayFileFuzzyMatch(romFile, overlayFile.path);
+        float c = OverlayFileFuzzyMatch(romFile, overlayFile.path);
         if (c > bestConfidence) {
             bestConfidence = c;
             bestMatch = overlayFile.path;
         }
     }
-    return bestMatch;
+
+    printf("Conf: %f\n", bestConfidence);
+    fflush(stdout);
+
+    if (bestConfidence > 0.5f)
+        return bestMatch;
+    return {};
 }
 
-int Overlays::OverlayFileFuzzyMatch(const fs::path& p1, const fs::path& p2) {
+float Overlays::OverlayFileFuzzyMatch(const fs::path& p1, const fs::path& p2) {
     auto TrimFileName = [](std::string s) {
         s = Join(Split(s, "-"), " "); // Replace dashes with space
         auto index = s.find(" by GCE");
@@ -39,11 +45,11 @@ int Overlays::OverlayFileFuzzyMatch(const fs::path& p1, const fs::path& p2) {
     auto s1 = Split(TrimFileName(p1.filename().string()), " ");
     auto s2 = Split(TrimFileName(p2.filename().string()), " ");
 
-    int matchedParts = 0;
+    size_t matchedParts = 0;
     for (size_t i = 0; i < std::min(s1.size(), s2.size()); ++i) {
-        if (s1[i] != s2[i])
+        if (_stricmp(s1[i].c_str(), s2[i].c_str()) != 0)
             break;
         ++matchedParts;
     }
-    return matchedParts;
+    return static_cast<float>(matchedParts) / std::min(s1.size(), s2.size());
 }
