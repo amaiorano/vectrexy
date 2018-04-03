@@ -56,7 +56,7 @@
 |                                                      | Mine Storm II (1983) (Fred Taft Hack) [h1]                   |                   |                                                        |
 |                                                      | Mine Storm II (1983) (Spinner Hack)                          |                   |                                                        |
 | Narrow Escape (2-D Version by Fred Taft) (1983) [h1] |                                                              | Great             |                                                        |
-| Polar Rescue (1983)                                  |                                                              | InvalidRead       | Almost working, but somehow get killed at start        |
+| Polar Rescue (1983)                                  |                                                              | Great             |                                                        |
 |                                                      | Polar Rescue (1983) [a1]                                     |                   |                                                        |
 |                                                      | Polar Rescue (1983) [a1][o1]                                 |                   |                                                        |
 |                                                      | Polar Rescue (1983) [b1]                                     |                   |                                                        |
