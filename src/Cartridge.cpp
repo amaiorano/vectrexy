@@ -88,7 +88,10 @@ uint8_t Cartridge::Read(uint16_t address) const {
     auto mappedAddress = MemoryMap::Cartridge.MapAddress(address);
     if (mappedAddress >= m_data.size()) {
         ErrorHandler::Undefined("Invalid Cartridge read at $%04x\n", address);
-        return 0;
+        // Some roms erroneously access cartridge space when trying to draw vector lists (e.g. Mine
+        // Storm, Polar Rescue), so by returning $01 here, we help to hide/fix these bugs. Real
+        // hardware unlikely returns 0 anyway, so this may be more correct anyway?
+        return 1;
     }
     return m_data[mappedAddress];
 }
