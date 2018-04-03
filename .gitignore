@@ -33,3 +33,5 @@ roms/
 overlays/
 options.txt
 imgui.ini
+startup.txt
+trace*.txt
