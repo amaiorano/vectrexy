@@ -6,7 +6,7 @@ namespace {
     //@TODO: make these conditionally const for "shipping" build
     static int32_t RampUpDelay = 5;
     static int32_t RampDownDelay = 10;
-    static int32_t VelocityXDelay = 7;
+    static int32_t VelocityXDelay = 6;
     // LineDrawScale is required because introducing ramp and velX delays means we now create lines
     // that go outside the 256x256 grid. So we scale down the line drawing values a little to make
     // it fit within the grid again.
