@@ -733,6 +733,16 @@ void Debugger::Init(MemoryBus& memoryBus, Cpu& cpu, Via& via) {
                 }
             }
         });
+
+    // Load up commands for debugger to execute on startup
+    std::ifstream fin("startup.txt");
+    if (fin) {
+        std::string command;
+        while (std::getline(fin, command)) {
+            if (!command.empty())
+                m_pendingCommands.push(command);
+        }
+    }
 }
 
 void Debugger::Reset() {
@@ -885,20 +895,29 @@ bool Debugger::FrameUpdate(double frameTime, const Input& input, const EmuEvents
     Platform::ScopedConsoleColor defaultColor(Platform::ConsoleColor::White,
                                               Platform::ConsoleColor::Black);
 
-    if (m_breakIntoDebugger) {
+    if (m_breakIntoDebugger || !m_pendingCommands.empty()) {
         Printf("$%04x (%s)>", m_cpu->Registers().PC, m_lastCommand.c_str());
-
-        std::string inputCommand;
-        const auto& stream = std::getline(std::cin, inputCommand);
 
         Platform::ScopedConsoleColor defaultOutputColor(Platform::ConsoleColor::LightAqua);
 
-        if (!stream) {
-            // getline will fail under certain conditions, like when Ctrl+C is pressed, in which
-            // case we just clear the stream status and restart the loop.
-            std::cin.clear();
-            std::cout << std::endl;
-            return true;
+        std::string inputCommand;
+
+        if (!m_pendingCommands.empty()) {
+            inputCommand = m_pendingCommands.front();
+            m_pendingCommands.pop();
+            Printf("%s\n", inputCommand.c_str());
+            FlushStream(ConsoleStream::Output);
+
+        } else {
+            const auto& stream = std::getline(std::cin, inputCommand);
+
+            if (!stream) {
+                // getline will fail under certain conditions, like when Ctrl+C is pressed, in which
+                // case we just clear the stream status and restart the loop.
+                std::cin.clear();
+                std::cout << std::endl;
+                return true;
+            }
         }
 
         auto tokens = Tokenize(inputCommand);
