@@ -56,6 +56,7 @@ void Screen::Update(cycles_t cycles, RenderContext& renderContext) {
     }
 
     const auto lastPos = m_pos;
+    const Vector2 currDir = Normalized({m_velocityX, m_velocityY});
 
     // Move beam while ramp is on or its way down
     switch (m_rampPhase) {
@@ -72,8 +73,15 @@ void Screen::Update(cycles_t cycles, RenderContext& renderContext) {
     // We might draw even when integrators are disabled (e.g. drawing dots)
     bool drawingEnabled = !m_blank && (m_brightness > 0.f && m_brightness <= 128.f);
     if (drawingEnabled) {
-        renderContext.lines.emplace_back(Line{lastPos, m_pos, m_brightness / 128.f});
+        if (m_lastDrawingEnabled && m_lastDir == currDir && !renderContext.lines.empty()) {
+            renderContext.lines.back().p1 = m_pos;
+        } else {
+            renderContext.lines.emplace_back(Line{lastPos, m_pos, m_brightness / 128.f});
+        }
     }
+
+    m_lastDrawingEnabled = drawingEnabled;
+    m_lastDir = currDir;
 }
 
 void Screen::FrameUpdate() {

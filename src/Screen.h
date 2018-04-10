@@ -24,6 +24,10 @@ public:
 private:
     bool m_integratorsEnabled{};
     Vector2 m_pos;
+
+    bool m_lastDrawingEnabled{};
+    Vector2 m_lastDir;
+
     DelayedValueStore<float> m_velocityX;
     DelayedValueStore<float> m_velocityY;
     float m_xyOffset = 0.f;
