@@ -349,8 +349,7 @@ namespace {
 
             SetTextureUniform(m_shader.Id(), "inputTexture", inputTexture.Id(), 0);
             SetUniform(m_shader.Id(), "dir", dir.x, dir.y);
-            SetUniform(m_shader.Id(), "resolution",
-                       static_cast<float>(std::min(outputTexture.Width(), outputTexture.Height())));
+            SetUniform(m_shader.Id(), "resolution", static_cast<float>(outputTexture.Width()));
             SetUniform(m_shader.Id(), "radius", m_radius);
             SetUniform(m_shader.Id(), "kernalValues", &m_glowKernelValues[0],
                        m_glowKernelValues.size());
