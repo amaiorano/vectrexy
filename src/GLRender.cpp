@@ -59,7 +59,8 @@ namespace {
         float brightness{};
     };
 
-    std::vector<VertexData> CreateQuadVertexArray(const std::vector<Line>& lines, float lineWidth) {
+    std::vector<VertexData> CreateQuadVertexArray(const std::vector<Line>& lines, float lineWidth,
+                                                  float scaleX, float scaleY) {
         auto AlmostEqual = [](float a, float b, float epsilon = 0.01f) {
             return abs(a - b) <= epsilon;
         };
@@ -69,8 +70,8 @@ namespace {
         float hlw = lineWidth / 2.0f;
 
         for (auto& line : lines) {
-            glm::vec2 p0{line.p0.x, line.p0.y};
-            glm::vec2 p1{line.p1.x, line.p1.y};
+            glm::vec2 p0{line.p0.x * scaleX, line.p0.y * scaleY};
+            glm::vec2 p1{line.p1.x * scaleX, line.p1.y * scaleY};
 
             if (AlmostEqual(p0.x, p1.x) && AlmostEqual(p0.y, p1.y)) {
                 auto a = VertexData{p0 + glm::vec2{hlw, hlw}, line.brightness};
@@ -96,7 +97,7 @@ namespace {
     }
 
     std::tuple<std::vector<VertexData>, std::vector<VertexData>>
-    CreateLineAndPointVertexArrays(const std::vector<Line>& lines) {
+    CreateLineAndPointVertexArrays(const std::vector<Line>& lines, float scaleX, float scaleY) {
         auto AlmostEqual = [](float a, float b, float epsilon = 0.01f) {
             return abs(a - b) <= epsilon;
         };
@@ -104,8 +105,8 @@ namespace {
         std::vector<VertexData> lineVA, pointVA;
 
         for (auto& line : lines) {
-            glm::vec2 p0{line.p0.x, line.p0.y};
-            glm::vec2 p1{line.p1.x, line.p1.y};
+            glm::vec2 p0{line.p0.x * scaleX, line.p0.y * scaleY};
+            glm::vec2 p1{line.p1.x * scaleX, line.p1.y * scaleY};
 
             if (AlmostEqual(p0.x, p1.x) && AlmostEqual(p0.y, p1.y)) {
                 pointVA.push_back({p0, line.brightness});
@@ -518,8 +519,8 @@ namespace GLRender {
             std::make_tuple(static_cast<GLsizei>(overlayWidth * CRT_SCALE_X),
                             static_cast<GLsizei>(overlayHeight * CRT_SCALE_Y));
 
-        double halfWidth = VECTREX_SCREEN_WIDTH / 2.0;
-        double halfHeight = VECTREX_SCREEN_HEIGHT / 2.0;
+        double halfWidth = crtWidth / 2.0;
+        double halfHeight = crtHeight / 2.0;
         g_projectionMatrix = glm::ortho(-halfWidth, halfWidth, -halfHeight, halfHeight);
 
         g_modelViewMatrix = {};
@@ -578,16 +579,24 @@ namespace GLRender {
         glObjectLabel(GL_TEXTURE, currVectorsThickTexture0.Id(), -1, "currVectorsThickTexture0");
         glObjectLabel(GL_TEXTURE, currVectorsThickTexture1.Id(), -1, "currVectorsThickTexture1");
 
+        // Scale lines from vectrex-space to CRT texture space
+        const float lineScaleX =
+            static_cast<float>(currVectorsTexture0.Width()) / VECTREX_SCREEN_WIDTH;
+        const float lineScaleY =
+            static_cast<float>(currVectorsTexture0.Height()) / VECTREX_SCREEN_HEIGHT;
+
         // Render normal lines and points, and darken
-        static bool thickBaseLines = false;
+        static bool thickBaseLines = true;
         ImGui::Checkbox("thickBaseLines", &thickBaseLines);
         if (!thickBaseLines) {
-            std::tie(g_lineVA, g_pointVA) = CreateLineAndPointVertexArrays(renderContext.lines);
+            std::tie(g_lineVA, g_pointVA) =
+                CreateLineAndPointVertexArrays(renderContext.lines, lineScaleX, lineScaleY);
             g_drawVectorsPass.Draw(g_lineVA, GL_LINES, g_pointVA, GL_POINTS, currVectorsTexture0);
         } else {
-            static float lineWidthNormal = 0.75f;
-            ImGui::SliderFloat("lineWidthNormal", &lineWidthNormal, 0.1f, 2.0f);
-            g_quadVA = CreateQuadVertexArray(renderContext.lines, lineWidthNormal);
+            static float lineWidthNormal = 1.0f;
+            ImGui::SliderFloat("lineWidthNormal", &lineWidthNormal, 0.1f, 3.0f);
+            g_quadVA =
+                CreateQuadVertexArray(renderContext.lines, lineWidthNormal, lineScaleX, lineScaleY);
             g_drawVectorsPass.Draw(g_quadVA, GL_TRIANGLES, {}, {}, currVectorsTexture0);
         }
         g_darkenTexturePass.Draw(currVectorsTexture0, currVectorsTexture1,
@@ -600,7 +609,8 @@ namespace GLRender {
             // Render thicker lines for blurring, darken, and apply glow
             static float lineWidthGlow = 1.2f;
             ImGui::SliderFloat("lineWidthGlow", &lineWidthGlow, 0.1f, 2.0f);
-            g_quadVA = CreateQuadVertexArray(renderContext.lines, lineWidthGlow);
+            g_quadVA =
+                CreateQuadVertexArray(renderContext.lines, lineWidthGlow, lineScaleX, lineScaleY);
             g_drawVectorsPass.Draw(g_quadVA, GL_TRIANGLES, {}, {}, currVectorsThickTexture0);
             g_darkenTexturePass.Draw(currVectorsThickTexture0, currVectorsThickTexture1,
                                      static_cast<float>(frameTime));
