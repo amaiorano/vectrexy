@@ -583,6 +583,7 @@ namespace GLRender {
             static_cast<float>(currVectorsTexture0.Width()) / VECTREX_SCREEN_WIDTH;
         const float lineScaleY =
             static_cast<float>(currVectorsTexture0.Height()) / VECTREX_SCREEN_HEIGHT;
+        const float lineWidthScale = lineScaleX;
 
         // Render normal lines and points, and darken
         static bool thickBaseLines = true;
@@ -594,8 +595,8 @@ namespace GLRender {
         } else {
             static float lineWidthNormal = 1.0f;
             ImGui::SliderFloat("lineWidthNormal", &lineWidthNormal, 0.1f, 3.0f);
-            g_quadVA =
-                CreateQuadVertexArray(renderContext.lines, lineWidthNormal, lineScaleX, lineScaleY);
+            g_quadVA = CreateQuadVertexArray(renderContext.lines, lineWidthNormal * lineWidthScale,
+                                             lineScaleX, lineScaleY);
             g_drawVectorsPass.Draw(g_quadVA, GL_TRIANGLES, {}, {}, currVectorsTexture0);
         }
         g_darkenTexturePass.Draw(currVectorsTexture0, currVectorsTexture1,
@@ -608,8 +609,8 @@ namespace GLRender {
             // Render thicker lines for blurring, darken, and apply glow
             static float lineWidthGlow = 1.2f;
             ImGui::SliderFloat("lineWidthGlow", &lineWidthGlow, 0.1f, 2.0f);
-            g_quadVA =
-                CreateQuadVertexArray(renderContext.lines, lineWidthGlow, lineScaleX, lineScaleY);
+            g_quadVA = CreateQuadVertexArray(renderContext.lines, lineWidthGlow * lineWidthScale,
+                                             lineScaleX, lineScaleY);
             g_drawVectorsPass.Draw(g_quadVA, GL_TRIANGLES, {}, {}, currVectorsThickTexture0);
             g_darkenTexturePass.Draw(currVectorsThickTexture0, currVectorsThickTexture1,
                                      static_cast<float>(frameTime));
