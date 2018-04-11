@@ -15,6 +15,10 @@ inline Vector2 operator+(const Vector2& lhs, const Vector2& rhs) {
     return {lhs.x + rhs.x, lhs.y + rhs.y};
 }
 
+inline Vector2 operator-(const Vector2& lhs, const Vector2& rhs) {
+    return {lhs.x - rhs.x, lhs.y - rhs.y};
+}
+
 inline Vector2 operator*(const Vector2& lhs, float scalar) {
     return {lhs.x * scalar, lhs.y * scalar};
 }

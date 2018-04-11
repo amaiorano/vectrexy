@@ -70,17 +70,21 @@ namespace {
         float hlw = lineWidth / 2.0f;
 
         for (auto& line : lines) {
+            // If end points are close, draw a dot instead of a line. We do this before applying any
+            // scale.
+            const bool isPoint = Magnitude(line.p0 - line.p1) <= 0.1f;
+
+            // Compute distances
             glm::vec2 p0{line.p0.x * scaleX, line.p0.y * scaleY};
             glm::vec2 p1{line.p1.x * scaleX, line.p1.y * scaleY};
 
-            if (AlmostEqual(p0.x, p1.x) && AlmostEqual(p0.y, p1.y)) {
+            if (isPoint) {
                 auto a = VertexData{p0 + glm::vec2{hlw, hlw}, line.brightness};
                 auto b = VertexData{p0 + glm::vec2{hlw, -hlw}, line.brightness};
                 auto c = VertexData{p0 + glm::vec2{-hlw, -hlw}, line.brightness};
                 auto d = VertexData{p0 + glm::vec2{-hlw, hlw}, line.brightness};
 
                 result.insert(result.end(), {a, b, c, c, d, a});
-
             } else {
                 glm::vec2 v01 = glm::normalize(p1 - p0);
                 glm::vec2 n(-v01.y, v01.x);
