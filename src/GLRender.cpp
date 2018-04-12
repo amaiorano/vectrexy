@@ -19,6 +19,17 @@ const int VECTREX_SCREEN_WIDTH = 256;
 const int VECTREX_SCREEN_HEIGHT = 256;
 
 namespace {
+    // Tweakables - @TODO: make const in final build
+    float OverlayAR = 936.f / 1200.f;
+    bool EnableBlur = true;
+    bool ThickBaseLines = true;
+    float LineWidthNormal = 1.0f;
+    float LineWidthGlow = 1.2f;
+    float DarkenSpeedScale = 3.0;
+    float OverlayAlpha = 1.0f;
+    float CrtScaleX = 0.93f;
+    float CrtScaleY = 0.76f;
+
     struct Viewport {
         GLint x{}, y{};
         GLsizei w{}, h{};
@@ -168,8 +179,6 @@ namespace {
     };
 
     // Globals
-    float CRT_SCALE_X = 0.93f;
-    float CRT_SCALE_Y = 0.76f;
     int g_windowWidth{}, g_windowHeight{};
 
     Viewport g_windowViewport{};
@@ -307,8 +316,7 @@ namespace {
         }
 
         void Draw(const Texture& inputTexture, const Texture& outputTexture, float frameTime) {
-            static float darkenSpeedScale = 3.0;
-            ImGui::SliderFloat("darkenSpeedScale", &darkenSpeedScale, 0.0f, 10.0f);
+            ImGui::SliderFloat("DarkenSpeedScale", &DarkenSpeedScale, 0.0f, 10.0f);
 
             SetFrameBufferTexture(*g_textureFB, outputTexture.Id());
             SetViewportToTextureDims(outputTexture);
@@ -317,7 +325,7 @@ namespace {
             m_shader.Bind();
 
             SetTextureUniform(m_shader.Id(), "vectorsTexture", inputTexture.Id(), 0);
-            SetUniform(m_shader.Id(), "darkenSpeedScale", darkenSpeedScale);
+            SetUniform(m_shader.Id(), "darkenSpeedScale", DarkenSpeedScale);
             SetUniform(m_shader.Id(), "frameTime", frameTime);
 
             DrawFullScreenQuad();
@@ -404,7 +412,7 @@ namespace {
 
             SetTextureUniform(m_shader.Id(), "vectorsTexture", inputTexture.Id(), 0);
 
-            DrawFullScreenQuad(CRT_SCALE_X, CRT_SCALE_Y);
+            DrawFullScreenQuad(CrtScaleX, CrtScaleY);
         }
     };
 
@@ -415,8 +423,7 @@ namespace {
         }
 
         void Draw(const Texture& inputCrtTexture, const Texture& inputOverlayTexture) {
-            static float overlayAlpha = 1.0f;
-            ImGui::SliderFloat("overlayAlpha", &overlayAlpha, 0.0f, 1.0f);
+            ImGui::SliderFloat("OverlayAlpha", &OverlayAlpha, 0.0f, 1.0f);
 
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
             SetViewport(g_windowViewport);
@@ -426,7 +433,7 @@ namespace {
 
             SetTextureUniform(m_shader.Id(), "crtTexture", inputCrtTexture.Id(), 0);
             SetTextureUniform(m_shader.Id(), "overlayTexture", inputOverlayTexture.Id(), 1);
-            SetUniform(m_shader.Id(), "overlayAlpha", overlayAlpha);
+            SetUniform(m_shader.Id(), "overlayAlpha", OverlayAlpha);
 
             DrawFullScreenQuad();
         }
@@ -513,14 +520,13 @@ namespace GLRender {
         g_windowWidth = windowWidth;
         g_windowHeight = windowHeight;
 
-        float overlayAR = 936.f / 1200.f;
-        g_windowViewport = GetBestFitViewport(overlayAR, windowWidth, windowHeight);
+        g_windowViewport = GetBestFitViewport(OverlayAR, windowWidth, windowHeight);
 
         auto[overlayWidth, overlayHeight] = std::make_tuple(g_windowViewport.w, g_windowViewport.h);
 
         auto[crtWidth, crtHeight] =
-            std::make_tuple(static_cast<GLsizei>(overlayWidth * CRT_SCALE_X),
-                            static_cast<GLsizei>(overlayHeight * CRT_SCALE_Y));
+            std::make_tuple(static_cast<GLsizei>(overlayWidth * CrtScaleX),
+                            static_cast<GLsizei>(overlayHeight * CrtScaleY));
 
         double halfWidth = crtWidth / 2.0;
         double halfHeight = crtHeight / 2.0;
@@ -551,14 +557,14 @@ namespace GLRender {
     void RenderScene(double frameTime, const RenderContext& renderContext) {
         // Force resize on crt scale change
         {
-            static float scaleX = CRT_SCALE_X;
-            static float scaleY = CRT_SCALE_Y;
+            static float scaleX = CrtScaleX;
+            static float scaleY = CrtScaleY;
             ImGui::SliderFloat("scaleX", &scaleX, 0.0f, 1.0f);
             ImGui::SliderFloat("scaleY", &scaleY, 0.0f, 1.0f);
 
-            if (scaleX != CRT_SCALE_X || scaleY != CRT_SCALE_Y) {
-                CRT_SCALE_X = scaleX;
-                CRT_SCALE_Y = scaleY;
+            if (scaleX != CrtScaleX || scaleY != CrtScaleY) {
+                CrtScaleX = scaleX;
+                CrtScaleY = scaleY;
                 OnWindowResized(g_windowWidth, g_windowHeight);
             }
         }
@@ -590,30 +596,26 @@ namespace GLRender {
         const float lineWidthScale = lineScaleX;
 
         // Render normal lines and points, and darken
-        static bool thickBaseLines = true;
-        ImGui::Checkbox("thickBaseLines", &thickBaseLines);
-        if (!thickBaseLines) {
+        ImGui::Checkbox("ThickBaseLines", &ThickBaseLines);
+        if (!ThickBaseLines) {
             std::tie(g_lineVA, g_pointVA) =
                 CreateLineAndPointVertexArrays(renderContext.lines, lineScaleX, lineScaleY);
             g_drawVectorsPass.Draw(g_lineVA, GL_LINES, g_pointVA, GL_POINTS, currVectorsTexture0);
         } else {
-            static float lineWidthNormal = 1.0f;
-            ImGui::SliderFloat("lineWidthNormal", &lineWidthNormal, 0.1f, 3.0f);
-            g_quadVA = CreateQuadVertexArray(renderContext.lines, lineWidthNormal * lineWidthScale,
+            ImGui::SliderFloat("LineWidthNormal", &LineWidthNormal, 0.1f, 3.0f);
+            g_quadVA = CreateQuadVertexArray(renderContext.lines, LineWidthNormal * lineWidthScale,
                                              lineScaleX, lineScaleY);
             g_drawVectorsPass.Draw(g_quadVA, GL_TRIANGLES, {}, {}, currVectorsTexture0);
         }
         g_darkenTexturePass.Draw(currVectorsTexture0, currVectorsTexture1,
                                  static_cast<float>(frameTime));
 
-        static bool enableBlur = true;
-        ImGui::Checkbox("enableBlur", &enableBlur);
-        if (enableBlur) {
+        ImGui::Checkbox("EnableBlur", &EnableBlur);
+        if (EnableBlur) {
 
             // Render thicker lines for blurring, darken, and apply glow
-            static float lineWidthGlow = 1.2f;
-            ImGui::SliderFloat("lineWidthGlow", &lineWidthGlow, 0.1f, 2.0f);
-            g_quadVA = CreateQuadVertexArray(renderContext.lines, lineWidthGlow * lineWidthScale,
+            ImGui::SliderFloat("LineWidthGlow", &LineWidthGlow, 0.1f, 2.0f);
+            g_quadVA = CreateQuadVertexArray(renderContext.lines, LineWidthGlow * lineWidthScale,
                                              lineScaleX, lineScaleY);
             g_drawVectorsPass.Draw(g_quadVA, GL_TRIANGLES, {}, {}, currVectorsThickTexture0);
             g_darkenTexturePass.Draw(currVectorsThickTexture0, currVectorsThickTexture1,
