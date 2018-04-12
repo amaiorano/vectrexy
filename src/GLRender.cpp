@@ -78,6 +78,11 @@ namespace {
 
         std::vector<VertexData> result;
 
+        const float MinPixelDist = 1.f;
+
+        // Make sure line width is at least one pixel wide to ensure it gets rendered
+        lineWidth = std::max(lineWidth, MinPixelDist);
+
         float hlw = lineWidth / 2.0f;
 
         for (auto& line : lines) {
@@ -85,7 +90,6 @@ namespace {
             // scale.
             const bool isPoint = Magnitude(line.p0 - line.p1) <= 0.1f;
 
-            // Compute distances
             glm::vec2 p0{line.p0.x * scaleX, line.p0.y * scaleY};
             glm::vec2 p1{line.p1.x * scaleX, line.p1.y * scaleY};
 
@@ -97,13 +101,26 @@ namespace {
 
                 result.insert(result.end(), {a, b, c, c, d, a});
             } else {
-                glm::vec2 v01 = glm::normalize(p1 - p0);
-                glm::vec2 n(-v01.y, v01.x);
+                auto v01 = p1 - p0;
+                glm::vec2 n = glm::normalize(v01);
 
-                auto a = VertexData{p0 + n * hlw, line.brightness};
-                auto b = VertexData{p0 - n * hlw, line.brightness};
-                auto c = VertexData{p1 - n * hlw, line.brightness};
-                auto d = VertexData{p1 + n * hlw, line.brightness};
+                // Make sure line gets at least one pixel coverage to ensure it gets rendered.
+                // Note that we extend p1, the end point, which means we may get some slight errors
+                // with attached lines. If we were to store "line strips" instead, we could correct
+                // the point in the strip, ensuring that strips don't get detached.
+                if (abs(v01.x) < MinPixelDist) {
+                    p1.x = p0.x + n.x * MinPixelDist;
+                }
+                if (abs(v01.y) < MinPixelDist) {
+                    p1.y = p0.y + n.y * MinPixelDist;
+                }
+
+                glm::vec2 bn(-n.y, n.x);
+
+                auto a = VertexData{p0 + bn * hlw, line.brightness};
+                auto b = VertexData{p0 - bn * hlw, line.brightness};
+                auto c = VertexData{p1 - bn * hlw, line.brightness};
+                auto d = VertexData{p1 + bn * hlw, line.brightness};
 
                 result.insert(result.end(), {a, b, c, c, d, a});
             }
