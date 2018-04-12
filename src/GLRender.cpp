@@ -23,12 +23,13 @@ namespace {
     float OverlayAR = 936.f / 1200.f;
     bool EnableBlur = true;
     bool ThickBaseLines = true;
-    float LineWidthNormal = 1.0f;
-    float LineWidthGlow = 1.2f;
+    float LineWidthNormal = 0.4f;
+    float LineWidthGlow = 1.f;
+    float GlowRadius = 1.2f;
     float DarkenSpeedScale = 3.0;
     float OverlayAlpha = 1.0f;
-    float CrtScaleX = 0.93f;
-    float CrtScaleY = 0.76f;
+    float CrtScaleX = 1.f; // 0.93f;
+    float CrtScaleY = 0.8f;
 
     struct Viewport {
         GLint x{}, y{};
@@ -357,7 +358,7 @@ namespace {
 
         void Draw(const Texture& inputTexture, const Texture& tempTexture,
                   const Texture& outputTexture) {
-            ImGui::SliderFloat("glowRadius", &m_radius, 0.0f, 5.0f);
+            ImGui::SliderFloat("GlowRadius", &GlowRadius, 0.0f, 5.0f);
 
             for (size_t i = 0; i < m_glowKernelValues.size(); ++i) {
                 ImGui::SliderFloat(FormattedString<>("kernelValue[%d]", i), &m_glowKernelValues[i],
@@ -379,14 +380,13 @@ namespace {
             SetTextureUniform(m_shader.Id(), "inputTexture", inputTexture.Id(), 0);
             SetUniform(m_shader.Id(), "dir", dir.x, dir.y);
             SetUniform(m_shader.Id(), "resolution", static_cast<float>(outputTexture.Width()));
-            SetUniform(m_shader.Id(), "radius", m_radius);
+            SetUniform(m_shader.Id(), "radius", GlowRadius);
             SetUniform(m_shader.Id(), "kernalValues", &m_glowKernelValues[0],
                        m_glowKernelValues.size());
 
             DrawFullScreenQuad();
         };
 
-        float m_radius = 3.f;
         std::array<float, 5> m_glowKernelValues = {
             0.2270270270f, 0.1945945946f, 0.1216216216f, 0.0540540541f, 0.0162162162f,
         };
