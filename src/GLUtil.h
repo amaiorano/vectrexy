@@ -165,6 +165,8 @@ namespace GLUtil {
             return false;
         }
 
+        void SetName(const char* name) { glObjectLabel(GL_TEXTURE, Id(), -1, name); }
+
         GLuint Id() const { return *m_resource; }
         GLsizei Width() const { return m_width; }
         GLsizei Height() const { return m_height; }

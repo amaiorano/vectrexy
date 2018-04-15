@@ -526,7 +526,7 @@ namespace GLRender {
             CreateEmptyOverlayTexture();
         }
 
-        glObjectLabel(GL_TEXTURE, g_overlayTexture.Id(), -1, "g_overlayTexture");
+        g_overlayTexture.SetName("g_overlayTexture");
     }
 
     bool OnWindowResized(int windowWidth, int windowHeight) {
@@ -569,15 +569,17 @@ namespace GLRender {
         g_vectorsTexture[1].Allocate(crtWidth, crtHeight, GL_RGB32F);
         g_vectorsThickTexture[0].Allocate(crtWidth, crtHeight, GL_RGB32F);
         g_vectorsThickTexture[1].Allocate(crtWidth, crtHeight, GL_RGB32F);
+
         g_tempTexture.Allocate(crtWidth, crtHeight, GL_RGB32F);
-        glObjectLabel(GL_TEXTURE, g_tempTexture.Id(), -1, "g_tempTexture");
+        g_tempTexture.SetName("g_tempTexture");
+
         g_glowTexture.Allocate(crtWidth, crtHeight, GL_RGB32F);
-        glObjectLabel(GL_TEXTURE, g_glowTexture.Id(), -1, "g_glowTexture");
+        g_glowTexture.SetName("g_glowTexture");
 
         // Final CRT texture is the same size as the screen so we can combine it with the overlay
         // texture (also same size)
         g_screenCrtTexture.Allocate(screenWidth, screenHeight, GL_RGB);
-        glObjectLabel(GL_TEXTURE, g_screenCrtTexture.Id(), -1, "g_screenCrtTexture");
+        g_screenCrtTexture.SetName("g_screenCrtTexture");
 
         // Clear g_vectorsTexture[0] once
         SetFrameBufferTexture(*g_textureFB, g_vectorsTexture[0].Id());
@@ -607,13 +609,13 @@ namespace GLRender {
 
         auto& currVectorsTexture0 = g_vectorsTexture[g_vectorsTexture0Index];
         auto& currVectorsTexture1 = g_vectorsTexture[(g_vectorsTexture0Index + 1) % 2];
-        glObjectLabel(GL_TEXTURE, currVectorsTexture0.Id(), -1, "currVectorsTexture0");
-        glObjectLabel(GL_TEXTURE, currVectorsTexture1.Id(), -1, "currVectorsTexture1");
+        currVectorsTexture0.SetName("currVectorsTexture0");
+        currVectorsTexture1.SetName("currVectorsTexture1");
 
         auto& currVectorsThickTexture0 = g_vectorsThickTexture[g_vectorsTexture0Index];
         auto& currVectorsThickTexture1 = g_vectorsThickTexture[(g_vectorsTexture0Index + 1) % 2];
-        glObjectLabel(GL_TEXTURE, currVectorsThickTexture0.Id(), -1, "currVectorsThickTexture0");
-        glObjectLabel(GL_TEXTURE, currVectorsThickTexture1.Id(), -1, "currVectorsThickTexture1");
+        currVectorsThickTexture0.SetName("currVectorsThickTexture0");
+        currVectorsThickTexture1.SetName("currVectorsThickTexture1");
 
         // Scale lines from vectrex-space to CRT texture space
         const float lineScaleX =
