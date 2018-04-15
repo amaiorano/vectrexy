@@ -36,5 +36,6 @@ inline float Magnitude(const Vector2& v) {
 }
 
 inline Vector2 Normalized(const Vector2& v) {
-    return v / Magnitude(v);
+    auto mag = Magnitude(v);
+    return mag > 0 ? v / Magnitude(v) : Vector2{0.f, 0.f};
 }
