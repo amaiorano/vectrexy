@@ -199,7 +199,7 @@ namespace {
     // Globals
     int g_windowWidth{}, g_windowHeight{};
 
-    Viewport g_windowViewport{};
+    Viewport g_screenViewport{};
 
     std::vector<VertexData> g_quadVA;
     std::vector<VertexData> g_lineVA, g_pointVA;
@@ -209,13 +209,11 @@ namespace {
     VertexArrayResource g_topLevelVAO;
     FrameBufferResource g_textureFB;
     int g_vectorsTexture0Index{};
-    Texture g_vectorsTexture0;
-    Texture g_vectorsTexture1;
-    Texture g_vectorsThickTexture0;
-    Texture g_vectorsThickTexture1;
+    Texture g_vectorsTexture[2];
+    Texture g_vectorsThickTexture[2];
     Texture g_tempTexture;
     Texture g_glowTexture;
-    Texture g_crtTexture;
+    Texture g_screenCrtTexture;
     Texture g_overlayTexture;
 
 } // namespace
@@ -414,13 +412,14 @@ namespace {
         }
     };
 
-    class GameScreenToCrtTexturePass : ShaderPass {
+    class ScaleTexturePass : ShaderPass {
     public:
         void Init() {
             m_shader.LoadShaders(ShaderSource::Passthrough_vert, ShaderSource::DrawTexture_frag);
         }
 
-        void Draw(const Texture& inputTexture, const Texture& outputTexture) {
+        void Draw(const Texture& inputTexture, const Texture& outputTexture, float scaleX,
+                  float scaleY) {
             SetFrameBufferTexture(*g_textureFB, outputTexture.Id());
             SetViewportToTextureDims(outputTexture);
             glClear(GL_COLOR_BUFFER_BIT);
@@ -429,7 +428,7 @@ namespace {
 
             SetTextureUniform(m_shader.Id(), "vectorsTexture", inputTexture.Id(), 0);
 
-            DrawFullScreenQuad(CrtScaleX, CrtScaleY);
+            DrawFullScreenQuad(scaleX, scaleY);
         }
     };
 
@@ -443,7 +442,7 @@ namespace {
             ImGui::SliderFloat("OverlayAlpha", &OverlayAlpha, 0.0f, 1.0f);
 
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
-            SetViewport(g_windowViewport);
+            SetViewport(g_screenViewport);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
             m_shader.Bind();
@@ -461,7 +460,7 @@ namespace {
     DarkenTexturePass g_darkenTexturePass;
     GlowPass g_glowPass;
     CombineVectorsAndGlowPass g_combineVectorsAndGlowPass;
-    GameScreenToCrtTexturePass g_gameScreenToCrtTexturePass;
+    ScaleTexturePass g_scaleTexturePass;
     RenderToScreenPass g_renderToScreenPass;
 
 } // namespace
@@ -490,7 +489,7 @@ namespace GLRender {
         g_darkenTexturePass.Init();
         g_glowPass.Init();
         g_combineVectorsAndGlowPass.Init();
-        g_gameScreenToCrtTexturePass.Init();
+        g_scaleTexturePass.Init();
         g_renderToScreenPass.Init();
 
         // Create resources
@@ -537,35 +536,52 @@ namespace GLRender {
         g_windowWidth = windowWidth;
         g_windowHeight = windowHeight;
 
-        g_windowViewport = GetBestFitViewport(OverlayAR, windowWidth, windowHeight);
+        //  ------------------------
+        // |     |   -----   |      |<- Window
+        // |     |  |     |  |      |
+        // |     |  |     |  |<- Overlay (also Screen)
+        // |     |  |     |  |      |
+        // |     |  |     |<- CRT   |
+        // |     |   -----   |      |
+        //  ------------------------
 
-        auto[overlayWidth, overlayHeight] = std::make_tuple(g_windowViewport.w, g_windowViewport.h);
+        // "Screen" is the game view area. Overlay fills this area, so we use the overlay aspect
+        // ratio to determine the screen size as a ratio of the window size.
+        g_screenViewport = GetBestFitViewport(OverlayAR, windowWidth, windowHeight);
 
-        auto[crtWidth, crtHeight] =
-            std::make_tuple(static_cast<GLsizei>(overlayWidth * CrtScaleX),
-                            static_cast<GLsizei>(overlayHeight * CrtScaleY));
+        const auto[screenWidth, screenHeight] =
+            std::make_tuple(g_screenViewport.w, g_screenViewport.h);
 
-        double halfWidth = crtWidth / 2.0;
-        double halfHeight = crtHeight / 2.0;
+        // "CRT" represents the physical CRT screen where the line vectors are drawn. The size is
+        // smaller than the screen since the overlay is larger than the CRT on the Vectrex.
+        const auto[crtWidth, crtHeight] =
+            std::make_tuple(static_cast<GLsizei>(screenWidth * CrtScaleX),
+                            static_cast<GLsizei>(screenHeight * CrtScaleY));
+
+        const double halfWidth = crtWidth / 2.0;
+        const double halfHeight = crtHeight / 2.0;
         g_projectionMatrix = glm::ortho(-halfWidth, halfWidth, -halfHeight, halfHeight);
 
         g_modelViewMatrix = {};
 
         // (Re)create resources that depend on viewport size
-        g_vectorsTexture0.Allocate(crtWidth, crtHeight, GL_RGB32F);
-        g_vectorsTexture1.Allocate(crtWidth, crtHeight, GL_RGB32F);
-        g_vectorsThickTexture0.Allocate(crtWidth, crtHeight, GL_RGB32F);
-        g_vectorsThickTexture1.Allocate(crtWidth, crtHeight, GL_RGB32F);
+        g_vectorsTexture[0].Allocate(crtWidth, crtHeight, GL_RGB32F);
+        g_vectorsTexture[1].Allocate(crtWidth, crtHeight, GL_RGB32F);
+        g_vectorsThickTexture[0].Allocate(crtWidth, crtHeight, GL_RGB32F);
+        g_vectorsThickTexture[1].Allocate(crtWidth, crtHeight, GL_RGB32F);
         g_tempTexture.Allocate(crtWidth, crtHeight, GL_RGB32F);
         glObjectLabel(GL_TEXTURE, g_tempTexture.Id(), -1, "g_tempTexture");
         g_glowTexture.Allocate(crtWidth, crtHeight, GL_RGB32F);
         glObjectLabel(GL_TEXTURE, g_glowTexture.Id(), -1, "g_glowTexture");
-        g_crtTexture.Allocate(overlayWidth, overlayHeight, GL_RGB);
-        glObjectLabel(GL_TEXTURE, g_crtTexture.Id(), -1, "g_crtTexture");
 
-        // Clear g_vectorsTexture0 once
-        SetFrameBufferTexture(*g_textureFB, g_vectorsTexture0.Id());
-        SetViewportToTextureDims(g_vectorsTexture0);
+        // Final CRT texture is the same size as the screen so we can combine it with the overlay
+        // texture (also same size)
+        g_screenCrtTexture.Allocate(screenWidth, screenHeight, GL_RGB);
+        glObjectLabel(GL_TEXTURE, g_screenCrtTexture.Id(), -1, "g_screenCrtTexture");
+
+        // Clear g_vectorsTexture[0] once
+        SetFrameBufferTexture(*g_textureFB, g_vectorsTexture[0].Id());
+        SetViewportToTextureDims(g_vectorsTexture[0]);
         glClear(GL_COLOR_BUFFER_BIT);
 
         return true;
@@ -589,19 +605,13 @@ namespace GLRender {
         if (frameTime > 0)
             g_vectorsTexture0Index = (g_vectorsTexture0Index + 1) % 2;
 
-        auto& currVectorsTexture0 =
-            g_vectorsTexture0Index == 0 ? g_vectorsTexture0 : g_vectorsTexture1;
-        auto& currVectorsTexture1 =
-            g_vectorsTexture0Index == 0 ? g_vectorsTexture1 : g_vectorsTexture0;
-
-        auto& currVectorsThickTexture0 =
-            g_vectorsTexture0Index == 0 ? g_vectorsThickTexture0 : g_vectorsThickTexture1;
-        auto& currVectorsThickTexture1 =
-            g_vectorsTexture0Index == 0 ? g_vectorsThickTexture1 : g_vectorsThickTexture0;
-
+        auto& currVectorsTexture0 = g_vectorsTexture[g_vectorsTexture0Index];
+        auto& currVectorsTexture1 = g_vectorsTexture[(g_vectorsTexture0Index + 1) % 2];
         glObjectLabel(GL_TEXTURE, currVectorsTexture0.Id(), -1, "currVectorsTexture0");
         glObjectLabel(GL_TEXTURE, currVectorsTexture1.Id(), -1, "currVectorsTexture1");
 
+        auto& currVectorsThickTexture0 = g_vectorsThickTexture[g_vectorsTexture0Index];
+        auto& currVectorsThickTexture1 = g_vectorsThickTexture[(g_vectorsTexture0Index + 1) % 2];
         glObjectLabel(GL_TEXTURE, currVectorsThickTexture0.Id(), -1, "currVectorsThickTexture0");
         glObjectLabel(GL_TEXTURE, currVectorsThickTexture1.Id(), -1, "currVectorsThickTexture1");
 
@@ -642,15 +652,15 @@ namespace GLRender {
             // Combine glow and normal lines
             g_combineVectorsAndGlowPass.Draw(currVectorsTexture0, g_glowTexture, g_tempTexture);
 
-            // Scale game screen (lines) to CRT texture
-            g_gameScreenToCrtTexturePass.Draw(g_tempTexture, g_crtTexture);
+            // Scale CRT to screen
+            g_scaleTexturePass.Draw(g_tempTexture, g_screenCrtTexture, CrtScaleX, CrtScaleY);
         } else {
-            // Scale game screen (lines) to CRT texture
-            g_gameScreenToCrtTexturePass.Draw(currVectorsTexture0, g_crtTexture);
+            // Scale CRT to screen
+            g_scaleTexturePass.Draw(currVectorsTexture0, g_screenCrtTexture, CrtScaleX, CrtScaleY);
         }
 
         // Present
-        g_renderToScreenPass.Draw(g_crtTexture, g_overlayTexture);
+        g_renderToScreenPass.Draw(g_screenCrtTexture, g_overlayTexture);
     }
 
 } // namespace GLRender
