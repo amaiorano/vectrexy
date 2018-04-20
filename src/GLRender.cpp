@@ -21,6 +21,7 @@ const int VECTREX_SCREEN_HEIGHT = 256;
 namespace {
     // Tweakables - @TODO: make const in final build
     float OverlayAR = 936.f / 1200.f;
+    int MaxTextureSize = 1024;
     bool EnableBlur = true;
     bool ThickBaseLines = true;
     float LineWidthNormal = 0.4f;
@@ -64,6 +65,19 @@ namespace {
         return {static_cast<GLint>((windowWidthF - targetWidth) / 2.0f),
                 static_cast<GLint>((windowHeightF - targetHeight) / 2.0f),
                 static_cast<GLsizei>(targetWidth), static_cast<GLsizei>(targetHeight)};
+    }
+
+    std::tuple<int, int> ScaleDimensions(int width, int height, int maxWidth, int maxHeight) {
+        if (width > maxWidth || height > maxHeight) {
+            if (width >= height) {
+                height = static_cast<int>(height * static_cast<float>(maxWidth) / width);
+                width = maxWidth;
+            } else {
+                width = static_cast<int>(width * static_cast<float>(maxHeight) / height);
+                height = maxHeight;
+            }
+        }
+        return {width, height};
     }
 
     struct VertexData {
@@ -564,15 +578,19 @@ namespace GLRender {
         // ratio to determine the screen size as a ratio of the window size.
         g_screenViewport = GetBestFitViewport(OverlayAR, windowWidth, windowHeight);
 
-        const auto[screenWidth, screenHeight] =
-            std::make_tuple(g_screenViewport.w, g_screenViewport.h);
+        // Now we scale the screen width/height used to determine our texture sizes so that they're
+        // not too large. This is especially important on high DPI displays.
+        const auto[screenTextureWidth, screenTextureHeight] =
+            ScaleDimensions(g_screenViewport.w, g_screenViewport.h, MaxTextureSize, MaxTextureSize);
 
         // "CRT" represents the physical CRT screen where the line vectors are drawn. The size is
         // smaller than the screen since the overlay is larger than the CRT on the Vectrex.
         const auto[crtWidth, crtHeight] =
-            std::make_tuple(static_cast<GLsizei>(screenWidth * CrtScaleX),
-                            static_cast<GLsizei>(screenHeight * CrtScaleY));
+            std::make_tuple(static_cast<GLsizei>(screenTextureWidth * CrtScaleX),
+                            static_cast<GLsizei>(screenTextureHeight * CrtScaleY));
 
+        // We use orthographic projection to scale 256x256 vectrex screen to CRT texture size. We do
+        // this so that the lines we draw won't be scaled/skewed since the target isn't square.
         const double halfWidth = crtWidth / 2.0;
         const double halfHeight = crtHeight / 2.0;
         g_projectionMatrix = glm::ortho(-halfWidth, halfWidth, -halfHeight, halfHeight);
@@ -593,7 +611,7 @@ namespace GLRender {
 
         // Final CRT texture is the same size as the screen so we can combine it with the overlay
         // texture (also same size)
-        g_screenCrtTexture.Allocate(screenWidth, screenHeight, GL_RGB);
+        g_screenCrtTexture.Allocate(screenTextureWidth, screenTextureHeight, GL_RGB);
         g_screenCrtTexture.SetName("g_screenCrtTexture");
 
         // Clear g_vectorsTexture[0] once
@@ -609,12 +627,16 @@ namespace GLRender {
         {
             static float scaleX = CrtScaleX;
             static float scaleY = CrtScaleY;
-            ImGui::SliderFloat("scaleX", &scaleX, 0.0f, 1.0f);
-            ImGui::SliderFloat("scaleY", &scaleY, 0.0f, 1.0f);
+            ImGui::SliderFloat("ScaleX", &scaleX, 0.0f, 1.0f);
+            ImGui::SliderFloat("ScaleY", &scaleY, 0.0f, 1.0f);
 
-            if (scaleX != CrtScaleX || scaleY != CrtScaleY) {
+            static int maxTextureSize = MaxTextureSize;
+            ImGui::SliderInt("MaxTextureSize", &maxTextureSize, 100, 2000);
+
+            if (scaleX != CrtScaleX || scaleY != CrtScaleY || maxTextureSize != MaxTextureSize) {
                 CrtScaleX = scaleX;
                 CrtScaleY = scaleY;
+                MaxTextureSize = maxTextureSize;
                 OnWindowResized(g_windowWidth, g_windowHeight);
             }
         }
