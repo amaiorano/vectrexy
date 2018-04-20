@@ -213,18 +213,23 @@ namespace GLUtil {
     public:
         ~Shader() {
             glUseProgram(0);
-            glDeleteProgram(m_shaderId);
+            glDeleteProgram(m_programId);
         }
 
         void LoadShaders(const char* vertShaderFile, const char* fragShaderFile) {
-            m_shaderId = GLUtil::LoadShaders(vertShaderFile, fragShaderFile);
+            m_programId = GLUtil::LoadShaders(vertShaderFile, fragShaderFile);
         }
 
-        void Bind() { glUseProgram(m_shaderId); }
+        void SetName(const char* name) {
+            assert(m_programId != GLuint{}); // Call this after LoadShaders
+            glObjectLabel(GL_PROGRAM, m_programId, -1, name);
+        }
 
-        GLuint Id() const { return m_shaderId; }
+        void Bind() { glUseProgram(m_programId); }
+
+        GLuint Id() const { return m_programId; }
 
     private:
-        GLuint m_shaderId{};
+        GLuint m_programId{};
     };
 } // namespace GLUtil

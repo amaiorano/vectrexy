@@ -272,6 +272,7 @@ namespace {
     public:
         void Init() {
             m_shader.LoadShaders(ShaderSource::DrawVectors_vert, ShaderSource::DrawVectors_frag);
+            m_shader.SetName("DrawVectorsPass");
         }
 
         void Draw(const std::vector<VertexData>& VA1, GLenum mode1,
@@ -333,6 +334,7 @@ namespace {
     public:
         void Init() {
             m_shader.LoadShaders(ShaderSource::Passthrough_vert, ShaderSource::DarkenTexture_frag);
+            m_shader.SetName("DarkenTexturePass");
         }
 
         void Draw(const Texture& inputTexture, const Texture& outputTexture, float frameTime) {
@@ -356,6 +358,7 @@ namespace {
     public:
         void Init() {
             m_shader.LoadShaders(ShaderSource::Passthrough_vert, ShaderSource::Glow_frag);
+            m_shader.SetName("GlowPass");
         }
 
         void Draw(const Texture& inputTexture, const Texture& tempTexture,
@@ -394,11 +397,12 @@ namespace {
         };
     };
 
-    class CombineVectorsAndGlowPass : ShaderPass {
+    class CombineVectorsAndGlowPass : public ShaderPass {
     public:
         void Init() {
             m_shader.LoadShaders(ShaderSource::Passthrough_vert,
                                  ShaderSource::CombineVectorsAndGlow_frag);
+            m_shader.SetName("CombineVectorsAndGlowPass");
         }
 
         void Draw(const Texture& inputVectorsTexture, const Texture& inputGlowTexture,
@@ -416,10 +420,11 @@ namespace {
         }
     };
 
-    class ScaleTexturePass : ShaderPass {
+    class ScaleTexturePass : public ShaderPass {
     public:
         void Init() {
             m_shader.LoadShaders(ShaderSource::Passthrough_vert, ShaderSource::DrawTexture_frag);
+            m_shader.SetName("ScaleTexturePass");
         }
 
         void Draw(const Texture& inputTexture, const Texture& outputTexture, float scaleX,
@@ -436,10 +441,11 @@ namespace {
         }
     };
 
-    class RenderToScreenPass : ShaderPass {
+    class RenderToScreenPass : public ShaderPass {
     public:
         void Init() {
             m_shader.LoadShaders(ShaderSource::Passthrough_vert, ShaderSource::DrawScreen_frag);
+            m_shader.SetName("RenderToScreenPass");
         }
 
         void Draw(const Texture& inputCrtTexture, const Texture& inputOverlayTexture) {
