@@ -280,7 +280,7 @@ namespace {
             SetFrameBufferTexture(*g_textureFB, outputTexture.Id());
             SetViewportToTextureDims(outputTexture);
 
-            // Purposely do not clear the target texture.
+            // Purposely do not clear the target texture as we want to darken it.
             // glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
             m_shader.Bind();
@@ -342,7 +342,8 @@ namespace {
 
             SetFrameBufferTexture(*g_textureFB, outputTexture.Id());
             SetViewportToTextureDims(outputTexture);
-            glClear(GL_COLOR_BUFFER_BIT);
+            // No need to clear as we write every pixel
+            // glClear(GL_COLOR_BUFFER_BIT);
 
             m_shader.Bind();
 
@@ -409,7 +410,8 @@ namespace {
                   const Texture& outputTexture) {
             SetFrameBufferTexture(*g_textureFB, outputTexture.Id());
             SetViewportToTextureDims(outputTexture);
-            glClear(GL_COLOR_BUFFER_BIT);
+            // No need to clear as we write every pixel
+            // glClear(GL_COLOR_BUFFER_BIT);
 
             m_shader.Bind();
 
@@ -431,6 +433,8 @@ namespace {
                   float scaleY) {
             SetFrameBufferTexture(*g_textureFB, outputTexture.Id());
             SetViewportToTextureDims(outputTexture);
+            // Clear target texture as we only write to scaled portion which can change over time
+            // (only because we allow tweaking).
             glClear(GL_COLOR_BUFFER_BIT);
 
             m_shader.Bind();
@@ -453,7 +457,8 @@ namespace {
 
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
             SetViewport(g_screenViewport);
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            // No need to clear as we write every pixel
+            // glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
             m_shader.Bind();
 
@@ -480,7 +485,7 @@ namespace GLRender {
         // glShadeModel(GL_SMOOTH);
         glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
         // glClearDepth(1.0f);
-        // glEnable(GL_DEPTH_TEST);
+        glDisable(GL_DEPTH_TEST);
         // glDepthFunc(GL_LEQUAL);
         // glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
 
