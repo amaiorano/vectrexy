@@ -161,34 +161,38 @@ namespace {
     void DrawFullScreenQuad(float scaleX = 1.f, float scaleY = 1.f) {
         //@TODO: create once
         auto vbo = MakeBufferResource();
-        auto quad_vertices = MakeClipSpaceQuad(scaleX, scaleY);
-        SetVertexBufferData(*vbo, quad_vertices);
+
+        // Store attributes so we can send it all at once
+        struct Attributes {
+            std::array<glm::vec3, 6> vertices;
+            glm::vec2 uvs[6] = {{0, 0}, {1, 0}, {0, 1}, {0, 1}, {1, 0}, {1, 1}};
+        };
+        static_assert(std::is_trivially_copyable_v<Attributes>);
+
+        Attributes attributes;
+        attributes.vertices = MakeClipSpaceQuad(scaleX, scaleY);
+
+        glBindBuffer(GL_ARRAY_BUFFER, *vbo);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(attributes), &attributes, GL_DYNAMIC_DRAW);
 
         glEnableVertexAttribArray(0);
-        glBindBuffer(GL_ARRAY_BUFFER, *vbo);
-        glVertexAttribPointer(0,        // attribute 0. No particular reason for 0, but must match
-                                        // layout in the shader.
+        glEnableVertexAttribArray(1);
+
+        glVertexAttribPointer(0,        // attribute 0. Must match layout in the shader.
                               3,        // size
                               GL_FLOAT, // type
                               GL_FALSE, // normalized?
                               0,        // stride
-                              (void*)0  // array buffer offset
+                              (void*)offsetof(Attributes, vertices) // array buffer offset
         );
 
-        glm::vec2 quad_uvs[] = {{0, 0}, {1, 0}, {0, 1}, {0, 1}, {1, 0}, {1, 1}};
-        auto uvBuffer = MakeBufferResource();
-        SetVertexBufferData(*uvBuffer, quad_uvs);
-
         // 2nd attribute buffer : UVs
-        glEnableVertexAttribArray(1);
-        glBindBuffer(GL_ARRAY_BUFFER, *uvBuffer);
         glVertexAttribPointer(1,        // attribute
                               2,        // size
                               GL_FLOAT, // type
                               GL_FALSE, // normalized?
                               0,        // stride
-                              (void*)0  // array buffer offset
-        );
+                              (void*)offsetof(Attributes, uvs));
 
         glDrawArrays(GL_TRIANGLES, 0, 6); // 2*3 indices starting at 0 -> 2 triangles
 

@@ -112,14 +112,12 @@ namespace GLUtil {
     ////////////////////////////////
 
     template <typename T, size_t N>
-    void SetVertexBufferData(GLuint vboId, T (&vertices)[N]) {
-        glBindBuffer(GL_ARRAY_BUFFER, vboId);
+    void SetVertexBufferData(T (&vertices)[N]) {
         glBufferData(GL_ARRAY_BUFFER, N * sizeof(vertices[0]), &vertices[0], GL_DYNAMIC_DRAW);
     }
 
     template <typename T, size_t N>
-    void SetVertexBufferData(GLuint vboId, const std::array<T, N>& vertices) {
-        glBindBuffer(GL_ARRAY_BUFFER, vboId);
+    void SetVertexBufferData(const std::array<T, N>& vertices) {
         glBufferData(GL_ARRAY_BUFFER, N * sizeof(vertices[0]), &vertices[0], GL_DYNAMIC_DRAW);
     }
 
