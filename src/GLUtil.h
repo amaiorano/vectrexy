@@ -9,6 +9,30 @@
 #include <optional>
 
 namespace GLUtil {
+
+    ////////////////////////////////
+    // GL Errors
+    ////////////////////////////////
+
+    inline void ResetGLError() {
+        while (glGetError() != GL_NO_ERROR) {
+        }
+    }
+
+    inline void CheckGLError() {
+        auto error = glGetError();
+        if (error != GL_NO_ERROR) {
+            auto errorString = glewGetErrorString(error);
+            printf("GL Error: %s\n", errorString);
+            assert(false); //@TODO: do better than this
+        }
+    }
+
+    struct ScopedCheckGLErrors {
+        ScopedCheckGLErrors() { ResetGLError(); }
+        ~ScopedCheckGLErrors() { CheckGLError(); }
+    };
+
     ////////////////////////////////
     // Resources
     ////////////////////////////////
