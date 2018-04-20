@@ -34,6 +34,21 @@ namespace GLUtil {
     };
 
     ////////////////////////////////
+    // Debug
+    ////////////////////////////////
+
+    inline void PushDebugGroup(const char* name) {
+        glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 0, -1, name);
+    }
+
+    inline void PopDebugGroup() { glPopDebugGroup(); }
+
+    struct ScopedDebugGroup {
+        ScopedDebugGroup(const char* name) { PushDebugGroup(name); }
+        ~ScopedDebugGroup() { PopDebugGroup(); }
+    };
+
+    ////////////////////////////////
     // Resources
     ////////////////////////////////
 

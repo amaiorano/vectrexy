@@ -286,11 +286,12 @@ namespace {
     public:
         void Init() {
             m_shader.LoadShaders(ShaderSource::DrawVectors_vert, ShaderSource::DrawVectors_frag);
-            m_shader.SetName("DrawVectorsPass");
         }
 
         void Draw(const std::vector<VertexData>& VA1, GLenum mode1,
                   const std::vector<VertexData>& VA2, GLenum mode2, const Texture& outputTexture) {
+            ScopedDebugGroup sdg("DrawVectorsPass");
+
             SetFrameBufferTexture(*g_textureFB, outputTexture.Id());
             SetViewportToTextureDims(outputTexture);
 
@@ -348,10 +349,11 @@ namespace {
     public:
         void Init() {
             m_shader.LoadShaders(ShaderSource::Passthrough_vert, ShaderSource::DarkenTexture_frag);
-            m_shader.SetName("DarkenTexturePass");
         }
 
         void Draw(const Texture& inputTexture, const Texture& outputTexture, float frameTime) {
+            ScopedDebugGroup sdg("DarkenTexturePass");
+
             ImGui::SliderFloat("DarkenSpeedScale", &DarkenSpeedScale, 0.0f, 10.0f);
 
             SetFrameBufferTexture(*g_textureFB, outputTexture.Id());
@@ -373,11 +375,12 @@ namespace {
     public:
         void Init() {
             m_shader.LoadShaders(ShaderSource::Passthrough_vert, ShaderSource::Glow_frag);
-            m_shader.SetName("GlowPass");
         }
 
         void Draw(const Texture& inputTexture, const Texture& tempTexture,
                   const Texture& outputTexture) {
+            ScopedDebugGroup sdg("GlowPass");
+
             ImGui::SliderFloat("GlowRadius", &GlowRadius, 0.0f, 5.0f);
 
             for (size_t i = 0; i < m_glowKernelValues.size(); ++i) {
@@ -417,11 +420,12 @@ namespace {
         void Init() {
             m_shader.LoadShaders(ShaderSource::Passthrough_vert,
                                  ShaderSource::CombineVectorsAndGlow_frag);
-            m_shader.SetName("CombineVectorsAndGlowPass");
         }
 
         void Draw(const Texture& inputVectorsTexture, const Texture& inputGlowTexture,
                   const Texture& outputTexture) {
+            ScopedDebugGroup sdg("CombineVectorsAndGlowPass");
+
             SetFrameBufferTexture(*g_textureFB, outputTexture.Id());
             SetViewportToTextureDims(outputTexture);
             // No need to clear as we write every pixel
@@ -440,11 +444,12 @@ namespace {
     public:
         void Init() {
             m_shader.LoadShaders(ShaderSource::Passthrough_vert, ShaderSource::DrawTexture_frag);
-            m_shader.SetName("ScaleTexturePass");
         }
 
         void Draw(const Texture& inputTexture, const Texture& outputTexture, float scaleX,
                   float scaleY) {
+            ScopedDebugGroup sdg("ScaleTexturePass");
+
             SetFrameBufferTexture(*g_textureFB, outputTexture.Id());
             SetViewportToTextureDims(outputTexture);
             // Clear target texture as we only write to scaled portion which can change over time
@@ -463,10 +468,11 @@ namespace {
     public:
         void Init() {
             m_shader.LoadShaders(ShaderSource::Passthrough_vert, ShaderSource::DrawScreen_frag);
-            m_shader.SetName("RenderToScreenPass");
         }
 
         void Draw(const Texture& inputCrtTexture, const Texture& inputOverlayTexture) {
+            ScopedDebugGroup sdg("RenderToScreenPass");
+
             ImGui::SliderFloat("OverlayAlpha", &OverlayAlpha, 0.0f, 1.0f);
 
             glBindFramebuffer(GL_FRAMEBUFFER, 0);

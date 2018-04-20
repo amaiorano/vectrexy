@@ -3,6 +3,7 @@
 #include "ConsoleOutput.h"
 #include "EngineClient.h"
 #include "GLRender.h"
+#include "GLUtil.h"
 #include "Platform.h"
 #include "StringHelpers.h"
 #include "imgui_impl/imgui_impl_sdl_gl3.h"
@@ -349,6 +350,11 @@ namespace {
         }
     }
 
+    void ImGui_Render() {
+        GLUtil::ScopedDebugGroup sdb("ImGui");
+        ImGui::Render();
+    }
+
 } // namespace
 
 // Implement EngineClient free-standing functions
@@ -453,7 +459,7 @@ bool SDLEngine::Run(int argc, char** argv) {
             quit = true;
 
         GLRender::RenderScene(frameTime, renderContext);
-        ImGui::Render();
+        ImGui_Render();
         SDL_GL_SwapWindow(g_window);
 
         // Don't clear lines when paused
