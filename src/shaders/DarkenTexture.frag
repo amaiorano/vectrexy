@@ -17,8 +17,12 @@ vec3 integrateDamped(vec3 current, vec3 target, float rate, float deltaTime) {
 
 void main() {
     vec3 current = texture(renderedTexture, UV).rgb;
-    vec3 target = vec3(0);
-    float rate = 0.99;
-    color = integrateDamped(current, target, rate, frameTime * darkenSpeedScale);
+    if (any(greaterThan(current, vec3(0.1)))) {
+        float rate = 0.99;
+        vec3 target = vec3(0);
+        color = integrateDamped(current, target, rate, frameTime * darkenSpeedScale);
+    } else {
+        color = vec3(0);
+    }
 }
 )ShaderSource"
