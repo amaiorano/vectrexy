@@ -362,8 +362,14 @@ namespace {
             m_shader.Bind();
 
             SetTextureUniform(m_shader.Id(), "vectorsTexture", inputTexture.Id(), 0);
-            SetUniform(m_shader.Id(), "darkenSpeedScale", DarkenSpeedScale);
-            SetUniform(m_shader.Id(), "frameTime", frameTime);
+
+            // The fragment shader integrates current pixel rgb to 0 using a damped approach. Rate
+            // of 0.99 means we'd reach 99% of the way to target in 1 second.
+            auto computeDampingRatio = [](float rate, float time) {
+                return 1.f - ::pow(1.f - rate, time);
+            };
+            SetUniform(m_shader.Id(), "darkenRatio",
+                       computeDampingRatio(0.99f, frameTime * DarkenSpeedScale));
 
             DrawFullScreenQuad();
         };
