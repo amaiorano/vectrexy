@@ -490,6 +490,11 @@ namespace {
         }
     };
 
+    void GLDebugMessageCallback(const GLUtil::GLDebugMessageInfo& info) {
+        Errorf("OpenGL Debug Message: %s [source=0x%X type=0x%X severity=0x%X]\n", info.message,
+               info.source, info.type, info.severity);
+    }
+
     // Global shader pass instances
     DrawVectorsPass g_drawVectorsPass;
     DarkenTexturePass g_darkenTexturePass;
@@ -501,6 +506,9 @@ namespace {
 } // namespace
 
 namespace GLRender {
+    std::tuple<int, int> GetMajorMinorVersion() { return {3, 3}; }
+    bool EnableGLDebugging() { return true; }
+
     void Initialize() {
         // glShadeModel(GL_SMOOTH);
         glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
@@ -510,9 +518,13 @@ namespace GLRender {
         // glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
 
         // Initialize GLEW
-        glewExperimental = true; // Needed for core profile
+        glewExperimental = GL_TRUE; // Needed for core profile
         if (glewInit() != GLEW_OK) {
             FAIL_MSG("Failed to initialize GLEW");
+        }
+
+        if (EnableGLDebugging()) {
+            GLUtil::SetDebugMessageCallback(GLDebugMessageCallback);
         }
 
         // We don't actually use VAOs, but we must create one and bind it so that we can use VBOs
@@ -541,8 +553,6 @@ namespace GLRender {
     void Shutdown() {
         //
     }
-
-    std::tuple<int, int> GetMajorMinorVersion() { return {3, 3}; }
 
     void ResetOverlay(const char* file) {
         auto CreateEmptyOverlayTexture = [] {

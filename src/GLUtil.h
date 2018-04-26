@@ -6,6 +6,7 @@
 
 #include <array>
 #include <cassert>
+#include <functional>
 #include <optional>
 
 namespace GLUtil {
@@ -32,6 +33,19 @@ namespace GLUtil {
         ScopedCheckGLErrors() { ResetGLError(); }
         ~ScopedCheckGLErrors() { CheckGLError(); }
     };
+
+    struct GLDebugMessageInfo {
+        GLenum source;
+        GLenum type;
+        GLuint id;
+        GLenum severity;
+        GLsizei length;
+        const GLchar* message;
+        const GLvoid* userParam;
+    };
+    using GLDebugMessageCallbackFunc = void(const GLDebugMessageInfo&);
+
+    void SetDebugMessageCallback(std::function<GLDebugMessageCallbackFunc> callback);
 
     ////////////////////////////////
     // Debug

@@ -76,11 +76,21 @@ namespace {
 #endif
     }
 
-    void SetOpenGLVersion() {
+    SDL_GLContext CreateGLContext(SDL_Window* window) {
         auto[major, minor] = GLRender::GetMajorMinorVersion();
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, major);
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, minor);
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+
+        if (GLRender::EnableGLDebugging()) {
+            // Create debug context so that we can use glDebugMessageCallback
+            int contextFlags = 0;
+            SDL_GL_GetAttribute(SDL_GL_CONTEXT_FLAGS, &contextFlags);
+            contextFlags |= SDL_GL_CONTEXT_DEBUG_FLAG;
+            SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, contextFlags);
+        }
+
+        return SDL_GL_CreateContext(window);
     }
 
     struct Options {
@@ -390,8 +400,6 @@ bool SDLEngine::Run(int argc, char** argv) {
         return false;
     }
 
-    SetOpenGLVersion();
-
     const int windowX = options.windowX.value_or(SDL_WINDOWPOS_CENTERED);
     const int windowY = options.windowY.value_or(SDL_WINDOWPOS_CENTERED);
     const int windowWidth = options.windowWidth.value_or(DEFAULT_WINDOW_WIDTH);
@@ -404,7 +412,7 @@ bool SDLEngine::Run(int argc, char** argv) {
         return false;
     }
 
-    g_glContext = SDL_GL_CreateContext(g_window);
+    g_glContext = CreateGLContext(g_window);
     if (g_glContext == NULL) {
         std::cout << "Cannot create OpenGL context with error " << SDL_GetError() << std::endl;
         return false;

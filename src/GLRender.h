@@ -5,9 +5,10 @@
 struct RenderContext;
 
 namespace GLRender {
+    std::tuple<int, int> GetMajorMinorVersion();
+    bool EnableGLDebugging();
     void Initialize();
     void Shutdown();
-    std::tuple<int, int> GetMajorMinorVersion();
     void ResetOverlay(const char* file = nullptr);
     bool OnWindowResized(int windowWidth, int windowHeight);
     void RenderScene(double frameTime, const RenderContext& renderContext);

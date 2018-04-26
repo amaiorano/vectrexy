@@ -6,6 +6,16 @@
 #include <vector>
 
 namespace {
+    std::function<GLUtil::GLDebugMessageCallbackFunc> g_debugMessageCallback;
+
+    void GLAPIENTRY GLDebugMessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity,
+                                           GLsizei length, const GLchar* message,
+                                           const GLvoid* userParam) {
+
+        assert(g_debugMessageCallback != nullptr);
+        g_debugMessageCallback({source, type, id, severity, length, message, userParam});
+    }
+
     std::optional<std::string> FileToString(const char* file) {
         std::ifstream is(file);
         if (!is)
@@ -15,6 +25,55 @@ namespace {
         return buffer.str();
     }
 } // namespace
+
+void GLUtil::SetDebugMessageCallback(std::function<void(const GLDebugMessageInfo&)> callback) {
+    g_debugMessageCallback = std::move(callback);
+    if (g_debugMessageCallback) {
+        if (glDebugMessageCallback) {
+            glEnable(GL_DEBUG_OUTPUT);
+            glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+            glDebugMessageCallback(&GLDebugMessageCallback, nullptr);
+
+            GLenum disableSources[] = {
+                // GL_DEBUG_SOURCE_API,
+                // GL_DEBUG_SOURCE_WINDOW_SYSTEM,
+                GL_DEBUG_SOURCE_SHADER_COMPILER,
+                // GL_DEBUG_SOURCE_THIRD_PARTY,
+                // GL_DEBUG_SOURCE_APPLICATION,
+                // GL_DEBUG_SOURCE_OTHER
+            };
+
+            GLenum disableTypes[] = {
+                // GL_DEBUG_TYPE_ERROR,
+                // GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR,
+                // GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR,
+                // GL_DEBUG_TYPE_PORTABILITY,
+                // GL_DEBUG_TYPE_PERFORMANCE,
+                GL_DEBUG_TYPE_PUSH_GROUP, GL_DEBUG_TYPE_POP_GROUP,
+                // GL_DEBUG_TYPE_MARKER,
+                // GL_DEBUG_TYPE_OTHER
+            };
+
+            // Enable all by default
+            glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_TRUE);
+
+            // Disable specific disableSources
+            for (auto source : disableSources) {
+                glDebugMessageControl(source, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_FALSE);
+            }
+
+            // Disable specific types
+            for (auto type : disableTypes) {
+                glDebugMessageControl(GL_DONT_CARE, type, GL_DONT_CARE, 0, nullptr, GL_FALSE);
+            }
+        } else {
+            Errorf("GL Debug not supported.\n");
+        }
+    } else {
+        glDisable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+        glDisable(GL_DEBUG_OUTPUT);
+    }
+}
 
 void GLUtil::AllocateTexture(GLuint textureId, GLsizei width, GLsizei height, GLint internalFormat,
                              std::optional<GLint> filtering, std::optional<PixelData> pixelData) {
