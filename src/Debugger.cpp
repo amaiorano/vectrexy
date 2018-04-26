@@ -1098,7 +1098,7 @@ bool Debugger::FrameUpdate(double frameTime, const Input& input, const EmuEvents
             }
 
         } else if (tokens[0] == "trace" || tokens[0] == "t") {
-            int numLines = 10;
+            size_t numLines = 10;
             const char* outFileName = nullptr;
 
             try {

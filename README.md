@@ -18,7 +18,7 @@ Here's an example of how to build (on Windows):
 
 First, download and install [vcpkg](https://github.com/Microsoft/vcpkg), then install dependent packages:
 ```bash
-vcpkg install sdl2:x86-windows-static sdl2-net:x86-windows-static glew:x86-windows-static glm:x86-windows-static libpng:x86-windows-static imgui:x86-windows-static
+vcpkg install sdl2:x64-windows-static sdl2-net:x64-windows-static glew:x64-windows-static glm:x64-windows-static libpng:x64-windows-static imgui:x64-windows-static
 ```
 
 Now you can clone and build vectrexy using CMake:
@@ -26,7 +26,7 @@ Now you can clone and build vectrexy using CMake:
 git clone https://github.com/amaiorano/vectrexy.git
 cd vectrexy
 mkdir build && cd build
-cmake -DCMAKE_TOOLCHAIN_FILE=C:/code/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x86-windows-static ..
+cmake -G "Visual Studio 15 2017 Win64" -DCMAKE_TOOLCHAIN_FILE=C:/code/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-static ..
 vectrexy.sln ..
 ```
 

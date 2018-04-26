@@ -106,7 +106,7 @@ namespace ImageFileUtils {
         result.height = height;
         result.hasAlpha = (color_type & PNG_COLOR_MASK_ALPHA);
 
-        unsigned int row_bytes = png_get_rowbytes(png_ptr, info_ptr);
+        png_size_t row_bytes = png_get_rowbytes(png_ptr, info_ptr);
         result.data.reset(new uint8_t[row_bytes * height]);
         //*outData = (unsigned char*)malloc(row_bytes * outHeight);
 

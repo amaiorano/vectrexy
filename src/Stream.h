@@ -88,7 +88,9 @@ protected:
         return fwrite(source, elemSize, count, m_file);
     }
 
-    bool SetPosImpl(size_t pos) override { return fseek(m_file, pos, 0) == 0; }
+    bool SetPosImpl(size_t pos) override {
+        return fseek(m_file, checked_static_cast<long>(pos), 0) == 0;
+    }
 
 private:
     FILE* m_file;

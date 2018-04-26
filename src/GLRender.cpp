@@ -334,7 +334,7 @@ namespace {
                                       (void*)offsetof(VertexData, brightness) // array buffer offset
                 );
 
-                glDrawArrays(mode, 0, VA.size());
+                glDrawArrays(mode, 0, checked_static_cast<GLsizei>(VA.size()));
 
                 glDisableVertexAttribArray(1);
                 glDisableVertexAttribArray(0);
@@ -405,7 +405,7 @@ namespace {
             SetUniform(m_shader.Id(), "resolution", static_cast<float>(outputTexture.Width()));
             SetUniform(m_shader.Id(), "radius", GlowRadius);
             SetUniform(m_shader.Id(), "kernalValues", &m_glowKernelValues[0],
-                       m_glowKernelValues.size());
+                       checked_static_cast<GLint>(m_glowKernelValues.size()));
 
             DrawFullScreenQuad();
         };
