@@ -296,7 +296,7 @@ namespace {
             SetViewportToTextureDims(outputTexture);
 
             // Purposely do not clear the target texture as we want to darken it.
-            // glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            // glClear(GL_COLOR_BUFFER_BIT);
 
             m_shader.Bind();
 
@@ -478,7 +478,7 @@ namespace {
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
             SetViewport(g_screenViewport);
             // No need to clear as we write every pixel
-            // glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
             m_shader.Bind();
 
