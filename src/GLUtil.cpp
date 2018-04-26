@@ -120,8 +120,8 @@ GLuint GLUtil::LoadShadersFromFiles(const char* vertShaderFile, const char* frag
 }
 
 GLuint GLUtil::LoadShaders(const char* vertShaderCode, const char* fragShaderCode) {
-    auto CheckStatus = [](GLuint id, GLenum pname) {
-        assert(pname == GL_COMPILE_STATUS || pname == GL_LINK_STATUS);
+    auto CheckCompileStatus = [](GLuint id, GLenum pname) {
+        assert(pname == GL_COMPILE_STATUS);
         GLint result = GL_FALSE;
         int infoLogLength{};
         glGetShaderiv(id, pname, &result);
@@ -137,18 +137,18 @@ GLuint GLUtil::LoadShaders(const char* vertShaderCode, const char* fragShaderCod
         return true;
     };
 
-    auto CompileShader = [CheckStatus](GLuint shaderId, const char* shaderCode) {
+    auto CompileShader = [CheckCompileStatus](GLuint shaderId, const char* shaderCode) {
         // Printf("Compiling shader : %s\n", shaderFile);
         auto sourcePtr = shaderCode;
         glShaderSource(shaderId, 1, &sourcePtr, NULL);
         glCompileShader(shaderId);
-        return CheckStatus(shaderId, GL_COMPILE_STATUS);
+        return CheckCompileStatus(shaderId, GL_COMPILE_STATUS);
     };
 
-    auto LinkProgram = [CheckStatus](GLuint programId) {
+    auto LinkProgram = [](GLuint programId) {
         // Printf("Linking program\n");
         glLinkProgram(programId);
-        return CheckStatus(programId, GL_LINK_STATUS);
+        return true; //@TODO: check if valid
     };
 
     GLuint vertShaderId = glCreateShader(GL_VERTEX_SHADER);
