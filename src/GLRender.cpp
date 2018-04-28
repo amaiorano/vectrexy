@@ -475,7 +475,7 @@ namespace {
 
             ImGui::SliderFloat("OverlayAlpha", &OverlayAlpha, 0.0f, 1.0f);
 
-            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            GLUtil::BindFrameBuffer(0);
             SetViewport(g_screenViewport);
             // No need to clear as we write every pixel
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -542,7 +542,7 @@ namespace GLRender {
         // Create resources
         g_textureFB = MakeFrameBufferResource();
         // Set output of fragment shader to color attachment 0
-        glBindFramebuffer(GL_FRAMEBUFFER, *g_textureFB);
+        GLUtil::BindFrameBuffer(*g_textureFB);
         GLenum drawBuffers[1] = {GL_COLOR_ATTACHMENT0};
         glDrawBuffers(1, drawBuffers);
         CheckFramebufferStatus();

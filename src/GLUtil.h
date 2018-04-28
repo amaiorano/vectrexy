@@ -155,8 +155,10 @@ namespace GLUtil {
     // Frame Buffers
     ////////////////////////////////
 
+    void BindFrameBuffer(GLuint frameBufferId);
+
     inline void SetFrameBufferTexture(GLuint frameBufferId, GLuint textureId) {
-        glBindFramebuffer(GL_FRAMEBUFFER, frameBufferId);
+        BindFrameBuffer(frameBufferId);
         glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, textureId, 0);
     }
 
