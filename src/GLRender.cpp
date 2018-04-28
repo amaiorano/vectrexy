@@ -383,11 +383,6 @@ namespace {
 
             ImGui::SliderFloat("GlowRadius", &GlowRadius, 0.0f, 5.0f);
 
-            for (size_t i = 0; i < m_glowKernelValues.size(); ++i) {
-                ImGui::SliderFloat(FormattedString<>("kernelValue[%d]", i), &m_glowKernelValues[i],
-                                   0.f, 1.f);
-            }
-
             GlowInDirection(inputTexture, tempTexture, {1.f, 0.f});
             GlowInDirection(tempTexture, outputTexture, {0.f, 1.f});
         };
@@ -404,14 +399,8 @@ namespace {
             SetUniform(m_shader.Id(), "dir", dir.x, dir.y);
             SetUniform(m_shader.Id(), "resolution", static_cast<float>(outputTexture.Width()));
             SetUniform(m_shader.Id(), "radius", GlowRadius);
-            SetUniform(m_shader.Id(), "kernalValues", &m_glowKernelValues[0],
-                       checked_static_cast<GLint>(m_glowKernelValues.size()));
 
             DrawFullScreenQuad();
-        };
-
-        std::array<float, 5> m_glowKernelValues = {
-            0.2270270270f, 0.1945945946f, 0.1216216216f, 0.0540540541f, 0.0162162162f,
         };
     };
 
