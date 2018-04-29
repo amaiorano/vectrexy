@@ -411,21 +411,23 @@ namespace {
                                  ShaderSource::CombineVectorsAndGlow_frag);
         }
 
-        void Draw(const Texture& inputVectorsTexture, const Texture& inputGlowTexture,
-                  const Texture& outputTexture) {
+        void Draw(const Texture& inputVectorsTexture, const Texture& inputGlowTexture, float scaleX,
+                  float scaleY, const Texture& outputTexture) {
             ScopedDebugGroup sdg("CombineVectorsAndGlowPass");
 
             SetFrameBufferTexture(*g_textureFB, outputTexture.Id());
             SetViewportToTextureDims(outputTexture);
-            // No need to clear as we write every pixel
-            // glClear(GL_COLOR_BUFFER_BIT);
+
+            // Clear target texture as we only write to scaled portion which can change over time
+            // (only because we allow tweaking).
+            glClear(GL_COLOR_BUFFER_BIT);
 
             m_shader.Bind();
 
             SetTextureUniform(m_shader.Id(), "vectorsTexture", inputVectorsTexture.Id(), 0);
             SetTextureUniform(m_shader.Id(), "glowTexture", inputGlowTexture.Id(), 1);
 
-            DrawFullScreenQuad();
+            DrawFullScreenQuad(scaleX, scaleY);
         }
     };
 
@@ -693,11 +695,9 @@ namespace GLRender {
                                      static_cast<float>(frameTime));
             g_glowPass.Draw(currVectorsThickTexture0, g_tempTexture, g_glowTexture);
 
-            // Combine glow and normal lines
-            g_combineVectorsAndGlowPass.Draw(currVectorsTexture0, g_glowTexture, g_tempTexture);
-
-            // Scale CRT to screen
-            g_scaleTexturePass.Draw(g_tempTexture, g_screenCrtTexture, CrtScaleX, CrtScaleY);
+            // Combine glow and normal lines, while scaling CRT to screen
+            g_combineVectorsAndGlowPass.Draw(currVectorsTexture0, g_glowTexture, CrtScaleX,
+                                             CrtScaleY, g_screenCrtTexture);
         } else {
             // Scale CRT to screen
             g_scaleTexturePass.Draw(currVectorsTexture0, g_screenCrtTexture, CrtScaleX, CrtScaleY);
