@@ -21,6 +21,7 @@ const int VECTREX_SCREEN_HEIGHT = 256;
 namespace {
     // Tweakables - @TODO: make const in final build
     float OverlayAR = 936.f / 1200.f;
+    bool EnableMaxTextureSize = false;
     int MaxTextureSize = 1024;
     bool EnableBlur = true;
     bool ThickBaseLines = true;
@@ -588,7 +589,9 @@ namespace GLRender {
         // Now we scale the screen width/height used to determine our texture sizes so that they're
         // not too large. This is especially important on high DPI displays.
         const auto[screenTextureWidth, screenTextureHeight] =
-            ScaleDimensions(g_screenViewport.w, g_screenViewport.h, MaxTextureSize, MaxTextureSize);
+            EnableMaxTextureSize ? ScaleDimensions(g_screenViewport.w, g_screenViewport.h,
+                                                   MaxTextureSize, MaxTextureSize)
+                                 : std::make_tuple(g_screenViewport.w, g_screenViewport.h);
 
         // "CRT" represents the physical CRT screen where the line vectors are drawn. The size is
         // smaller than the screen since the overlay is larger than the CRT on the Vectrex.
@@ -634,15 +637,19 @@ namespace GLRender {
         {
             static float scaleX = CrtScaleX;
             static float scaleY = CrtScaleY;
+            static bool enableMaxTextureSize = EnableMaxTextureSize;
+            static int maxTextureSize = MaxTextureSize;
+
             ImGui::SliderFloat("ScaleX", &scaleX, 0.0f, 1.0f);
             ImGui::SliderFloat("ScaleY", &scaleY, 0.0f, 1.0f);
-
-            static int maxTextureSize = MaxTextureSize;
+            ImGui::Checkbox("EnableMaxTextureSize", &enableMaxTextureSize);
             ImGui::SliderInt("MaxTextureSize", &maxTextureSize, 100, 2000);
 
-            if (scaleX != CrtScaleX || scaleY != CrtScaleY || maxTextureSize != MaxTextureSize) {
+            if (scaleX != CrtScaleX || scaleY != CrtScaleY || maxTextureSize != MaxTextureSize ||
+                enableMaxTextureSize != EnableMaxTextureSize) {
                 CrtScaleX = scaleX;
                 CrtScaleY = scaleY;
+                EnableMaxTextureSize = enableMaxTextureSize;
                 MaxTextureSize = maxTextureSize;
                 OnWindowResized(g_windowWidth, g_windowHeight);
             }
