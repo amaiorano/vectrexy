@@ -418,6 +418,9 @@ bool SDLEngine::Run(int argc, char** argv) {
         return false;
     }
 
+    enum SwapInterval : int { NoVSync = 0, VSync = 1, AdaptiveVSync = -1 };
+    SDL_GL_SetSwapInterval(SwapInterval::NoVSync);
+
     ImGui_ImplSdlGL3_Init(g_window);
     ImGui::GetIO().FontGlobalScale = options.imguiFontScale.value_or(1.f);
 
