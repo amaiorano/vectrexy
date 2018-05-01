@@ -9,7 +9,7 @@ find_package(SDL2_net REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(GLEW REQUIRED)
 find_package(GLM REQUIRED)
-find_package(PNG REQUIRED)
+find_package(STB REQUIRED)
 find_package(Imgui REQUIRED)
 
 # SDL2 dependent libs, required when linking against SDL2 static lib
@@ -32,9 +32,9 @@ source_group("src\\shaders" FILES ${SHADER_SRC})
 set(SRC ${SRC_ROOT} ${IMGUI_IMPL_SRC} ${SHADER_SRC})
 
 add_executable(vectrexy ${SRC} ${MANIFEST_FILE})
-include_directories(${SDL2_INCLUDE_DIR} ${SDL2_NET_INCLUDE_DIRS} ${GLEW_INCLUDE_DIRS} ${GLM_INCLUDE_DIRS} ${PNG_INCLUDE_DIRS} ${IMGUI_INCLUDE_PATH})
-target_link_libraries(vectrexy ${SDL2_LIBRARY} ${SDL2_NET_LIBRARIES} ${OPENGL_gl_LIBRARY} ${OPENGL_glu_LIBRARY} ${GLEW_LIBRARIES} ${SDL2_REQUIRED_LIBS} ${PNG_LIBRARIES} ${IMGUI_LIBRARY})
-target_compile_definitions(vectrexy PRIVATE ${GLEW_DEFINITIONS} ${PNG_DEFINITIONS})
+include_directories(${SDL2_INCLUDE_DIR} ${SDL2_NET_INCLUDE_DIRS} ${GLEW_INCLUDE_DIRS} ${GLM_INCLUDE_DIRS} ${STB_INCLUDE_PATH} ${IMGUI_INCLUDE_PATH})
+target_link_libraries(vectrexy ${SDL2_LIBRARY} ${SDL2_NET_LIBRARIES} ${OPENGL_gl_LIBRARY} ${OPENGL_glu_LIBRARY} ${GLEW_LIBRARIES} ${SDL2_REQUIRED_LIBS} ${IMGUI_LIBRARY})
+target_compile_definitions(vectrexy PRIVATE ${GLEW_DEFINITIONS})
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 	target_compile_definitions(vectrexy PRIVATE _CRT_SECURE_NO_WARNINGS _SCL_SECURE_NO_WARNINGS)
