@@ -610,15 +610,15 @@ namespace GLRender {
         g_vectorsThickTexture[0].Allocate(crtWidth, crtHeight, GL_RGB32F);
         g_vectorsThickTexture[1].Allocate(crtWidth, crtHeight, GL_RGB32F);
 
-        g_tempTexture.Allocate(crtWidth, crtHeight, GL_RGB32F);
+        g_tempTexture.Allocate(crtWidth, crtHeight, GL_RGB);
         g_tempTexture.SetName("g_tempTexture");
 
-        g_glowTexture.Allocate(crtWidth, crtHeight, GL_RGB32F);
+        g_glowTexture.Allocate(crtWidth, crtHeight, GL_RGB);
         g_glowTexture.SetName("g_glowTexture");
 
         // Final CRT texture is the same size as the screen so we can combine it with the overlay
         // texture (also same size)
-        g_screenCrtTexture.Allocate(screenTextureWidth, screenTextureHeight, GL_RGB);
+        g_screenCrtTexture.Allocate(screenTextureWidth, screenTextureHeight, GL_RGB, GL_LINEAR);
         g_screenCrtTexture.SetName("g_screenCrtTexture");
 
         // Clear g_vectorsTexture[0] once
