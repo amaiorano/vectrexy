@@ -1,6 +1,6 @@
 #include "Screen.h"
 #include "EngineClient.h"
-#include <imgui.h>
+#include "Gui.h"
 
 namespace {
     //@TODO: make these conditionally const for "shipping" build
@@ -91,10 +91,10 @@ void Screen::Update(cycles_t cycles, RenderContext& renderContext) {
 }
 
 void Screen::FrameUpdate() {
-    ImGui::SliderInt("RampUpDelay", &RampUpDelay, 0, 20);
-    ImGui::SliderInt("RampDownDelay", &RampDownDelay, 0, 20);
-    ImGui::SliderInt("VelocityXDelay", &VelocityXDelay, 0, 30);
-    ImGui::SliderFloat("LineDrawScale", &LineDrawScale, 0.1f, 1.f);
+    IMGUI_CALL(Debug, ImGui::SliderInt("RampUpDelay", &RampUpDelay, 0, 20));
+    IMGUI_CALL(Debug, ImGui::SliderInt("RampDownDelay", &RampDownDelay, 0, 20));
+    IMGUI_CALL(Debug, ImGui::SliderInt("VelocityXDelay", &VelocityXDelay, 0, 30));
+    IMGUI_CALL(Debug, ImGui::SliderFloat("LineDrawScale", &LineDrawScale, 0.1f, 1.f));
     m_velocityX.CyclesToUpdateValue = VelocityXDelay;
 }
 

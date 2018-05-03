@@ -4,6 +4,7 @@
 #include "EngineClient.h"
 #include "GLRender.h"
 #include "GLUtil.h"
+#include "Gui.h"
 #include "Platform.h"
 #include "StringHelpers.h"
 #include "imgui_impl/imgui_impl_sdl_gl3.h"
@@ -98,6 +99,7 @@ namespace {
         std::optional<int> windowY;
         std::optional<int> windowWidth;
         std::optional<int> windowHeight;
+        std::optional<bool> imguiDebugWindow;
         std::optional<float> imguiFontScale;
     };
 
@@ -128,6 +130,8 @@ namespace {
                 options.windowWidth = std::stoi(tokens[1]);
             else if (tokens[0] == "windowHeight")
                 options.windowHeight = std::stoi(tokens[1]);
+            else if (tokens[0] == "imguiDebugWindow")
+                options.imguiDebugWindow = tokens[1] != "0";
             else if (tokens[0] == "imguiFontScale")
                 options.imguiFontScale = std::stof(tokens[1]);
             else {
@@ -421,6 +425,7 @@ bool SDLEngine::Run(int argc, char** argv) {
     enum SwapInterval : int { NoVSync = 0, VSync = 1, AdaptiveVSync = -1 };
     SDL_GL_SetSwapInterval(SwapInterval::NoVSync);
 
+    Gui::EnabledWindows[Gui::Window::Debug] = options.imguiDebugWindow.value_or(false);
     ImGui_ImplSdlGL3_Init(g_window);
     ImGui::GetIO().FontGlobalScale = options.imguiFontScale.value_or(1.f);
 

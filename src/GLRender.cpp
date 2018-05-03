@@ -2,11 +2,11 @@
 #include "ConsoleOutput.h"
 #include "EngineClient.h"
 #include "GLUtil.h"
+#include "Gui.h"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/mat4x4.hpp>
-#include <imgui.h>
 
 #include <optional>
 #include <string>
@@ -355,7 +355,8 @@ namespace {
         void Draw(const Texture& inputTexture, const Texture& outputTexture, float frameTime) {
             ScopedDebugGroup sdg("DarkenTexturePass");
 
-            ImGui::SliderFloat("DarkenSpeedScale", &DarkenSpeedScale, 0.0f, 10.0f);
+            IMGUI_CALL(Debug,
+                       ImGui::SliderFloat("DarkenSpeedScale", &DarkenSpeedScale, 0.0f, 10.0f));
 
             SetFrameBufferTexture(*g_textureFB, outputTexture.Id());
             SetViewportToTextureDims(outputTexture);
@@ -382,7 +383,7 @@ namespace {
                   const Texture& outputTexture) {
             ScopedDebugGroup sdg("GlowPass");
 
-            ImGui::SliderFloat("GlowRadius", &GlowRadius, 0.0f, 5.0f);
+            IMGUI_CALL(Debug, ImGui::SliderFloat("GlowRadius", &GlowRadius, 0.0f, 5.0f));
 
             GlowInDirection(inputTexture, tempTexture, {1.f, 0.f});
             GlowInDirection(tempTexture, outputTexture, {0.f, 1.f});
@@ -465,7 +466,7 @@ namespace {
         void Draw(const Texture& inputCrtTexture, const Texture& inputOverlayTexture) {
             ScopedDebugGroup sdg("RenderToScreenPass");
 
-            ImGui::SliderFloat("OverlayAlpha", &OverlayAlpha, 0.0f, 1.0f);
+            IMGUI_CALL(Debug, ImGui::SliderFloat("OverlayAlpha", &OverlayAlpha, 0.0f, 1.0f));
 
             GLUtil::BindFrameBuffer(0);
             SetViewport(g_screenViewport);
@@ -640,10 +641,10 @@ namespace GLRender {
             static bool enableMaxTextureSize = EnableMaxTextureSize;
             static int maxTextureSize = MaxTextureSize;
 
-            ImGui::SliderFloat("ScaleX", &scaleX, 0.0f, 1.0f);
-            ImGui::SliderFloat("ScaleY", &scaleY, 0.0f, 1.0f);
-            ImGui::Checkbox("EnableMaxTextureSize", &enableMaxTextureSize);
-            ImGui::SliderInt("MaxTextureSize", &maxTextureSize, 100, 2000);
+            IMGUI_CALL(Debug, ImGui::SliderFloat("ScaleX", &scaleX, 0.0f, 1.0f));
+            IMGUI_CALL(Debug, ImGui::SliderFloat("ScaleY", &scaleY, 0.0f, 1.0f));
+            IMGUI_CALL(Debug, ImGui::Checkbox("EnableMaxTextureSize", &enableMaxTextureSize));
+            IMGUI_CALL(Debug, ImGui::SliderInt("MaxTextureSize", &maxTextureSize, 100, 2000));
 
             if (scaleX != CrtScaleX || scaleY != CrtScaleY || maxTextureSize != MaxTextureSize ||
                 enableMaxTextureSize != EnableMaxTextureSize) {
@@ -676,13 +677,13 @@ namespace GLRender {
         const float lineWidthScale = lineScaleX;
 
         // Render normal lines and points, and darken
-        ImGui::Checkbox("ThickBaseLines", &ThickBaseLines);
+        IMGUI_CALL(Debug, ImGui::Checkbox("ThickBaseLines", &ThickBaseLines));
         if (!ThickBaseLines) {
             std::tie(g_lineVA, g_pointVA) =
                 CreateLineAndPointVertexArrays(renderContext.lines, lineScaleX, lineScaleY);
             g_drawVectorsPass.Draw(g_lineVA, GL_LINES, g_pointVA, GL_POINTS, currVectorsTexture0);
         } else {
-            ImGui::SliderFloat("LineWidthNormal", &LineWidthNormal, 0.1f, 3.0f);
+            IMGUI_CALL(Debug, ImGui::SliderFloat("LineWidthNormal", &LineWidthNormal, 0.1f, 3.0f));
             g_quadVA = CreateQuadVertexArray(renderContext.lines, LineWidthNormal * lineWidthScale,
                                              lineScaleX, lineScaleY);
             g_drawVectorsPass.Draw(g_quadVA, GL_TRIANGLES, {}, {}, currVectorsTexture0);
@@ -690,11 +691,11 @@ namespace GLRender {
         g_darkenTexturePass.Draw(currVectorsTexture0, currVectorsTexture1,
                                  static_cast<float>(frameTime));
 
-        ImGui::Checkbox("EnableBlur", &EnableBlur);
+        IMGUI_CALL(Debug, ImGui::Checkbox("EnableBlur", &EnableBlur));
         if (EnableBlur) {
 
             // Render thicker lines for blurring, darken, and apply glow
-            ImGui::SliderFloat("LineWidthGlow", &LineWidthGlow, 0.1f, 2.0f);
+            IMGUI_CALL(Debug, ImGui::SliderFloat("LineWidthGlow", &LineWidthGlow, 0.1f, 2.0f));
             g_quadVA = CreateQuadVertexArray(renderContext.lines, LineWidthGlow * lineWidthScale,
                                              lineScaleX, lineScaleY);
             g_drawVectorsPass.Draw(g_quadVA, GL_TRIANGLES, {}, {}, currVectorsThickTexture0);
