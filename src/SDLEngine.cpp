@@ -5,6 +5,7 @@
 #include "GLRender.h"
 #include "GLUtil.h"
 #include "Gui.h"
+#include "Options.h"
 #include "Platform.h"
 #include "StringHelpers.h"
 #include "imgui_impl/imgui_impl_sdl_gl3.h"
@@ -13,9 +14,7 @@
 #include <algorithm>
 #include <chrono>
 #include <filesystem>
-#include <fstream>
 #include <iostream>
-#include <optional>
 #include <unordered_map>
 
 //@TODO: should be std::filesystem
@@ -92,53 +91,6 @@ namespace {
         }
 
         return SDL_GL_CreateContext(window);
-    }
-
-    struct Options {
-        std::optional<int> windowX;
-        std::optional<int> windowY;
-        std::optional<int> windowWidth;
-        std::optional<int> windowHeight;
-        std::optional<bool> imguiDebugWindow;
-        std::optional<float> imguiFontScale;
-    };
-
-    Options LoadOptionsFile(const char* file) {
-        Options options;
-
-        std::ifstream fin(file);
-        if (!fin) {
-            std::cerr << "No options file \"" << file << "\" found, using default values"
-                      << std::endl;
-            return options;
-        }
-
-        std::string line;
-        while (std::getline(fin, line)) {
-            line = Trim(line);
-            if (line[0] == ';') // Skip comments
-                continue;
-
-            auto tokens = Trim(Split(line, "="));
-            if (tokens.size() < 2)
-                continue;
-            if (tokens[0] == "windowX")
-                options.windowX = std::stoi(tokens[1]);
-            else if (tokens[0] == "windowY")
-                options.windowY = std::stoi(tokens[1]);
-            else if (tokens[0] == "windowWidth")
-                options.windowWidth = std::stoi(tokens[1]);
-            else if (tokens[0] == "windowHeight")
-                options.windowHeight = std::stoi(tokens[1]);
-            else if (tokens[0] == "imguiDebugWindow")
-                options.imguiDebugWindow = tokens[1] != "0";
-            else if (tokens[0] == "imguiFontScale")
-                options.imguiFontScale = std::stof(tokens[1]);
-            else {
-                std::cerr << "Unknown option: " << tokens[0] << std::endl;
-            }
-        }
-        return options;
     }
 
     struct Gamepad {
