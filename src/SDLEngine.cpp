@@ -344,7 +344,14 @@ bool SDLEngine::Run(int argc, char** argv) {
     if (!FindAndSetRootPath(fs::path(fs::absolute(argv[0]))))
         return false;
 
-    const auto options = LoadOptionsFile("options.txt");
+    Options options;
+    options.Add<int>("windowX", -1);
+    options.Add<int>("windowY", -1);
+    options.Add<int>("windowWidth", DEFAULT_WINDOW_WIDTH);
+    options.Add<int>("windowHeight", WindowHeightFromWidth(DEFAULT_WINDOW_WIDTH));
+    options.Add<bool>("imguiDebugWindow", false);
+    options.Add<float>("imguiFontScale", 1.0f);
+    options.LoadOptionsFile("options.txt");
 
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER) < 0) {
         std::cout << "SDL cannot init with error " << SDL_GetError() << std::endl;
@@ -356,10 +363,16 @@ bool SDLEngine::Run(int argc, char** argv) {
         return false;
     }
 
-    const int windowX = options.windowX.value_or(SDL_WINDOWPOS_CENTERED);
-    const int windowY = options.windowY.value_or(SDL_WINDOWPOS_CENTERED);
-    const int windowWidth = options.windowWidth.value_or(DEFAULT_WINDOW_WIDTH);
-    const int windowHeight = options.windowHeight.value_or(WindowHeightFromWidth(windowWidth));
+    const int windowX = [&options] {
+        auto v = options.Get<int>("windowX");
+        return v == -1 ? SDL_WINDOWPOS_CENTERED : v;
+    }();
+    const int windowY = [&options] {
+        auto v = options.Get<int>("windowY");
+        return v == -1 ? SDL_WINDOWPOS_CENTERED : v;
+    }();
+    const int windowWidth = options.Get<int>("windowWidth");
+    const int windowHeight = options.Get<int>("windowHeight");
 
     g_window = SDL_CreateWindow(WINDOW_TITLE, windowX, windowY, windowWidth, windowHeight,
                                 SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
@@ -377,9 +390,9 @@ bool SDLEngine::Run(int argc, char** argv) {
     enum SwapInterval : int { NoVSync = 0, VSync = 1, AdaptiveVSync = -1 };
     SDL_GL_SetSwapInterval(SwapInterval::NoVSync);
 
-    Gui::EnabledWindows[Gui::Window::Debug] = options.imguiDebugWindow.value_or(false);
+    Gui::EnabledWindows[Gui::Window::Debug] = options.Get<bool>("imguiDebugWindow");
     ImGui_ImplSdlGL3_Init(g_window);
-    ImGui::GetIO().FontGlobalScale = options.imguiFontScale.value_or(1.f);
+    ImGui::GetIO().FontGlobalScale = options.Get<float>("imguiFontScale");
 
     GLRender::Initialize();
     GLRender::OnWindowResized(windowWidth, windowHeight);

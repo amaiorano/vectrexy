@@ -1,14 +1,29 @@
 #pragma once
 
-#include <optional>
+#include <cassert>
+#include <map>
+#include <variant>
 
-struct Options {
-    std::optional<int> windowX;
-    std::optional<int> windowY;
-    std::optional<int> windowWidth;
-    std::optional<int> windowHeight;
-    std::optional<bool> imguiDebugWindow;
-    std::optional<float> imguiFontScale;
+class Options {
+public:
+    using OptionType = std::variant<int, float, bool>;
+
+    template <typename T>
+    void Add(const char* name, T defaultValue = {}) {
+        m_options[name] = defaultValue;
+    }
+
+    template <typename T>
+    T Get(const char* name) {
+        if (auto iter = m_options.find(name); iter != m_options.end()) {
+            return std::get<T>(iter->second);
+        }
+        assert(false);
+        return {};
+    }
+
+    void LoadOptionsFile(const char* file);
+
+private:
+    std::map<std::string, OptionType> m_options;
 };
-
-Options LoadOptionsFile(const char* file);

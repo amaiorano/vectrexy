@@ -3,40 +3,67 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <type_traits>
 
-Options LoadOptionsFile(const char* file) {
-    Options options;
+namespace {
+    template <typename... Types>
+    std::string ToString(const std::variant<Types...>& option) {
+        if (auto value = std::get_if<int>(&option)) {
+            return std::to_string(*value);
+        }
+        if (auto value = std::get_if<float>(&option)) {
+            return std::to_string(*value);
+        }
+        if (auto value = std::get_if<bool>(&option)) {
+            return *value ? "true" : "false";
+        }
+        assert(false);
+        return {};
+    }
 
+    template <typename... Types>
+    void FromString(const std::string& s, std::variant<Types...>& option) {
+        if (auto value = std::get_if<int>(&option)) {
+            *value = std::stoi(s);
+            return;
+        }
+        if (auto value = std::get_if<float>(&option)) {
+            *value = std::stof(s);
+            return;
+        }
+        if (auto value = std::get_if<bool>(&option)) {
+            *value = s == "true";
+            return;
+        }
+        assert(false);
+    }
+} // namespace
+
+void Options::LoadOptionsFile(const char* file) {
     std::ifstream fin(file);
     if (!fin) {
         std::cerr << "No options file \"" << file << "\" found, using default values" << std::endl;
-        return options;
-    }
+    } else {
+        std::string line;
+        while (std::getline(fin, line)) {
+            line = Trim(line);
 
-    std::string line;
-    while (std::getline(fin, line)) {
-        line = Trim(line);
-        if (line[0] == ';') // Skip comments
-            continue;
+            auto tokens = Trim(Split(line, "="));
+            if (tokens.size() < 2)
+                continue;
 
-        auto tokens = Trim(Split(line, "="));
-        if (tokens.size() < 2)
-            continue;
-        if (tokens[0] == "windowX")
-            options.windowX = std::stoi(tokens[1]);
-        else if (tokens[0] == "windowY")
-            options.windowY = std::stoi(tokens[1]);
-        else if (tokens[0] == "windowWidth")
-            options.windowWidth = std::stoi(tokens[1]);
-        else if (tokens[0] == "windowHeight")
-            options.windowHeight = std::stoi(tokens[1]);
-        else if (tokens[0] == "imguiDebugWindow")
-            options.imguiDebugWindow = tokens[1] != "0";
-        else if (tokens[0] == "imguiFontScale")
-            options.imguiFontScale = std::stof(tokens[1]);
-        else {
-            std::cerr << "Unknown option: " << tokens[0] << std::endl;
+            if (auto iter = m_options.find(tokens[0]); iter != m_options.end()) {
+                FromString(tokens[1], iter->second);
+            } else {
+                std::cerr << "Unknown option: " << tokens[0] << std::endl;
+            }
         }
+        fin.close();
     }
-    return options;
+
+    // Always write out options file with default/loaded values
+    std::ofstream fout(file);
+    for (auto & [ name, option ] : m_options) {
+        fout << name << " = " << ToString(option) << std::endl;
+    }
 }
