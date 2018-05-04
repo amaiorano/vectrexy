@@ -6,7 +6,7 @@
 namespace ErrorHandler {
     enum class Policy { Ignore, Log, Fail };
 
-    inline Policy g_policy = Policy::Log;
+    inline Policy g_policy = Policy::Ignore;
 
     template <typename... Args>
     void Undefined(const char* format, Args... args) {
