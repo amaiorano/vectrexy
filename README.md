@@ -2,6 +2,8 @@
 
 Vectrexy is a [Vectrex](https://en.wikipedia.org/wiki/Vectrex) emulator programmed in C++.
 
+This project is open source and available on GitHub: https://github.com/amaiorano/vectrexy
+
 # Controls
 
 | Devices     | Player 1  | Player 2  |
