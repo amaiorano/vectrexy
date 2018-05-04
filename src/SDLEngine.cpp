@@ -42,6 +42,7 @@ namespace {
     SDL_Window* g_window = NULL;
     SDL_GLContext g_glContext;
     Options g_options;
+    bool g_paused = false;
 
     template <typename T>
     constexpr T MsToSec(T ms) {
@@ -271,7 +272,7 @@ namespace {
     };
     Keyboard g_keyboard;
 
-    void UpdatePauseState(bool& pause) {
+    void UpdatePauseState(bool& paused) {
         bool togglePause = false;
 
         if (g_keyboard.GetKeyState(SDL_SCANCODE_P).pressed) {
@@ -285,7 +286,7 @@ namespace {
         }
 
         if (togglePause)
-            pause = !pause;
+            paused = !paused;
     }
 
     void UpdateTurboMode(bool& turbo) {
@@ -457,8 +458,15 @@ bool SDLEngine::Run(int argc, char** argv) {
                 if (ImGui::MenuItem("Open rom...", "Ctrl+O"))
                     emuEvents.push_back({EmuEvent::Type::OpenRomFile});
 
+                ImGui::EndMenu();
+            }
+
+            if (ImGui::BeginMenu("Emulation")) {
                 if (ImGui::MenuItem("Reset", "Ctrl+R"))
                     emuEvents.push_back({EmuEvent::Type::Reset});
+
+                if (ImGui::MenuItem(g_paused ? "Unpause" : "Pause", "P"))
+                    g_paused = !g_paused;
 
                 ImGui::EndMenu();
             }
@@ -591,9 +599,8 @@ double SDLEngine::UpdateFrameTime() {
     double frameTime = std::min(realFrameTime, MsToSec(100.0));
 
     // Reset to 0 if paused
-    static bool pause = false;
-    UpdatePauseState(pause);
-    if (pause)
+    UpdatePauseState(g_paused);
+    if (g_paused)
         frameTime = 0.0;
 
     // Scale up if turbo
