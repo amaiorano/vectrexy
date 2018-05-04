@@ -2,6 +2,16 @@
 
 Vectrexy is a [Vectrex](https://en.wikipedia.org/wiki/Vectrex) emulator programmed in C++.
 
+# Controls
+
+| Devices     | Player 1  | Player 2  |
+| ----------- | --------- | --------- |
+| No gamepads | Keyboard  | N/A       |
+| 1 gamepad   | Gamepad 1 | Keyboard  |
+| 2 gamepads  | Gamepad 1 | Gamepad 2 |
+
+Keyboard key bindings: ASDF + Arrow keys
+
 ## Twitch Development
 
 I regularly stream part of the development on Twitch [right here](https://www.twitch.tv/daroou2). Follow me to know when I'm streaming!
