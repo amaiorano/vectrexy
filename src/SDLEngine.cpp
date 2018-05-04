@@ -451,6 +451,28 @@ bool SDLEngine::Run(int argc, char** argv) {
 
         ImGui_ImplSdlGL3_NewFrame(g_window);
 
+        // ImGui menu bar
+        if (ImGui::BeginMainMenuBar()) {
+            if (ImGui::BeginMenu("File")) {
+                if (ImGui::MenuItem("Open rom...", "Ctrl+O"))
+                    emuEvents.push_back({EmuEvent::Type::OpenRomFile});
+
+                if (ImGui::MenuItem("Reset", "Ctrl+R"))
+                    emuEvents.push_back({EmuEvent::Type::Reset});
+
+                ImGui::EndMenu();
+            }
+
+            if (ImGui::BeginMenu("Debugger")) {
+                if (ImGui::MenuItem("Break", "Ctrl+C"))
+                    emuEvents.push_back({EmuEvent::Type::BreakIntoDebugger});
+
+                ImGui::EndMenu();
+            }
+
+            ImGui::EndMainMenuBar();
+        }
+
         HACK_Simulate3dImager(frameTime, input);
 
         if (!g_client->FrameUpdate(frameTime, input, emuEvents, renderContext))
