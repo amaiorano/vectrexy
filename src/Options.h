@@ -13,6 +13,9 @@ public:
         m_options[name] = defaultValue;
     }
 
+    void LoadOptionsFile(const char* file);
+    void SaveOptionsFiles(const char* file);
+
     template <typename T>
     T Get(const char* name) {
         if (auto iter = m_options.find(name); iter != m_options.end()) {
@@ -22,7 +25,12 @@ public:
         return {};
     }
 
-    void LoadOptionsFile(const char* file);
+    template <typename T>
+    void Set(const char* name, T value) {
+        auto iter = m_options.find(name);
+        assert(iter != m_options.end());
+        iter->second = value;
+    }
 
 private:
     std::map<std::string, OptionType> m_options;

@@ -61,7 +61,11 @@ void Options::LoadOptionsFile(const char* file) {
         fin.close();
     }
 
-    // Always write out options file with default/loaded values
+    // Always write out g_options file with default/loaded values
+    SaveOptionsFiles(file);
+}
+
+void Options::SaveOptionsFiles(const char* file) {
     std::ofstream fout(file);
     for (auto & [ name, option ] : m_options) {
         fout << name << " = " << ToString(option) << std::endl;

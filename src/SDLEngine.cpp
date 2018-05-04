@@ -40,6 +40,7 @@ namespace {
     IEngineClient* g_client = nullptr;
     SDL_Window* g_window = NULL;
     SDL_GLContext g_glContext;
+    Options g_options;
 
     template <typename T>
     constexpr T MsToSec(T ms) {
@@ -344,14 +345,13 @@ bool SDLEngine::Run(int argc, char** argv) {
     if (!FindAndSetRootPath(fs::path(fs::absolute(argv[0]))))
         return false;
 
-    Options options;
-    options.Add<int>("windowX", -1);
-    options.Add<int>("windowY", -1);
-    options.Add<int>("windowWidth", DEFAULT_WINDOW_WIDTH);
-    options.Add<int>("windowHeight", WindowHeightFromWidth(DEFAULT_WINDOW_WIDTH));
-    options.Add<bool>("imguiDebugWindow", false);
-    options.Add<float>("imguiFontScale", 1.0f);
-    options.LoadOptionsFile("options.txt");
+    g_options.Add<int>("windowX", -1);
+    g_options.Add<int>("windowY", -1);
+    g_options.Add<int>("windowWidth", DEFAULT_WINDOW_WIDTH);
+    g_options.Add<int>("windowHeight", WindowHeightFromWidth(DEFAULT_WINDOW_WIDTH));
+    g_options.Add<bool>("imguiDebugWindow", false);
+    g_options.Add<float>("imguiFontScale", 1.0f);
+    g_options.LoadOptionsFile("options.txt");
 
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER) < 0) {
         std::cout << "SDL cannot init with error " << SDL_GetError() << std::endl;
@@ -363,16 +363,16 @@ bool SDLEngine::Run(int argc, char** argv) {
         return false;
     }
 
-    const int windowX = [&options] {
-        auto v = options.Get<int>("windowX");
+    const int windowX = [] {
+        auto v = g_options.Get<int>("windowX");
         return v == -1 ? SDL_WINDOWPOS_CENTERED : v;
     }();
-    const int windowY = [&options] {
-        auto v = options.Get<int>("windowY");
+    const int windowY = [] {
+        auto v = g_options.Get<int>("windowY");
         return v == -1 ? SDL_WINDOWPOS_CENTERED : v;
     }();
-    const int windowWidth = options.Get<int>("windowWidth");
-    const int windowHeight = options.Get<int>("windowHeight");
+    const int windowWidth = g_options.Get<int>("windowWidth");
+    const int windowHeight = g_options.Get<int>("windowHeight");
 
     g_window = SDL_CreateWindow(WINDOW_TITLE, windowX, windowY, windowWidth, windowHeight,
                                 SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
@@ -390,9 +390,9 @@ bool SDLEngine::Run(int argc, char** argv) {
     enum SwapInterval : int { NoVSync = 0, VSync = 1, AdaptiveVSync = -1 };
     SDL_GL_SetSwapInterval(SwapInterval::NoVSync);
 
-    Gui::EnabledWindows[Gui::Window::Debug] = options.Get<bool>("imguiDebugWindow");
+    Gui::EnabledWindows[Gui::Window::Debug] = g_options.Get<bool>("imguiDebugWindow");
     ImGui_ImplSdlGL3_Init(g_window);
-    ImGui::GetIO().FontGlobalScale = options.Get<float>("imguiFontScale");
+    ImGui::GetIO().FontGlobalScale = g_options.Get<float>("imguiFontScale");
 
     GLRender::Initialize();
     GLRender::OnWindowResized(windowWidth, windowHeight);
@@ -475,9 +475,22 @@ void SDLEngine::PollEvents(bool& quit) {
         switch (sdlEvent.type) {
         case SDL_WINDOWEVENT:
             switch (sdlEvent.window.event) {
-            case SDL_WINDOWEVENT_SIZE_CHANGED:
-                GLRender::OnWindowResized(sdlEvent.window.data1, sdlEvent.window.data2);
-                break;
+            case SDL_WINDOWEVENT_SIZE_CHANGED: {
+                const int width = sdlEvent.window.data1;
+                const int height = sdlEvent.window.data2;
+                g_options.Set("windowWidth", width);
+                g_options.Set("windowHeight", height);
+                g_options.SaveOptionsFiles("options.txt");
+                GLRender::OnWindowResized(width, height);
+            } break;
+
+            case SDL_WINDOWEVENT_MOVED: {
+                const int x = sdlEvent.window.data1;
+                const int y = sdlEvent.window.data2;
+                g_options.Set("windowX", x);
+                g_options.Set("windowY", y);
+                g_options.SaveOptionsFiles("options.txt");
+            }
             }
             break;
 
