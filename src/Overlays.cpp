@@ -20,7 +20,6 @@ std::optional<fs::path> Overlays::FindOverlay(const char* romFile) {
         }
     }
 
-    printf("Conf: %f\n", bestConfidence);
     fflush(stdout);
 
     if (bestConfidence > 0.5f)

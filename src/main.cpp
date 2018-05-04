@@ -53,9 +53,8 @@ private:
         if (!rom.empty()) {
             LoadRom(rom.c_str());
         } else {
-            if (auto overlayPath = m_overlays.FindOverlay("Minestorm")) {
-                ResetOverlay(overlayPath->string().c_str());
-            }
+            // If no rom is loaded, we'll play the built-in Mine Storm
+            LoadOverlay("Minestorm");
         }
 
         Reset();
@@ -84,6 +83,12 @@ private:
 
         //@TODO: Show game name in title bar
 
+        LoadOverlay(file);
+
+        return true;
+    }
+
+    void LoadOverlay(const char* file) {
         auto overlayPath = m_overlays.FindOverlay(file);
         if (overlayPath) {
             auto path = overlayPath->string();
@@ -93,8 +98,6 @@ private:
             Errorf("No overlay found for %s\n", file);
             ResetOverlay();
         }
-
-        return true;
     }
 
     bool FrameUpdate(double frameTime, const Input& inputArg, const EmuEvents& emuEvents,
