@@ -45,6 +45,43 @@ namespace {
         LDCache cache;
         return LevenshteinDistance(s, t, cache);
     }
+
+    // Returns a confidence ratio in [0.0, 1.0] from no match to perfect match
+    float OverlayFileFuzzyMatch(const fs::path& p1, const fs::path& p2) {
+        auto TrimFileName = [](std::string s) {
+            // Replace separators with space
+            s = Replace(s, "-", " ");
+            s = Replace(s, "_", " ");
+
+            std::string_view sub = s;
+
+            // Remove " by GCE"
+            auto index = s.find(" by GCE");
+            if (index != std::string::npos) {
+                sub = sub.substr(0, index);
+            }
+            // Remove extra version details at end of name, e.g. "(PD)"
+            index = s.find(" (");
+            if (index != std::string::npos) {
+                sub = sub.substr(0, index);
+            }
+
+            // Remove extension, e.g. ".png"
+            index = s.rfind(".");
+            if (index != std::string::npos) {
+                sub = sub.substr(0, index);
+            }
+
+            return std::string{sub};
+        };
+
+        auto t1 = Remove(ToLower(TrimFileName(p1.filename().string())), " ");
+        auto t2 = Remove(ToLower(TrimFileName(p2.filename().string())), " ");
+        auto dist = LevenshteinDistance(t1, t2);
+
+        auto distRatio = 1.0f - static_cast<float>(dist) / std::max(t1.size(), t2.size());
+        return distRatio;
+    }
 } // namespace
 
 void Overlays::LoadOverlays() {
@@ -71,40 +108,4 @@ std::optional<fs::path> Overlays::FindOverlay(const char* romFile) {
         return bestMatch;
     }
     return {};
-}
-
-float Overlays::OverlayFileFuzzyMatch(const fs::path& p1, const fs::path& p2) {
-    auto TrimFileName = [](std::string s) {
-        // Replace separators with space
-        s = Replace(s, "-", " ");
-        s = Replace(s, "_", " ");
-
-        std::string_view sub = s;
-
-        // Remove " by GCE"
-        auto index = s.find(" by GCE");
-        if (index != std::string::npos) {
-            sub = sub.substr(0, index);
-        }
-        // Remove extra version details at end of name, e.g. "(PD)"
-        index = s.find(" (");
-        if (index != std::string::npos) {
-            sub = sub.substr(0, index);
-        }
-
-        // Remove extension, e.g. ".png"
-        index = s.rfind(".");
-        if (index != std::string::npos) {
-            sub = sub.substr(0, index);
-        }
-
-        return std::string{sub};
-    };
-
-    auto t1 = Remove(ToLower(TrimFileName(p1.filename().string())), " ");
-    auto t2 = Remove(ToLower(TrimFileName(p2.filename().string())), " ");
-    auto dist = LevenshteinDistance(t1, t2);
-
-    auto distRatio = 1.0f - static_cast<float>(dist) / std::max(t1.size(), t2.size());
-    return distRatio;
 }

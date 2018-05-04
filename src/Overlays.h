@@ -13,9 +13,6 @@ public:
     std::optional<fs::path> FindOverlay(const char* romFile);
 
 private:
-    // Returns a confidence ratio in [0.0, 1.0] from no match to perfect match
-    float OverlayFileFuzzyMatch(const fs::path& p1, const fs::path& p2);
-
     struct OverlayFile {
         fs::path path;
     };
