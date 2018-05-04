@@ -34,6 +34,7 @@ namespace {
     // Display window dimensions
     const int DEFAULT_WINDOW_WIDTH = 600;
     inline int WindowHeightFromWidth(int width) { return static_cast<int>(width * 4.0f / 3.0f); }
+    inline int WindowWidthFromHeight(int height) { return static_cast<int>(height * 3.0f / 4.0f); }
 
     const char* WINDOW_TITLE = "Vectrexy";
 
@@ -345,14 +346,6 @@ bool SDLEngine::Run(int argc, char** argv) {
     if (!FindAndSetRootPath(fs::path(fs::absolute(argv[0]))))
         return false;
 
-    g_options.Add<int>("windowX", -1);
-    g_options.Add<int>("windowY", -1);
-    g_options.Add<int>("windowWidth", DEFAULT_WINDOW_WIDTH);
-    g_options.Add<int>("windowHeight", WindowHeightFromWidth(DEFAULT_WINDOW_WIDTH));
-    g_options.Add<bool>("imguiDebugWindow", false);
-    g_options.Add<float>("imguiFontScale", 1.0f);
-    g_options.LoadOptionsFile("options.txt");
-
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER) < 0) {
         std::cout << "SDL cannot init with error " << SDL_GetError() << std::endl;
         return false;
@@ -363,16 +356,40 @@ bool SDLEngine::Run(int argc, char** argv) {
         return false;
     }
 
-    const int windowX = [] {
-        auto v = g_options.Get<int>("windowX");
-        return v == -1 ? SDL_WINDOWPOS_CENTERED : v;
-    }();
-    const int windowY = [] {
-        auto v = g_options.Get<int>("windowY");
-        return v == -1 ? SDL_WINDOWPOS_CENTERED : v;
-    }();
-    const int windowWidth = g_options.Get<int>("windowWidth");
-    const int windowHeight = g_options.Get<int>("windowHeight");
+    g_options.Add<int>("windowX", -1);
+    g_options.Add<int>("windowY", -1);
+    g_options.Add<int>("windowWidth", -1);
+    g_options.Add<int>("windowHeight", -1);
+    g_options.Add<bool>("imguiDebugWindow", false);
+    g_options.Add<float>("imguiFontScale", 1.0f);
+    g_options.LoadOptionsFile("options.txt");
+
+    int windowX = g_options.Get<int>("windowX");
+    if (windowX == -1)
+        windowX = SDL_WINDOWPOS_CENTERED;
+
+    int windowY = g_options.Get<int>("windowY");
+    if (windowY == -1)
+        windowY = SDL_WINDOWPOS_CENTERED;
+
+    int windowWidth = g_options.Get<int>("windowWidth");
+    int windowHeight = g_options.Get<int>("windowHeight");
+    // If one dimension isn't set, we reset both to percentage of screen 0's resolution
+    if (windowWidth == -1 || windowHeight == -1) {
+        SDL_DisplayMode dispMode;
+        if (SDL_GetCurrentDisplayMode(0, &dispMode) == 0) {
+            if (dispMode.w > dispMode.h) {
+                windowHeight = static_cast<int>(dispMode.h * 0.9f);
+                windowWidth = WindowWidthFromHeight(windowHeight);
+            } else {
+                windowWidth = static_cast<int>(dispMode.w * 0.9f);
+                windowHeight = WindowHeightFromWidth(windowWidth);
+            }
+        } else {
+            windowWidth = DEFAULT_WINDOW_WIDTH;
+            windowHeight = WindowHeightFromWidth(windowWidth);
+        }
+    }
 
     g_window = SDL_CreateWindow(WINDOW_TITLE, windowX, windowY, windowWidth, windowHeight,
                                 SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
