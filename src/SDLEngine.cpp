@@ -465,6 +465,9 @@ bool SDLEngine::Run(int argc, char** argv) {
                 if (ImGui::MenuItem("Open rom...", "Ctrl+O"))
                     emuEvents.push_back({EmuEvent::Type::OpenRomFile});
 
+                if (ImGui::MenuItem("Exit"))
+                    quit = true;
+
                 ImGui::EndMenu();
             }
 
@@ -478,8 +481,12 @@ bool SDLEngine::Run(int argc, char** argv) {
                 ImGui::EndMenu();
             }
 
-            if (ImGui::BeginMenu("Debugger")) {
-                if (ImGui::MenuItem("Break", "Ctrl+C"))
+            if (ImGui::BeginMenu("Debug")) {
+                auto& debugWindowEnabled = Gui::EnabledWindows[Gui::Window::Debug];
+                if (ImGui::MenuItem(debugWindowEnabled ? "Hide debug window" : "Show debug window"))
+                    debugWindowEnabled = !debugWindowEnabled;
+
+                if (ImGui::MenuItem("Break into Debugger", "Ctrl+C"))
                     emuEvents.push_back({EmuEvent::Type::BreakIntoDebugger});
 
                 ImGui::EndMenu();
