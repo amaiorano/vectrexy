@@ -324,6 +324,8 @@ namespace {
         ImGui::Render();
     }
 
+    bool IsWindowMaximized() { return (SDL_GetWindowFlags(g_window) & SDL_WINDOW_MAXIMIZED) != 0; }
+
 } // namespace
 
 // Implement EngineClient free-standing functions
@@ -361,6 +363,7 @@ bool SDLEngine::Run(int argc, char** argv) {
     g_options.Add<int>("windowY", -1);
     g_options.Add<int>("windowWidth", -1);
     g_options.Add<int>("windowHeight", -1);
+    g_options.Add<bool>("windowMaximized", false);
     g_options.Add<bool>("imguiDebugWindow", false);
     g_options.Add<float>("imguiFontScale", 1.0f);
     g_options.LoadOptionsFile("options.txt");
@@ -392,8 +395,12 @@ bool SDLEngine::Run(int argc, char** argv) {
         }
     }
 
+    Uint32 windowCreateFlags = SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE;
+    if (g_options.Get<bool>("windowMaximized"))
+        windowCreateFlags |= SDL_WINDOW_MAXIMIZED;
+
     g_window = SDL_CreateWindow(WINDOW_TITLE, windowX, windowY, windowWidth, windowHeight,
-                                SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
+                                windowCreateFlags);
     if (g_window == NULL) {
         std::cout << "Cannot create window with error " << SDL_GetError() << std::endl;
         return false;
@@ -525,8 +532,11 @@ void SDLEngine::PollEvents(bool& quit) {
             case SDL_WINDOWEVENT_SIZE_CHANGED: {
                 const int width = sdlEvent.window.data1;
                 const int height = sdlEvent.window.data2;
-                g_options.Set("windowWidth", width);
-                g_options.Set("windowHeight", height);
+                if (!IsWindowMaximized()) {
+                    g_options.Set("windowWidth", width);
+                    g_options.Set("windowHeight", height);
+                }
+                g_options.Set("windowMaximized", IsWindowMaximized());
                 g_options.SaveOptionsFiles("options.txt");
                 GLRender::OnWindowResized(width, height);
             } break;
@@ -534,8 +544,11 @@ void SDLEngine::PollEvents(bool& quit) {
             case SDL_WINDOWEVENT_MOVED: {
                 const int x = sdlEvent.window.data1;
                 const int y = sdlEvent.window.data2;
-                g_options.Set("windowX", x);
-                g_options.Set("windowY", y);
+                if (!IsWindowMaximized()) {
+                    g_options.Set("windowX", x);
+                    g_options.Set("windowY", y);
+                }
+                g_options.Set("windowMaximized", IsWindowMaximized());
                 g_options.SaveOptionsFiles("options.txt");
             }
             }
