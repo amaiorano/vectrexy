@@ -22,6 +22,17 @@ I regularly stream part of the development on Twitch [right here](https://www.tw
 
 The Vectrex is a really cool and unique video game console that was released in 1982. What made it unique was that it came with its own screen and displayed vector-based graphics, rather than the typical sprite/raster based graphics of most game consoles. My uncle had gotten me a Vectrex when I was only 8 or so years old, and I still have it, and it's still awesome :)
 
+## Credits
+
+Altough the emulator core is written by me, Antonio Maiorano (daroou2), it makes use of third party libraries, and is packaged with overlays created by other people. I hope I've got everyone covered here; if not, please let me know and I'll be happy to correct this list.
+
+- Overlays: THK-Hyperspin, Gigapig-Hyperspin, Nosh01-GitHub, and other unknown authors.
+- SDL2: [SDL2 Credits](https://www.libsdl.org/credits.php)
+- GLEW: [GLEW authors](https://github.com/nigels-com/glew#authors)
+- GLM: [G-Truc Creations](http://www.g-truc.net/)
+- stb: [Sean Barrett (Nothings)](http://nothings.org/)
+- Dear ImGui: [omar (ocornut)](http://www.miracleworld.net/)
+
 ## Building the code
 
 The emulator is being developed mainly in [Visual Studio 2017](https://www.visualstudio.com/downloads/), and makes use of C++17 features. To build it, install [CMake](https://cmake.org/), then clone the repo and generate the build system. In my case, I generate using the "Visual Studio 15 2017" generator, then open and build the generated vectrexy.sln.
