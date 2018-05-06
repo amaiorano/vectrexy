@@ -475,16 +475,13 @@ bool SDLEngine::Run(int argc, char** argv) {
                 if (ImGui::MenuItem("Reset", "Ctrl+R"))
                     emuEvents.push_back({EmuEvent::Type::Reset});
 
-                if (ImGui::MenuItem(g_paused ? "Unpause" : "Pause", "P"))
-                    g_paused = !g_paused;
+                ImGui::MenuItem("Pause", "P", &g_paused);
 
                 ImGui::EndMenu();
             }
 
             if (ImGui::BeginMenu("Debug")) {
-                auto& debugWindowEnabled = Gui::EnabledWindows[Gui::Window::Debug];
-                if (ImGui::MenuItem(debugWindowEnabled ? "Hide debug window" : "Show debug window"))
-                    debugWindowEnabled = !debugWindowEnabled;
+                ImGui::MenuItem("Debug window", "", &Gui::EnabledWindows[Gui::Window::Debug]);
 
                 if (ImGui::MenuItem("Break into Debugger", "Ctrl+C"))
                     emuEvents.push_back({EmuEvent::Type::BreakIntoDebugger});
