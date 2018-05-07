@@ -43,6 +43,7 @@ namespace {
     SDL_GLContext g_glContext;
     Options g_options;
     bool g_paused = false;
+    double g_fps{};
 
     template <typename T>
     constexpr T MsToSec(T ms) {
@@ -489,6 +490,13 @@ bool SDLEngine::Run(int argc, char** argv) {
                 ImGui::EndMenu();
             }
 
+            auto RightAlignLabelText = [](const char* text) {
+                ImGui::SameLine(ImGui::GetWindowContentRegionMax().x - ImGui::CalcTextSize(text).x);
+                ImGui::LabelText("", text);
+            };
+            RightAlignLabelText(
+                FormattedString<>("%.2f FPS (%.2f ms)", g_fps, g_fps > 0 ? (1000.f / g_fps) : 0.f));
+
             ImGui::EndMainMenuBar();
         }
 
@@ -601,13 +609,7 @@ double SDLEngine::UpdateFrameTime() {
     frames += 1;
     elapsedTime += realFrameTime;
     if (elapsedTime >= 1) {
-        double currFps = frames / elapsedTime;
-        static double avgFps = currFps;
-        avgFps = avgFps * 0.75 + currFps * 0.25;
-
-        SDL_SetWindowTitle(g_window, FormattedString<>("%s - FPS: %.2f (avg: %.2f)", WINDOW_TITLE,
-                                                       currFps, avgFps));
-
+        g_fps = frames / elapsedTime;
         frames = 0;
         elapsedTime = elapsedTime - 1.0;
     }
