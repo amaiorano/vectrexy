@@ -30,7 +30,7 @@ ipch/
 
 # Project-specific
 roms/
-overlays/
+overlays*/
 options.txt
 imgui.ini
 startup.txt
