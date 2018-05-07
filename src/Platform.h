@@ -60,4 +60,6 @@ namespace Platform {
                                               const char* filterName = "All files",
                                               const char* filterTypes = "*.*");
 
+    void ExecuteShellCommand(const char* command);
+
 } // namespace Platform

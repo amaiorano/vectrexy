@@ -462,6 +462,8 @@ bool SDLEngine::Run(int argc, char** argv) {
 
         // ImGui menu bar
         if (ImGui::BeginMainMenuBar()) {
+            bool openAboutDialog = false;
+
             if (ImGui::BeginMenu("File")) {
                 if (ImGui::MenuItem("Open rom...", "Ctrl+O"))
                     emuEvents.push_back({EmuEvent::Type::OpenRomFile});
@@ -490,6 +492,12 @@ bool SDLEngine::Run(int argc, char** argv) {
                 ImGui::EndMenu();
             }
 
+            if (ImGui::BeginMenu("Help")) {
+                if (ImGui::MenuItem("About Vectrexy"))
+                    openAboutDialog = true;
+                ImGui::EndMenu();
+            }
+
             auto RightAlignLabelText = [](const char* text) {
                 ImGui::SameLine(ImGui::GetWindowContentRegionMax().x - ImGui::CalcTextSize(text).x);
                 ImGui::LabelText("", text);
@@ -498,6 +506,33 @@ bool SDLEngine::Run(int argc, char** argv) {
                 FormattedString<>("%.2f FPS (%.2f ms)", g_fps, g_fps > 0 ? (1000.f / g_fps) : 0.f));
 
             ImGui::EndMainMenuBar();
+
+            // Handle popups
+
+            if (openAboutDialog) {
+                ImGui::OpenPopup("About Vectrexy");
+            }
+            if (bool open = true; ImGui::BeginPopupModal("About Vectrexy", &open,
+                                                         ImGuiWindowFlags_AlwaysAutoResize)) {
+                ImGui::Text("Vectrexy");
+                ImGui::Text("Programmed by Antonio Maiorano (amaiorano@gmail.com)");
+
+                ImGui::Text("Available at");
+                ImGui::SameLine();
+                if (ImGui::SmallButton("github.com/amaiorano/vectrexy")) {
+                    Platform::ExecuteShellCommand("https://github.com/amaiorano/vectrexy");
+                }
+
+                ImGui::Text("See");
+                ImGui::SameLine();
+                if (ImGui::SmallButton("README")) {
+                    Platform::ExecuteShellCommand("README.md");
+                }
+                ImGui::SameLine();
+                ImGui::Text("for more details");
+
+                ImGui::EndPopup();
+            }
         }
 
         HACK_Simulate3dImager(frameTime, input);

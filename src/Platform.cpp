@@ -107,5 +107,9 @@ namespace Platform {
         }
         return {};
     }
+
+    void ExecuteShellCommand(const char* command) {
+        ::ShellExecute(NULL, "open", command, NULL, NULL, SW_SHOWNORMAL);
+    }
 } // namespace Platform
 #endif
