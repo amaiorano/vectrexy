@@ -42,7 +42,10 @@ namespace {
     SDL_Window* g_window = NULL;
     SDL_GLContext g_glContext;
     Options g_options;
-    bool g_paused = false;
+    namespace PauseSource {
+        enum Type { Game, Menu, Size };
+    }
+    bool g_paused[PauseSource::Size]{};
     double g_fps{};
 
     template <typename T>
@@ -290,6 +293,14 @@ namespace {
             paused = !paused;
     }
 
+    bool IsPaused() {
+        for (auto& v : g_paused) {
+            if (v)
+                return true;
+        }
+        return false;
+    }
+
     void UpdateTurboMode(bool& turbo) {
         turbo = false;
 
@@ -432,6 +443,7 @@ bool SDLEngine::Run(int argc, char** argv) {
     bool quit = false;
     while (!quit) {
         PollEvents(quit);
+        UpdatePauseState(g_paused[PauseSource::Game]);
         auto input = UpdateInput();
         const auto frameTime = UpdateFrameTime();
 
@@ -462,9 +474,12 @@ bool SDLEngine::Run(int argc, char** argv) {
 
         // ImGui menu bar
         if (ImGui::BeginMainMenuBar()) {
+            g_paused[PauseSource::Menu] = false;
             bool openAboutDialog = false;
 
             if (ImGui::BeginMenu("File")) {
+                g_paused[PauseSource::Menu] = true;
+
                 if (ImGui::MenuItem("Open rom...", "Ctrl+O"))
                     emuEvents.push_back({EmuEvent::Type::OpenRomFile});
 
@@ -475,15 +490,19 @@ bool SDLEngine::Run(int argc, char** argv) {
             }
 
             if (ImGui::BeginMenu("Emulation")) {
+                g_paused[PauseSource::Menu] = true;
+
                 if (ImGui::MenuItem("Reset", "Ctrl+R"))
                     emuEvents.push_back({EmuEvent::Type::Reset});
 
-                ImGui::MenuItem("Pause", "P", &g_paused);
+                ImGui::MenuItem("Pause", "P", &g_paused[PauseSource::Game]);
 
                 ImGui::EndMenu();
             }
 
             if (ImGui::BeginMenu("Debug")) {
+                g_paused[PauseSource::Menu] = true;
+
                 ImGui::MenuItem("Debug window", "", &Gui::EnabledWindows[Gui::Window::Debug]);
 
                 if (ImGui::MenuItem("Break into Debugger", "Ctrl+C"))
@@ -493,6 +512,8 @@ bool SDLEngine::Run(int argc, char** argv) {
             }
 
             if (ImGui::BeginMenu("Help")) {
+                g_paused[PauseSource::Menu] = true;
+
                 if (ImGui::MenuItem("About Vectrexy"))
                     openAboutDialog = true;
                 ImGui::EndMenu();
@@ -514,6 +535,8 @@ bool SDLEngine::Run(int argc, char** argv) {
             }
             if (bool open = true; ImGui::BeginPopupModal("About Vectrexy", &open,
                                                          ImGuiWindowFlags_AlwaysAutoResize)) {
+                g_paused[PauseSource::Menu] = true;
+
                 ImGui::Text("Vectrexy");
                 ImGui::Text("Programmed by Antonio Maiorano (amaiorano@gmail.com)");
 
@@ -653,8 +676,7 @@ double SDLEngine::UpdateFrameTime() {
     double frameTime = std::min(realFrameTime, MsToSec(100.0));
 
     // Reset to 0 if paused
-    UpdatePauseState(g_paused);
-    if (g_paused)
+    if (IsPaused())
         frameTime = 0.0;
 
     // Scale up if turbo
