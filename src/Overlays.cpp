@@ -85,7 +85,7 @@ namespace {
 } // namespace
 
 void Overlays::LoadOverlays() {
-    for (auto& dir : fs::directory_iterator("overlays")) {
+    for (auto& dir : fs::recursive_directory_iterator("overlays")) {
         if (dir.path().extension() == ".png") {
             m_overlayFiles.push_back({fs::absolute(dir.path())});
         }
