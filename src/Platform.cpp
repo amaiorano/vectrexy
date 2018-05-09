@@ -84,13 +84,22 @@ namespace Platform {
     bool SupportsOpenFileDialog() { return true; }
 
     std::optional<std::string> OpenFileDialog(const char* title, const char* filterName,
-                                              const char* filterTypes) {
+                                              const char* filterTypes,
+                                              std::optional<fs::path> initialDirectory) {
         auto filter =
             FormattedString<>("%s (%s)%c%s%c", filterName, filterTypes, '\0', filterTypes, '\0');
 
         char file[_MAX_PATH] = "";
         char currDir[_MAX_PATH] = "";
         ::GetCurrentDirectoryA(sizeof(currDir), currDir);
+
+        // Note: If lpstrInitialDir has the same value as was passed the first time the application
+        // used an Open or Save As dialog box, the path most recently selected by the user is used
+        // as the initial directory.
+        std::string initDir = currDir;
+        if (initialDirectory.has_value() && fs::exists(*initialDirectory)) {
+            initDir = initialDirectory->string();
+        }
 
         OPENFILENAMEA ofn = {0};
         ofn.lStructSize = sizeof(ofn);
@@ -99,7 +108,7 @@ namespace Platform {
         ofn.lpstrTitle = title;
         ofn.lpstrFilter = filter.Value();
         ofn.nFilterIndex = 0;
-        ofn.lpstrInitialDir = currDir;
+        ofn.lpstrInitialDir = initDir.c_str();
         ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
 
         if (::GetOpenFileNameA(&ofn) == TRUE) {

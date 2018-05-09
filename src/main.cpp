@@ -115,9 +115,10 @@ private:
         }
 
         if (find_if(emuEvents, [](auto& e) { return e.type == EmuEvent::Type::OpenRomFile; })) {
-            FileSystemUtil::ScopedSetCurrentDirectory scopedSetDir(m_lastOpenedFile);
-            auto result =
-                Platform::OpenFileDialog("Open Vectrex rom", "Vectrex Rom", "*.vec;*.bin");
+            //@TODO: Save m_lastOpenedFile to options file
+            auto result = Platform::OpenFileDialog(
+                "Open Vectrex rom", "Vectrex Rom", "*.vec;*.bin",
+                m_lastOpenedFile.empty() ? "roms" : m_lastOpenedFile.remove_filename());
             if (result && LoadRom(result->c_str())) {
                 m_lastOpenedFile = *result;
                 Reset();

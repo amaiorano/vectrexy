@@ -1,9 +1,12 @@
 #pragma once
 
 #include <any>
+#include <filesystem>
 #include <functional>
 #include <optional>
 #include <tuple>
+
+namespace fs = std::filesystem;
 
 namespace Platform {
     // Every platform has their own window handle type, so we use std::any and cast internally
@@ -58,7 +61,8 @@ namespace Platform {
     bool SupportsOpenFileDialog();
     std::optional<std::string> OpenFileDialog(const char* title = "Open",
                                               const char* filterName = "All files",
-                                              const char* filterTypes = "*.*");
+                                              const char* filterTypes = "*.*",
+                                              std::optional<fs::path> initialDirectory = {});
 
     void ExecuteShellCommand(const char* command);
 
