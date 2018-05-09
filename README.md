@@ -4,7 +4,11 @@ Vectrexy is a [Vectrex](https://en.wikipedia.org/wiki/Vectrex) emulator programm
 
 This project is open source and available on GitHub: https://github.com/amaiorano/vectrexy
 
-# Controls
+## Twitch Development
+
+I regularly stream part of the development on Twitch [right here](https://www.twitch.tv/daroou2). Follow me to know when I'm streaming!
+
+## Controls
 
 | Devices     | Player 1  | Player 2  |
 | ----------- | --------- | --------- |
@@ -14,11 +18,11 @@ This project is open source and available on GitHub: https://github.com/amaioran
 
 Keyboard key bindings: ASDF + Arrow keys
 
-## Twitch Development
+## Overlays
 
-I regularly stream part of the development on Twitch [right here](https://www.twitch.tv/daroou2). Follow me to know when I'm streaming!
+The Vectrex display is black & white, so to add color, each game cartridge came with a transparent colored overlay that would be slotted in front of the screen. For emulation purposes, you should be able to find png files for these overlays. If you place these png file in a folder named "overlays", Vectrexy will attempt to match the rom's file name to the overlay name using "fuzzy" string matching (in other words, the file names do not need to match exactly).
 
-## What's a Vectrex and why are you writing this emulator?
+## What's a Vectrex and why did you write this emulator?
 
 The Vectrex is a really cool and unique video game console that was released in 1982. What made it unique was that it came with its own screen and displayed vector-based graphics, rather than the typical sprite/raster based graphics of most game consoles. My uncle had gotten me a Vectrex when I was only 8 or so years old, and I still have it, and it's still awesome :)
 
