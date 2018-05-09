@@ -1,20 +1,25 @@
 #pragma once
 
 #include <cassert>
+#include <filesystem>
 #include <map>
 #include <variant>
+
+namespace fs = std::filesystem;
 
 class Options {
 public:
     using OptionType = std::variant<int, float, bool>;
 
+    // Make sure to add options before loading file
     template <typename T>
     void Add(const char* name, T defaultValue = {}) {
         m_options[name] = defaultValue;
     }
 
-    void LoadOptionsFile(const char* file);
-    void SaveOptionsFiles(const char* file);
+    void SetFilePath(fs::path path) { m_filePath = path; }
+    void Load();
+    void Save();
 
     template <typename T>
     T Get(const char* name) {
@@ -34,4 +39,5 @@ public:
 
 private:
     std::map<std::string, OptionType> m_options;
+    fs::path m_filePath;
 };

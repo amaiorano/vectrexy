@@ -377,7 +377,8 @@ bool SDLEngine::Run(int argc, char** argv) {
     g_options.Add<bool>("windowMaximized", false);
     g_options.Add<bool>("imguiDebugWindow", false);
     g_options.Add<float>("imguiFontScale", 1.0f);
-    g_options.LoadOptionsFile("options.txt");
+    g_options.SetFilePath("options.txt");
+    g_options.Load();
 
     int windowX = g_options.Get<int>("windowX");
     if (windowX == -1)
@@ -606,7 +607,7 @@ void SDLEngine::PollEvents(bool& quit) {
                     g_options.Set("windowHeight", height);
                 }
                 g_options.Set("windowMaximized", IsWindowMaximized());
-                g_options.SaveOptionsFiles("options.txt");
+                g_options.Save();
                 GLRender::OnWindowResized(width, height);
             } break;
 
@@ -618,7 +619,7 @@ void SDLEngine::PollEvents(bool& quit) {
                     g_options.Set("windowY", y);
                 }
                 g_options.Set("windowMaximized", IsWindowMaximized());
-                g_options.SaveOptionsFiles("options.txt");
+                g_options.Save();
             }
             }
             break;

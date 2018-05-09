@@ -39,10 +39,12 @@ namespace {
     }
 } // namespace
 
-void Options::LoadOptionsFile(const char* file) {
-    std::ifstream fin(file);
+void Options::Load() {
+    assert(!m_filePath.empty());
+    std::ifstream fin(m_filePath);
     if (!fin) {
-        std::cerr << "No options file \"" << file << "\" found, using default values" << std::endl;
+        std::cerr << "No options file \"" << m_filePath << "\" found, using default values"
+                  << std::endl;
     } else {
         std::string line;
         while (std::getline(fin, line)) {
@@ -62,11 +64,12 @@ void Options::LoadOptionsFile(const char* file) {
     }
 
     // Always write out g_options file with default/loaded values
-    SaveOptionsFiles(file);
+    Save();
 }
 
-void Options::SaveOptionsFiles(const char* file) {
-    std::ofstream fout(file);
+void Options::Save() {
+    assert(!m_filePath.empty());
+    std::ofstream fout(m_filePath);
     for (auto & [ name, option ] : m_options) {
         fout << name << " = " << ToString(option) << std::endl;
     }
