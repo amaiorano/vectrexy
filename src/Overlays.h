@@ -1,10 +1,8 @@
 #pragma once
 
-#include <filesystem>
+#include "FileSystem.h"
 #include <optional>
 #include <vector>
-
-namespace fs = std::filesystem;
 
 class Overlays {
 public:

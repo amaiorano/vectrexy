@@ -1,8 +1,6 @@
 #pragma once
 
-#include <filesystem>
-
-namespace fs = std::filesystem;
+#include "FileSystem.h"
 
 namespace FileSystemUtil {
     // Saves current directory, changes to directory of input path (if non-empty),

@@ -1,12 +1,10 @@
 #pragma once
 
+#include "FileSystem.h"
 #include <cassert>
-#include <filesystem>
 #include <map>
 #include <string>
 #include <variant>
-
-namespace fs = std::filesystem;
 
 class Options {
 public:

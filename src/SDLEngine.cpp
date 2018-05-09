@@ -2,6 +2,7 @@
 
 #include "ConsoleOutput.h"
 #include "EngineClient.h"
+#include "FileSystem.h"
 #include "GLRender.h"
 #include "GLUtil.h"
 #include "Gui.h"
@@ -13,11 +14,8 @@
 #include <SDL_net.h>
 #include <algorithm>
 #include <chrono>
-#include <filesystem>
 #include <iostream>
 #include <unordered_map>
-
-namespace fs = std::filesystem;
 
 // Include SDL_syswm.h for SDL_GetWindowWMInfo
 // This includes windows.h on Windows platforms, we have to do the usual dance of disabling certain

@@ -1,12 +1,10 @@
 #pragma once
 
+#include "FileSystem.h"
 #include <any>
-#include <filesystem>
 #include <functional>
 #include <optional>
 #include <tuple>
-
-namespace fs = std::filesystem;
 
 namespace Platform {
     // Every platform has their own window handle type, so we use std::any and cast internally
