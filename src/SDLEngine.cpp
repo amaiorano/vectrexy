@@ -17,8 +17,7 @@
 #include <iostream>
 #include <unordered_map>
 
-//@TODO: should be std::filesystem
-namespace fs = std::experimental::filesystem;
+namespace fs = std::filesystem;
 
 // Include SDL_syswm.h for SDL_GetWindowWMInfo
 // This includes windows.h on Windows platforms, we have to do the usual dance of disabling certain
