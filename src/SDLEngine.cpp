@@ -377,7 +377,8 @@ bool SDLEngine::Run(int argc, char** argv) {
     g_options.Add<bool>("windowMaximized", false);
     g_options.Add<bool>("imguiDebugWindow", false);
     g_options.Add<float>("imguiFontScale", 1.0f);
-    g_options.SetFilePath("options.txt");
+    g_options.Add<std::string>("lastOpenedFile", {});
+    g_options.SetFilePath(fs::absolute("options.txt"));
     g_options.Load();
 
     int windowX = g_options.Get<int>("windowX");
@@ -560,7 +561,8 @@ bool SDLEngine::Run(int argc, char** argv) {
 
         HACK_Simulate3dImager(frameTime, input);
 
-        if (!g_client->FrameUpdate(frameTime, input, emuEvents, renderContext))
+        if (!g_client->FrameUpdate(frameTime, input, {std::ref(emuEvents), std::ref(g_options)},
+                                   renderContext))
             quit = true;
 
         GLRender::RenderScene(frameTime, renderContext);

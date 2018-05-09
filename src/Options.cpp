@@ -17,6 +17,9 @@ namespace {
         if (auto value = std::get_if<bool>(&option)) {
             return *value ? "true" : "false";
         }
+        if (auto value = std::get_if<std::string>(&option)) {
+            return *value;
+        }
         assert(false);
         return {};
     }
@@ -33,6 +36,10 @@ namespace {
         }
         if (auto value = std::get_if<bool>(&option)) {
             *value = s == "true";
+            return;
+        }
+        if (auto value = std::get_if<std::string>(&option)) {
+            *value = s;
             return;
         }
         assert(false);
@@ -71,6 +78,7 @@ void Options::Save() {
     assert(!m_filePath.empty());
     std::ofstream fout(m_filePath);
     for (auto & [ name, option ] : m_options) {
-        fout << name << " = " << ToString(option) << std::endl;
+        auto s = ToString(option);
+        fout << name << " = " << s << std::endl;
     }
 }

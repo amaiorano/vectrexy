@@ -3,13 +3,14 @@
 #include <cassert>
 #include <filesystem>
 #include <map>
+#include <string>
 #include <variant>
 
 namespace fs = std::filesystem;
 
 class Options {
 public:
-    using OptionType = std::variant<int, float, bool>;
+    using OptionType = std::variant<int, float, bool, std::string>;
 
     // Make sure to add options before loading file
     template <typename T>

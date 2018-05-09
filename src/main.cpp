@@ -100,9 +100,11 @@ private:
         }
     }
 
-    bool FrameUpdate(double frameTime, const Input& inputArg, const EmuEvents& emuEvents,
+    bool FrameUpdate(double frameTime, const Input& inputArg, const EmuContext& emuContext,
                      RenderContext& renderContext) override {
         Input input = inputArg;
+        EmuEvents& emuEvents = emuContext.emuEvents;
+        Options& options = emuContext.options;
 
         if (m_syncProtocol.IsServer()) {
             m_syncProtocol.Server_SendFrameStart(frameTime, input);
@@ -115,12 +117,18 @@ private:
         }
 
         if (find_if(emuEvents, [](auto& e) { return e.type == EmuEvent::Type::OpenRomFile; })) {
-            //@TODO: Save m_lastOpenedFile to options file
+            // OpenFileDialog changes current directory, so make sure we remember the current one
+            FileSystemUtil::ScopedSetCurrentDirectory scopedSetDir({});
+
+            fs::path lastOpenedFile = options.Get<std::string>("lastOpenedFile");
+
             auto result = Platform::OpenFileDialog(
                 "Open Vectrex rom", "Vectrex Rom", "*.vec;*.bin",
-                m_lastOpenedFile.empty() ? "roms" : m_lastOpenedFile.remove_filename());
+                lastOpenedFile.empty() ? "roms" : lastOpenedFile.remove_filename());
+
             if (result && LoadRom(result->c_str())) {
-                m_lastOpenedFile = *result;
+                options.Set("lastOpenedFile", *result);
+                options.Save();
                 Reset();
             }
         }
@@ -151,7 +159,6 @@ private:
     Cartridge m_cartridge;
     Debugger m_debugger;
     Overlays m_overlays;
-    fs::path m_lastOpenedFile;
     SyncProtocol m_syncProtocol;
 };
 

@@ -3,8 +3,10 @@
 #include "Base.h"
 #include "BitOps.h"
 #include "Line.h"
+#include "Options.h"
 #include "Vector2.h"
 #include <array>
+#include <functional>
 #include <vector>
 
 class Input {
@@ -49,6 +51,11 @@ public:
 };
 using EmuEvents = std::vector<EmuEvent>;
 
+struct EmuContext {
+    std::reference_wrapper<EmuEvents> emuEvents;
+    std::reference_wrapper<Options> options;
+};
+
 struct RenderContext {
     std::vector<Line> lines; // Lines to draw this frame
 };
@@ -56,7 +63,7 @@ struct RenderContext {
 class IEngineClient {
 public:
     virtual bool Init(int argc, char** argv) = 0;
-    virtual bool FrameUpdate(double frameTime, const Input& input, const EmuEvents& emuEvents,
+    virtual bool FrameUpdate(double frameTime, const Input& input, const EmuContext& emuContext,
                              RenderContext& renderContext) = 0;
     virtual void Shutdown() = 0;
 };
