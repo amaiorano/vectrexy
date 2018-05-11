@@ -335,6 +335,20 @@ namespace {
 
     bool IsWindowMaximized() { return (SDL_GetWindowFlags(g_window) & SDL_WINDOW_MAXIMIZED) != 0; }
 
+    std::optional<float> GetDPI() {
+        float ddpi, hdpi, vdpi;
+        if (SDL_GetDisplayDPI(0, &ddpi, &hdpi, &vdpi) == 0)
+            return ddpi;
+        return {};
+    }
+
+    float GetDefaultImguiFontScale() {
+        if (auto dpi = GetDPI()) {
+            return *dpi / 96.f;
+        }
+        return 1.f;
+    }
+
 } // namespace
 
 // Implement EngineClient free-standing functions
@@ -375,7 +389,7 @@ bool SDLEngine::Run(int argc, char** argv) {
     g_options.Add<bool>("windowMaximized", false);
     g_options.Add<bool>("imguiDebugWindow", false);
     g_options.Add<bool>("enableGLDebugging", false);
-    g_options.Add<float>("imguiFontScale", 1.0f);
+    g_options.Add<float>("imguiFontScale", GetDefaultImguiFontScale());
     g_options.Add<std::string>("lastOpenedFile", {});
     g_options.SetFilePath(fs::absolute("options.txt"));
     g_options.Load();
