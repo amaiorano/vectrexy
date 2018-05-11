@@ -557,6 +557,14 @@ bool SDLEngine::Run(int argc, char** argv) {
             }
         }
 
+        //@TODO: save imguiEnabledWindows#Name and just iterate here
+        static auto lastEnabledWindows = Gui::EnabledWindows;
+        if (Gui::EnabledWindows[Gui::Window::Debug] != lastEnabledWindows[Gui::Window::Debug]) {
+            g_options.Set("imguiDebugWindow", Gui::EnabledWindows[Gui::Window::Debug]);
+            g_options.Save();
+        }
+        lastEnabledWindows = Gui::EnabledWindows;
+
         HACK_Simulate3dImager(frameTime, input);
 
         if (!g_client->FrameUpdate(frameTime, input, {std::ref(emuEvents), std::ref(g_options)},
