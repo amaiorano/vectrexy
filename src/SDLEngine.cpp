@@ -474,99 +474,7 @@ bool SDLEngine::Run(int argc, char** argv) {
 
         ImGui_ImplSdlGL3_NewFrame(g_window);
 
-        // ImGui menu bar
-        if (ImGui::BeginMainMenuBar()) {
-            g_paused[PauseSource::Menu] = false;
-            bool openAboutDialog = false;
-
-            if (ImGui::BeginMenu("File")) {
-                g_paused[PauseSource::Menu] = true;
-
-                if (ImGui::MenuItem("Open rom...", "Ctrl+O"))
-                    emuEvents.push_back({EmuEvent::Type::OpenRomFile});
-
-                if (ImGui::MenuItem("Exit"))
-                    quit = true;
-
-                ImGui::EndMenu();
-            }
-
-            if (ImGui::BeginMenu("Emulation")) {
-                g_paused[PauseSource::Menu] = true;
-
-                if (ImGui::MenuItem("Reset", "Ctrl+R"))
-                    emuEvents.push_back({EmuEvent::Type::Reset});
-
-                ImGui::MenuItem("Pause", "P", &g_paused[PauseSource::Game]);
-
-                ImGui::EndMenu();
-            }
-
-            if (ImGui::BeginMenu("Debug")) {
-                g_paused[PauseSource::Menu] = true;
-
-                ImGui::MenuItem("Debug window", "", &Gui::EnabledWindows[Gui::Window::Debug]);
-
-                if (ImGui::MenuItem("Break into Debugger", "Ctrl+C"))
-                    emuEvents.push_back({EmuEvent::Type::BreakIntoDebugger});
-
-                ImGui::EndMenu();
-            }
-
-            if (ImGui::BeginMenu("Help")) {
-                g_paused[PauseSource::Menu] = true;
-
-                if (ImGui::MenuItem("About Vectrexy"))
-                    openAboutDialog = true;
-                ImGui::EndMenu();
-            }
-
-            auto RightAlignLabelText = [](const char* text) {
-                ImGui::SameLine(ImGui::GetWindowContentRegionMax().x - ImGui::CalcTextSize(text).x);
-                ImGui::LabelText("", text);
-            };
-            RightAlignLabelText(
-                FormattedString<>("%.2f FPS (%.2f ms)", g_fps, g_fps > 0 ? (1000.f / g_fps) : 0.f));
-
-            ImGui::EndMainMenuBar();
-
-            // Handle popups
-
-            if (openAboutDialog) {
-                ImGui::OpenPopup("About Vectrexy");
-            }
-            if (bool open = true; ImGui::BeginPopupModal("About Vectrexy", &open,
-                                                         ImGuiWindowFlags_AlwaysAutoResize)) {
-                g_paused[PauseSource::Menu] = true;
-
-                ImGui::Text("Vectrexy");
-                ImGui::Text("Programmed by Antonio Maiorano (amaiorano@gmail.com)");
-
-                ImGui::Text("Available at");
-                ImGui::SameLine();
-                if (ImGui::SmallButton("github.com/amaiorano/vectrexy")) {
-                    Platform::ExecuteShellCommand("https://github.com/amaiorano/vectrexy");
-                }
-
-                ImGui::Text("See");
-                ImGui::SameLine();
-                if (ImGui::SmallButton("README")) {
-                    Platform::ExecuteShellCommand("README.md");
-                }
-                ImGui::SameLine();
-                ImGui::Text("for more details");
-
-                ImGui::EndPopup();
-            }
-        }
-
-        //@TODO: save imguiEnabledWindows#Name and just iterate here
-        static auto lastEnabledWindows = Gui::EnabledWindows;
-        if (Gui::EnabledWindows[Gui::Window::Debug] != lastEnabledWindows[Gui::Window::Debug]) {
-            g_options.Set("imguiDebugWindow", Gui::EnabledWindows[Gui::Window::Debug]);
-            g_options.Save();
-        }
-        lastEnabledWindows = Gui::EnabledWindows;
+        UpdateMenu(quit, emuEvents);
 
         HACK_Simulate3dImager(frameTime, input);
 
@@ -697,4 +605,100 @@ double SDLEngine::UpdateFrameTime() {
         frameTime *= 10;
 
     return frameTime;
+}
+
+void SDLEngine::UpdateMenu(bool& quit, EmuEvents& emuEvents) {
+    // ImGui menu bar
+    if (ImGui::BeginMainMenuBar()) {
+        g_paused[PauseSource::Menu] = false;
+        bool openAboutDialog = false;
+
+        if (ImGui::BeginMenu("File")) {
+            g_paused[PauseSource::Menu] = true;
+
+            if (ImGui::MenuItem("Open rom...", "Ctrl+O"))
+                emuEvents.push_back({EmuEvent::Type::OpenRomFile});
+
+            if (ImGui::MenuItem("Exit"))
+                quit = true;
+
+            ImGui::EndMenu();
+        }
+
+        if (ImGui::BeginMenu("Emulation")) {
+            g_paused[PauseSource::Menu] = true;
+
+            if (ImGui::MenuItem("Reset", "Ctrl+R"))
+                emuEvents.push_back({EmuEvent::Type::Reset});
+
+            ImGui::MenuItem("Pause", "P", &g_paused[PauseSource::Game]);
+
+            ImGui::EndMenu();
+        }
+
+        if (ImGui::BeginMenu("Debug")) {
+            g_paused[PauseSource::Menu] = true;
+
+            ImGui::MenuItem("Debug window", "", &Gui::EnabledWindows[Gui::Window::Debug]);
+
+            if (ImGui::MenuItem("Break into Debugger", "Ctrl+C"))
+                emuEvents.push_back({EmuEvent::Type::BreakIntoDebugger});
+
+            ImGui::EndMenu();
+        }
+
+        if (ImGui::BeginMenu("Help")) {
+            g_paused[PauseSource::Menu] = true;
+
+            if (ImGui::MenuItem("About Vectrexy"))
+                openAboutDialog = true;
+            ImGui::EndMenu();
+        }
+
+        auto RightAlignLabelText = [](const char* text) {
+            ImGui::SameLine(ImGui::GetWindowContentRegionMax().x - ImGui::CalcTextSize(text).x);
+            ImGui::LabelText("", text);
+        };
+        RightAlignLabelText(
+            FormattedString<>("%.2f FPS (%.2f ms)", g_fps, g_fps > 0 ? (1000.f / g_fps) : 0.f));
+
+        ImGui::EndMainMenuBar();
+
+        // Handle popups
+
+        if (openAboutDialog) {
+            ImGui::OpenPopup("About Vectrexy");
+        }
+        if (bool open = true;
+            ImGui::BeginPopupModal("About Vectrexy", &open, ImGuiWindowFlags_AlwaysAutoResize)) {
+            g_paused[PauseSource::Menu] = true;
+
+            ImGui::Text("Vectrexy");
+            ImGui::Text("Programmed by Antonio Maiorano (amaiorano@gmail.com)");
+
+            ImGui::Text("Available at");
+            ImGui::SameLine();
+            if (ImGui::SmallButton("github.com/amaiorano/vectrexy")) {
+                Platform::ExecuteShellCommand("https://github.com/amaiorano/vectrexy");
+            }
+
+            ImGui::Text("See");
+            ImGui::SameLine();
+            if (ImGui::SmallButton("README")) {
+                Platform::ExecuteShellCommand("README.md");
+            }
+            ImGui::SameLine();
+            ImGui::Text("for more details");
+
+            ImGui::EndPopup();
+        }
+    }
+
+    //@TODO: save imguiEnabledWindows#Name and just iterate here
+    static auto lastEnabledWindows = Gui::EnabledWindows;
+    if (Gui::EnabledWindows[Gui::Window::Debug] != lastEnabledWindows[Gui::Window::Debug]) {
+        g_options.Set("imguiDebugWindow", Gui::EnabledWindows[Gui::Window::Debug]);
+        g_options.Save();
+    }
+    lastEnabledWindows = Gui::EnabledWindows;
 }

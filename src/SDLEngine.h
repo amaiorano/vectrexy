@@ -1,7 +1,6 @@
 #pragma once
 #include "BitOps.h"
-
-class IEngineClient;
+#include "EngineClient.h"
 
 class SDLEngine {
 public:
@@ -13,4 +12,5 @@ public:
 private:
     void PollEvents(bool& quit);
     double UpdateFrameTime();
+    void UpdateMenu(bool& quit, EmuEvents& emuEvents);
 };
