@@ -80,13 +80,13 @@ namespace {
 #endif
     }
 
-    SDL_GLContext CreateGLContext(SDL_Window* window) {
+    SDL_GLContext CreateGLContext(SDL_Window* window, bool enableGLDebugging) {
         auto[major, minor] = GLRender::GetMajorMinorVersion();
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, major);
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, minor);
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 
-        if (GLRender::EnableGLDebugging()) {
+        if (enableGLDebugging) {
             // Create debug context so that we can use glDebugMessageCallback
             int contextFlags = 0;
             SDL_GL_GetAttribute(SDL_GL_CONTEXT_FLAGS, &contextFlags);
@@ -374,6 +374,7 @@ bool SDLEngine::Run(int argc, char** argv) {
     g_options.Add<int>("windowHeight", -1);
     g_options.Add<bool>("windowMaximized", false);
     g_options.Add<bool>("imguiDebugWindow", false);
+    g_options.Add<bool>("enableGLDebugging", false);
     g_options.Add<float>("imguiFontScale", 1.0f);
     g_options.Add<std::string>("lastOpenedFile", {});
     g_options.SetFilePath(fs::absolute("options.txt"));
@@ -417,7 +418,9 @@ bool SDLEngine::Run(int argc, char** argv) {
         return false;
     }
 
-    g_glContext = CreateGLContext(g_window);
+    const bool enableGLDebugging = g_options.Get<bool>("enableGLDebugging");
+
+    g_glContext = CreateGLContext(g_window, enableGLDebugging);
     if (g_glContext == NULL) {
         std::cout << "Cannot create OpenGL context with error " << SDL_GetError() << std::endl;
         return false;
@@ -430,7 +433,7 @@ bool SDLEngine::Run(int argc, char** argv) {
     ImGui_ImplSdlGL3_Init(g_window);
     ImGui::GetIO().FontGlobalScale = g_options.Get<float>("imguiFontScale");
 
-    GLRender::Initialize();
+    GLRender::Initialize(enableGLDebugging);
     GLRender::OnWindowResized(windowWidth, windowHeight);
 
     if (!g_client->Init(argc, argv)) {

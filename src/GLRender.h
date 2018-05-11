@@ -6,8 +6,7 @@ struct RenderContext;
 
 namespace GLRender {
     std::tuple<int, int> GetMajorMinorVersion();
-    bool EnableGLDebugging();
-    void Initialize();
+    void Initialize(bool enableGLDebugging);
     void Shutdown();
     void ResetOverlay(const char* file = nullptr);
     bool OnWindowResized(int windowWidth, int windowHeight);

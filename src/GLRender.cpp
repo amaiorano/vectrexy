@@ -500,9 +500,8 @@ namespace {
 
 namespace GLRender {
     std::tuple<int, int> GetMajorMinorVersion() { return {3, 3}; }
-    bool EnableGLDebugging() { return true; }
 
-    void Initialize() {
+    void Initialize(bool enableGLDebugging) {
         // glShadeModel(GL_SMOOTH);
         glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
         // glClearDepth(1.0f);
@@ -516,7 +515,7 @@ namespace GLRender {
             FAIL_MSG("Failed to initialize GLEW");
         }
 
-        if (EnableGLDebugging()) {
+        if (enableGLDebugging) {
             GLUtil::SetDebugMessageCallback(GLDebugMessageCallback);
         }
 
