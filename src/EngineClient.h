@@ -2,6 +2,7 @@
 
 #include "Base.h"
 #include "BitOps.h"
+#include "FileSystem.h"
 #include "Line.h"
 #include "Options.h"
 #include "Vector2.h"
@@ -46,7 +47,13 @@ private:
 
 class EmuEvent {
 public:
-    enum class Type { BreakIntoDebugger, Reset, OpenRomFile };
+    struct BreakIntoDebugger {};
+    struct Reset {};
+    struct OpenRomFile {
+        fs::path path{}; // If not set, use open file dialog
+    };
+
+    using Type = std::variant<BreakIntoDebugger, Reset, OpenRomFile>;
     Type type;
 };
 using EmuEvents = std::vector<EmuEvent>;

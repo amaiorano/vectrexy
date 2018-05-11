@@ -887,8 +887,7 @@ bool Debugger::FrameUpdate(double frameTime, const Input& input, const EmuEvents
     };
 
     for (auto& event : emuEvents) {
-        switch (event.type) {
-        case EmuEvent::Type::BreakIntoDebugger:
+        if (std::holds_alternative<EmuEvent::BreakIntoDebugger>(event.type)) {
             BreakIntoDebugger();
             break;
         }

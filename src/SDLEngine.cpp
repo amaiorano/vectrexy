@@ -452,7 +452,7 @@ bool SDLEngine::Run(int argc, char** argv) {
         auto emuEvents = EmuEvents{};
         if (g_keyboard.GetKeyState(SDL_SCANCODE_LCTRL).down &&
             g_keyboard.GetKeyState(SDL_SCANCODE_C).down) {
-            emuEvents.push_back({EmuEvent::Type::BreakIntoDebugger});
+            emuEvents.push_back({EmuEvent::BreakIntoDebugger{}});
 
             // @HACK: Because the SDL window ends up losing focus to the console window, we
             // don't get the KEY_UP events for these keys right away, so "continuing" from the
@@ -464,12 +464,12 @@ bool SDLEngine::Run(int argc, char** argv) {
 
         if (g_keyboard.GetKeyState(SDL_SCANCODE_LCTRL).down &&
             g_keyboard.GetKeyState(SDL_SCANCODE_R).pressed) {
-            emuEvents.push_back({EmuEvent::Type::Reset});
+            emuEvents.push_back({EmuEvent::Reset{}});
         }
 
         if (g_keyboard.GetKeyState(SDL_SCANCODE_LCTRL).down &&
             g_keyboard.GetKeyState(SDL_SCANCODE_O).pressed) {
-            emuEvents.push_back({EmuEvent::Type::OpenRomFile});
+            emuEvents.push_back({EmuEvent::OpenRomFile{}});
         }
 
         ImGui_ImplSdlGL3_NewFrame(g_window);
@@ -617,7 +617,16 @@ void SDLEngine::UpdateMenu(bool& quit, EmuEvents& emuEvents) {
             g_paused[PauseSource::Menu] = true;
 
             if (ImGui::MenuItem("Open rom...", "Ctrl+O"))
-                emuEvents.push_back({EmuEvent::Type::OpenRomFile});
+                emuEvents.push_back({EmuEvent::OpenRomFile{}});
+
+            if (auto lastOpenedFile = g_options.Get<std::string>("lastOpenedFile");
+                !lastOpenedFile.empty()) {
+
+                auto filename = fs::path(lastOpenedFile).filename().replace_extension().string();
+                if (ImGui::MenuItem(FormattedString<>("Open recent: %s", filename.c_str()))) {
+                    emuEvents.push_back({EmuEvent::OpenRomFile{lastOpenedFile}});
+                }
+            }
 
             if (ImGui::MenuItem("Exit"))
                 quit = true;
@@ -629,7 +638,7 @@ void SDLEngine::UpdateMenu(bool& quit, EmuEvents& emuEvents) {
             g_paused[PauseSource::Menu] = true;
 
             if (ImGui::MenuItem("Reset", "Ctrl+R"))
-                emuEvents.push_back({EmuEvent::Type::Reset});
+                emuEvents.push_back({EmuEvent::Reset{}});
 
             ImGui::MenuItem("Pause", "P", &g_paused[PauseSource::Game]);
 
@@ -642,7 +651,7 @@ void SDLEngine::UpdateMenu(bool& quit, EmuEvents& emuEvents) {
             ImGui::MenuItem("Debug window", "", &Gui::EnabledWindows[Gui::Window::Debug]);
 
             if (ImGui::MenuItem("Break into Debugger", "Ctrl+C"))
-                emuEvents.push_back({EmuEvent::Type::BreakIntoDebugger});
+                emuEvents.push_back({EmuEvent::BreakIntoDebugger{}});
 
             ImGui::EndMenu();
         }

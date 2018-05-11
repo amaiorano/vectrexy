@@ -112,24 +112,34 @@ private:
             m_syncProtocol.Client_RecvFrameStart(frameTime, input);
         }
 
-        if (find_if(emuEvents, [](auto& e) { return e.type == EmuEvent::Type::Reset; })) {
-            Reset();
-        }
-
-        if (find_if(emuEvents, [](auto& e) { return e.type == EmuEvent::Type::OpenRomFile; })) {
-            // OpenFileDialog changes current directory, so make sure we remember the current one
-            FileSystemUtil::ScopedSetCurrentDirectory scopedSetDir({});
-
-            fs::path lastOpenedFile = options.Get<std::string>("lastOpenedFile");
-
-            auto result = Platform::OpenFileDialog(
-                "Open Vectrex rom", "Vectrex Rom", "*.vec;*.bin",
-                lastOpenedFile.empty() ? "roms" : lastOpenedFile.remove_filename());
-
-            if (result && LoadRom(result->c_str())) {
-                options.Set("lastOpenedFile", *result);
-                options.Save();
+        for (auto& event : emuEvents) {
+            if (auto reset = std::get_if<EmuEvent::Reset>(&event.type)) {
                 Reset();
+            } else if (auto openRomFile = std::get_if<EmuEvent::OpenRomFile>(&event.type)) {
+                fs::path romPath{};
+                if (openRomFile->path.empty()) {
+
+                    // OpenFileDialog changes current directory, so make sure we remember the
+                    // current one
+                    FileSystemUtil::ScopedSetCurrentDirectory scopedSetDir({});
+
+                    fs::path lastOpenedFile = options.Get<std::string>("lastOpenedFile");
+
+                    auto result = Platform::OpenFileDialog(
+                        "Open Vectrex rom", "Vectrex Rom", "*.vec;*.bin",
+                        lastOpenedFile.empty() ? "roms" : lastOpenedFile.remove_filename());
+
+                    if (result)
+                        romPath = *result;
+                } else {
+                    romPath = openRomFile->path;
+                }
+
+                if (!romPath.empty() && LoadRom(romPath.string().c_str())) {
+                    options.Set("lastOpenedFile", romPath.string());
+                    options.Save();
+                    Reset();
+                }
             }
         }
 
