@@ -14,6 +14,7 @@
 #include <SDL_net.h>
 #include <algorithm>
 #include <chrono>
+#include <fstream>
 #include <iostream>
 #include <unordered_map>
 
@@ -32,8 +33,6 @@ namespace {
     const int DEFAULT_WINDOW_WIDTH = 600;
     inline int WindowHeightFromWidth(int width) { return static_cast<int>(width * 4.0f / 3.0f); }
     inline int WindowWidthFromHeight(int height) { return static_cast<int>(height * 3.0f / 4.0f); }
-
-    const char* WINDOW_TITLE = "Vectrexy";
 
     IEngineClient* g_client = nullptr;
     SDL_Window* g_window = NULL;
@@ -425,7 +424,14 @@ bool SDLEngine::Run(int argc, char** argv) {
     if (g_options.Get<bool>("windowMaximized"))
         windowCreateFlags |= SDL_WINDOW_MAXIMIZED;
 
-    g_window = SDL_CreateWindow(WINDOW_TITLE, windowX, windowY, windowWidth, windowHeight,
+    std::string windowTitle = "Vectrexy";
+    if (auto fin = std::ifstream("version.txt"); fin) {
+        std::string version;
+        fin >> version;
+        windowTitle += " " + version;
+    }
+
+    g_window = SDL_CreateWindow(windowTitle.c_str(), windowX, windowY, windowWidth, windowHeight,
                                 windowCreateFlags);
     if (g_window == NULL) {
         std::cout << "Cannot create window with error " << SDL_GetError() << std::endl;
