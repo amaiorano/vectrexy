@@ -4,6 +4,12 @@ Vectrexy is a [Vectrex](https://en.wikipedia.org/wiki/Vectrex) emulator programm
 
 This project is open source and available on GitHub: https://github.com/amaiorano/vectrexy
 
+## Latest Build
+
+[![Build status](https://ci.appveyor.com/api/projects/status/0adcwixak7ul9oet?svg=true)](https://ci.appveyor.com/project/amaiorano/vectrexy)
+
+Download: [Vectrexy (Windows 64-bit)](https://daroou.000webhostapp.com/vectrexy/build/vectrexy.zip)
+
 ## Twitch Development
 
 I regularly stream part of the development on Twitch [right here](https://www.twitch.tv/daroou2). Follow me to know when I'm streaming!
