@@ -28,6 +28,5 @@ namespace Gui {
     } // namespace Internal
 
 #define IMGUI_CALL(window, func)                                                                   \
-    Gui::Internal::DoImguiCall(#window, Gui::Window::##window, [] { func; })
-
+    Gui::Internal::DoImguiCall(#window, Gui::Window::window, [] { func; })
 } // namespace Gui

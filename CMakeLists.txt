@@ -32,9 +32,6 @@ source_group("src\\shaders" FILES ${SHADER_SRC})
 set(SRC ${SRC_ROOT} ${IMGUI_IMPL_SRC} ${SHADER_SRC})
 
 add_executable(vectrexy ${SRC} ${MANIFEST_FILE})
-include_directories(${SDL2_INCLUDE_DIR} ${SDL2_NET_INCLUDE_DIRS} ${GLEW_INCLUDE_DIRS} ${GLM_INCLUDE_DIRS} ${STB_INCLUDE_PATH} ${IMGUI_INCLUDE_PATH})
-target_link_libraries(vectrexy ${SDL2_LIBRARY} ${SDL2_NET_LIBRARIES} ${OPENGL_gl_LIBRARY} ${OPENGL_glu_LIBRARY} ${GLEW_LIBRARIES} ${SDL2_REQUIRED_LIBS} ${IMGUI_LIBRARY})
-target_compile_definitions(vectrexy PRIVATE ${GLEW_DEFINITIONS})
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 	target_compile_definitions(vectrexy PRIVATE _CRT_SECURE_NO_WARNINGS _SCL_SECURE_NO_WARNINGS)
@@ -49,4 +46,10 @@ elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 	target_compile_options(vectrexy PRIVATE -std=c++1z)
 elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 	target_compile_options(vectrexy PRIVATE -std=c++1z)
+	target_compile_options(vectrexy PRIVATE -Wno-format-security) # todo: remove this and fix warnings
+	set(EXTRA_LIBS ${EXTRA_LIBS} stdc++fs) # required for filesystem
 endif()
+
+include_directories(${SDL2_INCLUDE_DIR} ${SDL2_NET_INCLUDE_DIRS} ${GLEW_INCLUDE_DIRS} ${GLM_INCLUDE_DIRS} ${STB_INCLUDE_PATH} ${IMGUI_INCLUDE_PATH})
+target_link_libraries(vectrexy ${SDL2_LIBRARY} ${SDL2_NET_LIBRARIES} ${OPENGL_gl_LIBRARY} ${OPENGL_glu_LIBRARY} ${GLEW_LIBRARIES} ${SDL2_REQUIRED_LIBS} ${IMGUI_LIBRARY} ${EXTRA_LIBS})
+target_compile_definitions(vectrexy PRIVATE ${GLEW_DEFINITIONS})

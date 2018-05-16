@@ -76,11 +76,13 @@ namespace {
         SDL_GetWindowWMInfo(g_window, &info);
 #if defined(SDL_VIDEO_DRIVER_WINDOWS)
         return info.info.win.window;
+#else
+        return {};
 #endif
     }
 
     SDL_GLContext CreateGLContext(SDL_Window* window, bool enableGLDebugging) {
-        auto[major, minor] = GLRender::GetMajorMinorVersion();
+        auto [major, minor] = GLRender::GetMajorMinorVersion();
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, major);
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, minor);
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);

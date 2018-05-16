@@ -12,7 +12,7 @@ public:
     void SetTimerMode(TimerMode mode) {
         ASSERT_MSG(mode == TimerMode::OneShot, "Only supports one-shot mode for now");
     }
-    TimerMode TimerMode() const { return TimerMode::OneShot; }
+    TimerMode Mode() const { return TimerMode::OneShot; }
 
     void WriteCounterLow(uint8_t value) { m_latchLow = value; }
 
@@ -76,7 +76,7 @@ public:
     void SetTimerMode(TimerMode mode) {
         ASSERT_MSG(mode == TimerMode::OneShot, "Only supports one-shot mode for now");
     }
-    TimerMode TimerMode() const { return TimerMode::OneShot; }
+    TimerMode Mode() const { return TimerMode::OneShot; }
 
     void WriteCounterLow(uint8_t value) { m_latchLow = value; }
 

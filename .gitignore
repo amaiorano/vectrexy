@@ -25,6 +25,9 @@ ipch/
 *.vsp
 *.vspx
 
+# Visual Studio Code
+.vscode/
+
 # Other
 *.wwdb
 

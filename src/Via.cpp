@@ -264,10 +264,8 @@ uint8_t Via::Read(uint16_t address) const {
     case Register::AuxCntl: {
         uint8_t auxCntl = 0;
         SetBits(auxCntl, 0b110 << AuxCntl::ShiftRegisterModeShift, true); //@HACK
-        SetBits(auxCntl, AuxCntl::Timer1FreeRunning,
-                m_timer1.TimerMode() == TimerMode::FreeRunning);
-        SetBits(auxCntl, AuxCntl::Timer2PulseCounting,
-                m_timer2.TimerMode() == TimerMode::PulseCounting);
+        SetBits(auxCntl, AuxCntl::Timer1FreeRunning, m_timer1.Mode() == TimerMode::FreeRunning);
+        SetBits(auxCntl, AuxCntl::Timer2PulseCounting, m_timer2.Mode() == TimerMode::PulseCounting);
         SetBits(auxCntl, AuxCntl::PB7Flag, m_timer1.PB7Flag());
         return auxCntl;
     }

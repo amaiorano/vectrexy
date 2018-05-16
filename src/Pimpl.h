@@ -45,17 +45,18 @@ namespace pimpl {
 
     template <typename T, size_t Size, SizePolicy SizePolicy = SizePolicy::AtLeast>
     class Pimpl {
+
+        // Required wrapper for if constexpr
+        template <class U>
+        struct dependent_false : std::false_type {};
+
         constexpr void ValidateSize() {
-            if
-                constexpr(SizePolicy == SizePolicy::AtLeast) {
-                    static_assert(Size >= sizeof(T), "Pimpl sizeof(T) must be at least 'Size'");
-                }
-            else if
-                constexpr(SizePolicy == SizePolicy::Exact) {
-                    static_assert(Size == sizeof(T), "Pimpl sizeof(T) must be exactly 'Size'");
-                }
-            else {
-                static_assert(false);
+            if constexpr (SizePolicy == SizePolicy::AtLeast) {
+                static_assert(Size >= sizeof(T), "Pimpl sizeof(T) must be at least 'Size'");
+            } else if constexpr (SizePolicy == SizePolicy::Exact) {
+                static_assert(Size == sizeof(T), "Pimpl sizeof(T) must be exactly 'Size'");
+            } else {
+                static_assert(dependent_false<T>::value);
             }
         }
 

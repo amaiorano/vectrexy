@@ -3,6 +3,7 @@
 #include "ErrorHandler.h"
 #include "MemoryMap.h"
 #include "Stream.h"
+#include <cstring>
 #include <vector>
 
 namespace {

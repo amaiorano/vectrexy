@@ -1,6 +1,6 @@
 #pragma once
 
-#include <gl/glew.h> // Must be included before gl.h
+#include <GL/glew.h> // Must be included before gl.h
 
 #include <SDL_opengl.h> // Wraps OpenGL headers - TODO: ifndef SDL: include gl.h
 

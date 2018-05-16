@@ -281,18 +281,6 @@ public:
         FAIL_MSG("Not implemented for addressing mode");
         return 0xFFFF;
     }
-    template <>
-    uint16_t ReadEA16<AddressingMode::Indexed>() {
-        return ReadIndexedEA();
-    }
-    template <>
-    uint16_t ReadEA16<AddressingMode::Extended>() {
-        return ReadExtendedEA();
-    }
-    template <>
-    uint16_t ReadEA16<AddressingMode::Direct>() {
-        return ReadDirectEA();
-    }
 
     // Read CPU op's value (8/16 bit) either directly or indirectly (via EA) depending on addressing
     // mode Default template assumes operand is EA and de-refs it
@@ -301,20 +289,11 @@ public:
         auto EA = ReadEA16<addressingMode>();
         return Read16(EA);
     }
-    // Specialize for Immediate mode where we don't de-ref
-    template <>
-    uint16_t ReadOperandValue16<AddressingMode::Immediate>() {
-        return ReadPC16();
-    }
 
     template <AddressingMode addressingMode>
     uint8_t ReadOperandValue8() {
         auto EA = ReadEA16<addressingMode>();
         return Read8(EA);
-    }
-    template <>
-    uint8_t ReadOperandValue8<AddressingMode::Immediate>() {
-        return ReadPC8();
     }
 
     // Read CPU op's relative offset from next 8/16 bits
@@ -1881,6 +1860,29 @@ public:
         return m_cycles;
     }
 };
+
+template <>
+uint16_t CpuImpl::ReadEA16<AddressingMode::Indexed>() {
+    return ReadIndexedEA();
+}
+template <>
+uint16_t CpuImpl::ReadEA16<AddressingMode::Extended>() {
+    return ReadExtendedEA();
+}
+template <>
+uint16_t CpuImpl::ReadEA16<AddressingMode::Direct>() {
+    return ReadDirectEA();
+}
+
+// Specialize for Immediate mode where we don't de-ref
+template <>
+uint16_t CpuImpl::ReadOperandValue16<AddressingMode::Immediate>() {
+    return ReadPC16();
+}
+template <>
+uint8_t CpuImpl::ReadOperandValue8<AddressingMode::Immediate>() {
+    return ReadPC8();
+}
 
 Cpu::Cpu() = default;
 Cpu::~Cpu() = default;

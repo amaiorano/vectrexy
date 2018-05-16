@@ -1,7 +1,7 @@
 #include "Platform.h"
 #include "Base.h"
 
-#ifdef WIN32
+#if defined(PLATFORM_WINDOWS)
 
 #include <cassert>
 struct IUnknown; // Fix compile error in VS2017 15.3 when including windows.h
@@ -121,4 +121,54 @@ namespace Platform {
         ::ShellExecute(NULL, "open", command, NULL, NULL, SW_SHOWNORMAL);
     }
 } // namespace Platform
+
+#elif defined(PLATFORM_LINUX)
+
+namespace {
+    std::function<bool()> g_consoleCtrlHandler;
+    bool g_consoleColorEnabled = true;
+} // namespace
+
+namespace Platform {
+    void SetFocus(WindowHandle windowHandle) {}
+
+    void SetConsoleFocus() {}
+
+    void SetConsoleTitle(const char* title) {}
+
+    void SetConsoleCtrlHandler(std::function<bool()> handler) {
+        g_consoleCtrlHandler = std::move(handler);
+    }
+
+    std::function<bool()> GetConsoleCtrlHandler() { return g_consoleCtrlHandler; }
+
+    void SetConsoleColoringEnabled(bool enabled) {
+        if (!enabled) {
+            SetConsoleColor(ConsoleColor::White, ConsoleColor::Black);
+        }
+        g_consoleColorEnabled = enabled;
+    }
+
+    bool IsConsoleColoringEnabled() { return g_consoleColorEnabled; }
+
+    void SetConsoleColor(ConsoleColor foreground, ConsoleColor background) {
+        if (!g_consoleColorEnabled)
+            return;
+    }
+
+    std::tuple<ConsoleColor, ConsoleColor> GetConsoleColor() {
+        return {ConsoleColor::Black, ConsoleColor::White};
+    }
+
+    bool SupportsOpenFileDialog() { return false; }
+
+    std::optional<std::string> OpenFileDialog(const char* title, const char* filterName,
+                                              const char* filterTypes,
+                                              std::optional<fs::path> initialDirectory) {
+        return {};
+    }
+
+    void ExecuteShellCommand(const char* command) {}
+} // namespace Platform
+
 #endif

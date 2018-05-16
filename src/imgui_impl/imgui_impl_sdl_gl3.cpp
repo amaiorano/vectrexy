@@ -24,7 +24,7 @@ MSC_PUSH_WARNING_DISABLE(4121)
 #include <SDL_syswm.h>
 //@amaiorano-begin
 //#include <GL/gl3w.h>
-#include <gl/glew.h>
+#include <GL/glew.h>
 //@amaiorano-end
 
 // Data
@@ -367,6 +367,7 @@ void ImGui_ImplSdlGL3_InvalidateDeviceObjects() {
 }
 
 bool ImGui_ImplSdlGL3_Init(SDL_Window* window) {
+    ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
     io.KeyMap[ImGuiKey_Tab] = SDLK_TAB; // Keyboard mapping. ImGui will use those indices to peek
                                         // into the io.KeyDown[] array.
@@ -411,7 +412,7 @@ bool ImGui_ImplSdlGL3_Init(SDL_Window* window) {
 
 void ImGui_ImplSdlGL3_Shutdown() {
     ImGui_ImplSdlGL3_InvalidateDeviceObjects();
-    ImGui::Shutdown();
+    ImGui::DestroyContext();
 }
 
 void ImGui_ImplSdlGL3_NewFrame(SDL_Window* window) {

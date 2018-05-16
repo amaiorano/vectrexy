@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <cassert>
 #include <cstdarg>
 #include <cstddef>
@@ -138,18 +139,18 @@ inline void AssertHandler(const char* file, int line, const char* condition, con
 
 // NOTE: Need this helper for clang/gcc so we can pass a single arg to FAIL
 #define ASSERT_HELPER(file, line, condition, msg, ...)                                             \
-    AssertHandler(file, line, condition, msg ? FormattedString<>(msg, __VA_ARGS__) : nullptr)
+    AssertHandler(file, line, condition, msg ? FormattedString<>(msg, ##__VA_ARGS__) : nullptr)
 
 #define ASSERT(condition)                                                                          \
     (void)((!!(condition)) || (ASSERT_HELPER(__FILE__, (int)__LINE__, #condition, ""), false))
 
 #define ASSERT_MSG(condition, msg, ...)                                                            \
     (void)((!!(condition)) ||                                                                      \
-           (ASSERT_HELPER(__FILE__, (int)__LINE__, #condition, msg, __VA_ARGS__), false))
+           (ASSERT_HELPER(__FILE__, (int)__LINE__, #condition, msg, ##__VA_ARGS__), false))
 
 // FAIL macro
 #define FAIL() ASSERT(false)
-#define FAIL_MSG(msg, ...) ASSERT_MSG(false, msg, __VA_ARGS__)
+#define FAIL_MSG(msg, ...) ASSERT_MSG(false, msg, ##__VA_ARGS__)
 
 // Type aliases
 using cycles_t = uint64_t;
