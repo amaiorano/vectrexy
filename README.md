@@ -45,22 +45,54 @@ Altough the emulator core is written by me, Antonio Maiorano (daroou2), it makes
 
 ## Building the code
 
-The emulator is being developed mainly in [Visual Studio 2017](https://www.visualstudio.com/downloads/), and makes use of C++17 features. To build it, install [CMake](https://cmake.org/), then clone the repo and generate the build system. In my case, I generate using the "Visual Studio 15 2017" generator, then open and build the generated vectrexy.sln.
+### Windows
 
-Here's an example of how to build (on Windows):
+Install:
+* [CMake](https://cmake.org/)
+* [Visual Studio 2017](https://www.visualstudio.com/downloads/)
+* [vcpkg](https://github.com/Microsoft/vcpkg)
 
-First, download and install [vcpkg](https://github.com/Microsoft/vcpkg), then install dependent packages:
+Install dependent packages with vcpkg:
 ```bash
 vcpkg install sdl2:x64-windows-static sdl2-net:x64-windows-static glew:x64-windows-static glm:x64-windows-static stb:x64-windows-static imgui:x64-windows-static
 ```
 
-Now you can clone and build vectrexy using CMake:
+Clone and build vectrexy using CMake:
 ```bash
 git clone https://github.com/amaiorano/vectrexy.git
 cd vectrexy
 mkdir build && cd build
 cmake -G "Visual Studio 15 2017 Win64" -DCMAKE_TOOLCHAIN_FILE=C:/code/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-static ..
 vectrexy.sln ..
+```
+
+### Ubuntu
+
+Install:
+* gcc 8 or higher
+* [vcpkg](https://github.com/Microsoft/vcpkg)
+
+At this moment (5/16/2018), vcpkg for Linux doesn't build sdl2-net properly, so we need to get it using APT, along with sdl2 since it depends on it:
+
+```bash
+sudo apt-get install libsdl2-dev libsdl2-net-dev
+```
+
+(Note: this means we don't link statically against sdl2 and sdl2-net, which makes distribution more tricky).
+
+We can get the rest of the dependencies through vcpkg:
+```bash
+cd ~/vcpkg
+./vcpkg install glew glm stb imgui
+```
+
+Clone and build vectrexy using CMake:
+```bash
+git clone https://github.com/amaiorano/vectrexy.git
+cd vectrexy
+mkdir build && cd build
+cmake -DCMAKE_TOOLCHAIN_FILE=~/vcpkg/scripts/buildsystems/vcpkg.cmake ..
+make
 ```
 
 ## Contributing
