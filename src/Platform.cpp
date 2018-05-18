@@ -1,5 +1,7 @@
 #include "Platform.h"
 #include "Base.h"
+#include "FileSystem.h"
+#include "FileSystemUtil.h"
 
 #if defined(PLATFORM_WINDOWS)
 
@@ -81,42 +83,6 @@ namespace Platform {
         return {static_cast<ConsoleColor>(foreground), static_cast<ConsoleColor>(background)};
     }
 
-    bool SupportsOpenFileDialog() { return true; }
-
-    std::optional<std::string> OpenFileDialog(const char* title, const char* filterName,
-                                              const char* filterTypes,
-                                              std::optional<fs::path> initialDirectory) {
-        auto filter =
-            FormattedString<>("%s (%s)%c%s%c", filterName, filterTypes, '\0', filterTypes, '\0');
-
-        char file[_MAX_PATH] = "";
-        char currDir[_MAX_PATH] = "";
-        ::GetCurrentDirectoryA(sizeof(currDir), currDir);
-
-        // Note: If lpstrInitialDir has the same value as was passed the first time the application
-        // used an Open or Save As dialog box, the path most recently selected by the user is used
-        // as the initial directory.
-        std::string initDir = currDir;
-        if (initialDirectory.has_value() && fs::exists(*initialDirectory)) {
-            initDir = initialDirectory->string();
-        }
-
-        OPENFILENAMEA ofn = {0};
-        ofn.lStructSize = sizeof(ofn);
-        ofn.lpstrFile = file;
-        ofn.nMaxFile = sizeof(file);
-        ofn.lpstrTitle = title;
-        ofn.lpstrFilter = filter.Value();
-        ofn.nFilterIndex = 0;
-        ofn.lpstrInitialDir = initDir.c_str();
-        ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
-
-        if (::GetOpenFileNameA(&ofn) == TRUE) {
-            return {ofn.lpstrFile};
-        }
-        return {};
-    }
-
     void ExecuteShellCommand(const char* command) {
         ::ShellExecute(NULL, "open", command, NULL, NULL, SW_SHOWNORMAL);
     }
@@ -160,15 +126,48 @@ namespace Platform {
         return {ConsoleColor::Black, ConsoleColor::White};
     }
 
-    bool SupportsOpenFileDialog() { return false; }
-
-    std::optional<std::string> OpenFileDialog(const char* title, const char* filterName,
-                                              const char* filterTypes,
-                                              std::optional<fs::path> initialDirectory) {
-        return {};
-    }
-
     void ExecuteShellCommand(const char* command) {}
 } // namespace Platform
 
 #endif
+
+// Implement Platform::OpenFileDialog using no_file_dialog
+#if defined(PLATFORM_WINDOWS)
+#define NOC_FILE_DIALOG_IMPLEMENTATION
+#define NOC_FILE_DIALOG_WIN32
+MSC_PUSH_WARNING_DISABLE(4996) // 'strdup': The POSIX name for this item is deprecated.
+MSC_PUSH_WARNING_DISABLE(4100) // unreferenced formal parameter
+#include "noc/noc_file_dialog.h"
+MSC_POP_WARNING_DISABLE()
+MSC_POP_WARNING_DISABLE()
+#else
+#error Implement me for current platform
+#endif
+
+namespace Platform {
+    std::optional<std::string> OpenFileDialog(const char* /*title*/, const char* filterName,
+                                              const char* filterTypes,
+                                              std::optional<fs::path> initialDirectory) {
+
+        auto filter =
+            FormattedString<>("%s (%s)%c%s%c", filterName, filterTypes, '\0', filterTypes, '\0');
+
+        // Note: If lpstrInitialDir has the same value as was passed the first time the
+        // application / used an Open or Save As dialog box, the path most recently selected by the
+        // user is used / as the initial directory.
+        fs::path initDir = fs::current_path();
+        if (initialDirectory.has_value() && fs::exists(*initialDirectory)) {
+            initDir = initialDirectory->string();
+        }
+
+        // Make sure to restore original current directory after opening dialog
+        FileSystemUtil::ScopedSetCurrentDirectory scopedSetDir(initDir);
+
+        //@TODO: change cwd to initDir then restore it after the open call?
+
+        auto result = noc_file_dialog_open(NOC_FILE_DIALOG_OPEN, filter, nullptr, nullptr);
+        if (result)
+            return result;
+        return {};
+    }
+} // namespace Platform

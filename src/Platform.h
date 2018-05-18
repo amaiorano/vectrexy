@@ -56,7 +56,6 @@ namespace Platform {
         std::tuple<ConsoleColor, ConsoleColor> m_color;
     };
 
-    bool SupportsOpenFileDialog();
     std::optional<std::string> OpenFileDialog(const char* title = "Open",
                                               const char* filterName = "All files",
                                               const char* filterTypes = "*.*",

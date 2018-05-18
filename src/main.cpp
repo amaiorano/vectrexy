@@ -118,11 +118,6 @@ private:
             } else if (auto openRomFile = std::get_if<EmuEvent::OpenRomFile>(&event.type)) {
                 fs::path romPath{};
                 if (openRomFile->path.empty()) {
-
-                    // OpenFileDialog changes current directory, so make sure we remember the
-                    // current one
-                    FileSystemUtil::ScopedSetCurrentDirectory scopedSetDir({});
-
                     fs::path lastOpenedFile = options.Get<std::string>("lastOpenedFile");
 
                     auto result = Platform::OpenFileDialog(
