@@ -59,7 +59,7 @@ namespace Platform {
     std::optional<std::string> OpenFileDialog(const char* title = "Open",
                                               const char* filterName = "All files",
                                               const char* filterTypes = "*.*",
-                                              std::optional<fs::path> initialDirectory = {});
+                                              std::optional<fs::path> initialPath = {});
 
     void ExecuteShellCommand(const char* command);
 

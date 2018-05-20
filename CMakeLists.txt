@@ -12,6 +12,12 @@ find_package(GLM REQUIRED)
 find_package(STB REQUIRED)
 find_package(Imgui REQUIRED)
 
+if (UNIX AND NOT APPLE)
+	find_package(GTK2 2.4 REQUIRED gtk)
+	set(EXTRA_INCLUDE_DIRS ${EXTRA_INCLUDE_DIRS} ${GTK2_INCLUDE_DIRS})
+	set(EXTRA_LIBS ${EXTRA_LIBS} ${GTK2_LIBRARIES}) # required for filesystem
+endif()
+
 # SDL2 dependent libs, required when linking against SDL2 static lib
 if (MSVC)
 	set(SDL2_REQUIRED_LIBS winmm.lib version.lib imm32.lib Ws2_32.lib Iphlpapi.lib)
@@ -50,6 +56,6 @@ elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 	set(EXTRA_LIBS ${EXTRA_LIBS} stdc++fs) # required for filesystem
 endif()
 
-include_directories(${SDL2_INCLUDE_DIR} ${SDL2_NET_INCLUDE_DIRS} ${GLEW_INCLUDE_DIRS} ${GLM_INCLUDE_DIRS} ${STB_INCLUDE_PATH} ${IMGUI_INCLUDE_PATH})
+include_directories(${SDL2_INCLUDE_DIR} ${SDL2_NET_INCLUDE_DIRS} ${GLEW_INCLUDE_DIRS} ${GLM_INCLUDE_DIRS} ${STB_INCLUDE_PATH} ${IMGUI_INCLUDE_PATH} ${EXTRA_INCLUDE_DIRS})
 target_link_libraries(vectrexy ${SDL2_LIBRARY} ${SDL2_NET_LIBRARIES} ${OPENGL_gl_LIBRARY} ${OPENGL_glu_LIBRARY} ${GLEW_LIBRARIES} ${SDL2_REQUIRED_LIBS} ${IMGUI_LIBRARY} ${EXTRA_LIBS})
 target_compile_definitions(vectrexy PRIVATE ${GLEW_DEFINITIONS})

@@ -78,6 +78,11 @@ At this moment (5/16/2018), vcpkg for Linux doesn't build sdl2-net properly, so 
 sudo apt-get install libsdl2-dev libsdl2-net-dev
 ```
 
+We also need other Linux-specific libs:
+```bah
+sudo apt-get install libgtk2.0-dev
+```
+
 (Note: this means we don't link statically against sdl2 and sdl2-net, which makes distribution more tricky).
 
 We can get the rest of the dependencies through vcpkg:

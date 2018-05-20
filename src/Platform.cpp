@@ -3,6 +3,8 @@
 #include "FileSystem.h"
 #include "FileSystemUtil.h"
 
+#include <iostream>
+
 #if defined(PLATFORM_WINDOWS)
 
 #include <cassert>
@@ -140,6 +142,10 @@ MSC_PUSH_WARNING_DISABLE(4100) // unreferenced formal parameter
 #include "noc/noc_file_dialog.h"
 MSC_POP_WARNING_DISABLE()
 MSC_POP_WARNING_DISABLE()
+#elif defined(PLATFORM_LINUX)
+#define NOC_FILE_DIALOG_IMPLEMENTATION
+#define NOC_FILE_DIALOG_GTK
+#include "noc/noc_file_dialog.h"
 #else
 #error Implement me for current platform
 #endif
@@ -147,25 +153,20 @@ MSC_POP_WARNING_DISABLE()
 namespace Platform {
     std::optional<std::string> OpenFileDialog(const char* /*title*/, const char* filterName,
                                               const char* filterTypes,
-                                              std::optional<fs::path> initialDirectory) {
+                                              std::optional<fs::path> initialPath) {
 
         auto filter =
             FormattedString<>("%s (%s)%c%s%c", filterName, filterTypes, '\0', filterTypes, '\0');
 
-        // Note: If lpstrInitialDir has the same value as was passed the first time the
-        // application / used an Open or Save As dialog box, the path most recently selected by the
-        // user is used / as the initial directory.
-        fs::path initDir = fs::current_path();
-        if (initialDirectory.has_value() && fs::exists(*initialDirectory)) {
-            initDir = initialDirectory->string();
+        if (not(initialPath.has_value() && fs::exists(*initialPath))) {
+            initialPath = fs::current_path();
         }
 
         // Make sure to restore original current directory after opening dialog
-        FileSystemUtil::ScopedSetCurrentDirectory scopedSetDir(initDir);
+        FileSystemUtil::ScopedSetCurrentDirectory scopedSetDir(initialPath->string());
 
-        //@TODO: change cwd to initDir then restore it after the open call?
-
-        auto result = noc_file_dialog_open(NOC_FILE_DIALOG_OPEN, filter, nullptr, nullptr);
+        auto result = noc_file_dialog_open(NOC_FILE_DIALOG_OPEN, filter,
+                                           initialPath->string().c_str(), nullptr);
         if (result)
             return result;
         return {};

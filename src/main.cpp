@@ -120,9 +120,9 @@ private:
                 if (openRomFile->path.empty()) {
                     fs::path lastOpenedFile = options.Get<std::string>("lastOpenedFile");
 
-                    auto result = Platform::OpenFileDialog(
-                        "Open Vectrex rom", "Vectrex Rom", "*.vec;*.bin",
-                        lastOpenedFile.empty() ? "roms" : lastOpenedFile.remove_filename());
+                    auto result =
+                        Platform::OpenFileDialog("Open Vectrex rom", "Vectrex Rom", "*.vec;*.bin",
+                                                 lastOpenedFile.empty() ? "roms" : lastOpenedFile);
 
                     if (result)
                         romPath = *result;
