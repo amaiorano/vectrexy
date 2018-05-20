@@ -163,7 +163,7 @@ namespace Platform {
         }
 
         // Make sure to restore original current directory after opening dialog
-        FileSystemUtil::ScopedSetCurrentDirectory scopedSetDir(initialPath->string());
+        FileSystemUtil::ScopedSetCurrentDirectory scopedSetDir;
 
         auto result = noc_file_dialog_open(NOC_FILE_DIALOG_OPEN, filter,
                                            initialPath->string().c_str(), nullptr);

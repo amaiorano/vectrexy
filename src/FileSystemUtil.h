@@ -7,7 +7,7 @@ namespace FileSystemUtil {
     // then restores original directory on destruction. Input path may be a path to a directory or
     // to a file.
     struct ScopedSetCurrentDirectory {
-        ScopedSetCurrentDirectory(fs::path newPath) {
+        ScopedSetCurrentDirectory(fs::path newPath = {}) {
             m_lastDir = fs::current_path();
             if (!newPath.empty()) {
                 if (fs::is_regular_file(newPath))
