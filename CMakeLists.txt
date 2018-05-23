@@ -35,7 +35,12 @@ file(GLOB IMGUI_IMPL_SRC "src/imgui_impl/*.*")
 source_group("src\\imgui_impl" FILES ${IMGUI_IMPL_SRC})
 file(GLOB SHADER_SRC "src/shaders/*.*")
 source_group("src\\shaders" FILES ${SHADER_SRC})
-set(SRC ${SRC_ROOT} ${IMGUI_IMPL_SRC} ${SHADER_SRC})
+file(GLOB THIRD_PARTY_NOC "thirdparty/noc/*.*")
+source_group("thirdparty\\noc" FILES ${THIRD_PARTY_NOC})
+set(SRC ${SRC_ROOT} ${IMGUI_IMPL_SRC} ${SHADER_SRC} ${THIRD_PARTY_NOC})
+
+# Add other include directories
+set(EXTRA_INCLUDE_DIRS ${EXTRA_INCLUDE_DIRS} "thirdparty")
 
 add_executable(vectrexy ${SRC} ${MANIFEST_FILE})
 
