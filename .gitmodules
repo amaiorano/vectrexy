@@ -1,0 +1,3 @@
+[submodule "thirdparty/noc"]
+	path = thirdparty/noc
+	url = https://github.com/amaiorano/noc.git
