@@ -87,8 +87,16 @@ namespace Platform {
 
 #elif defined(PLATFORM_LINUX)
 
+#include <signal.h>
+
 namespace {
     std::function<bool()> g_consoleCtrlHandler;
+    void ConsoleCtrlHandler(int /*signum*/) {
+        assert(g_consoleCtrlHandler);
+        bool result = g_consoleCtrlHandler();
+        (void)result; // On Linux, result isn't returned
+    }
+
     bool g_consoleColorEnabled = true;
 } // namespace
 
@@ -99,6 +107,13 @@ namespace Platform {
 
     void SetConsoleCtrlHandler(std::function<bool()> handler) {
         g_consoleCtrlHandler = std::move(handler);
+
+        struct sigaction sa;
+        sa.sa_handler = g_consoleCtrlHandler ? ConsoleCtrlHandler : SIG_DFL;
+        sigemptyset(&sa.sa_mask);
+        sa.sa_flags = SA_RESTART; // Restart functions if interrupted by handler
+        auto result = sigaction(SIGINT, &sa, NULL);
+        assert(result == 0);
     }
 
     std::function<bool()> GetConsoleCtrlHandler() { return g_consoleCtrlHandler; }
