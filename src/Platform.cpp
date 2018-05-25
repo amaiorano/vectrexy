@@ -80,6 +80,21 @@ namespace Platform {
         return {static_cast<ConsoleColor>(foreground), static_cast<ConsoleColor>(background)};
     }
 
+    std::string ConsoleReadLine(const char* prompt) {
+        printf(prompt);
+        std::string result;
+        while (true) {
+            fflush(stdout);
+            if (const auto& stream = std::getline(std::cin, result))
+                return result;
+
+            // getline will fail under certain conditions, like when Ctrl+C is pressed, in
+            // which case we just clear the stream status and restart the loop.
+            std::cin.clear();
+        }
+        return {};
+    }
+
     void ExecuteShellCommand(const char* command) {
         ::ShellExecute(NULL, "open", command, NULL, NULL, SW_SHOWNORMAL);
     }
@@ -87,6 +102,7 @@ namespace Platform {
 
 #elif defined(PLATFORM_LINUX)
 
+#include "linenoise/linenoise.h"
 #include <signal.h>
 
 namespace {
@@ -134,6 +150,21 @@ namespace Platform {
 
     std::tuple<ConsoleColor, ConsoleColor> GetConsoleColor() {
         return {ConsoleColor::Black, ConsoleColor::White};
+    }
+
+    std::string ConsoleReadLine(const char* prompt) {
+        while (true) {
+            fflush(stdout);
+            if (char* line = linenoise(prompt)) {
+                std::string result = line;
+                linenoiseHistoryAdd(line);
+                free(line);
+                return result;
+            }
+            // linenoise returns nullptr under certain conditions, like if Ctrl+C is pressed, so we
+            // just keep looping until we get a valid string.
+        }
+        return {};
     }
 
     void ExecuteShellCommand(const char* command) {}

@@ -44,6 +44,11 @@ source_group("src\\shaders" FILES ${SHADER_SRC})
 file(GLOB THIRD_PARTY_NOC "thirdparty/noc/noc_file_dialog.h")
 source_group("thirdparty\\noc" FILES ${THIRD_PARTY_NOC})
 set(SRC ${SRC_ROOT} ${IMGUI_IMPL_SRC} ${SHADER_SRC} ${THIRD_PARTY_NOC})
+if (LINUX)
+	file(GLOB THIRD_PARTY_NOC "thirdparty/linenoise/linenoise.*")
+	source_group("thirdparty\\linenoise" FILES ${THIRD_PARTY_LINENOISE})
+endif()
+set(SRC ${SRC_ROOT} ${IMGUI_IMPL_SRC} ${SHADER_SRC} ${THIRD_PARTY_NOC} ${THIRD_PARTY_LINENOISE})
 
 # Add other include directories
 set(EXTRA_INCLUDE_DIRS ${EXTRA_INCLUDE_DIRS} "thirdparty")

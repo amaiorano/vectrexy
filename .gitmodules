@@ -1,3 +1,6 @@
 [submodule "thirdparty/noc"]
 	path = thirdparty/noc
 	url = https://github.com/amaiorano/noc.git
+[submodule "thirdparty/linenoise"]
+	path = thirdparty/linenoise
+	url = https://github.com/amaiorano/linenoise.git

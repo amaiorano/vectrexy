@@ -54,6 +54,9 @@ namespace Platform {
         std::tuple<ConsoleColor, ConsoleColor> m_color;
     };
 
+    // Prints prompt and blocks waiting for a line of text to be entered
+    std::string ConsoleReadLine(const char* prompt);
+
     std::optional<std::string> OpenFileDialog(const char* title = "Open",
                                               const char* filterName = "All files",
                                               const char* filterTypes = "*.*",

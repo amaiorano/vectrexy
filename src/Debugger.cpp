@@ -898,7 +898,6 @@ bool Debugger::FrameUpdate(double frameTime, const Input& input, const EmuEvents
                                               Platform::ConsoleColor::Black);
 
     if (m_breakIntoDebugger || !m_pendingCommands.empty()) {
-        Printf("$%04x (%s)>", m_cpu->Registers().PC, m_lastCommand.c_str());
 
         Platform::ScopedConsoleColor defaultOutputColor(Platform::ConsoleColor::LightAqua);
 
@@ -911,15 +910,9 @@ bool Debugger::FrameUpdate(double frameTime, const Input& input, const EmuEvents
             FlushStream(ConsoleStream::Output);
 
         } else {
-            const auto& stream = std::getline(std::cin, inputCommand);
-
-            if (!stream) {
-                // getline will fail under certain conditions, like when Ctrl+C is pressed, in which
-                // case we just clear the stream status and restart the loop.
-                std::cin.clear();
-                std::cout << std::endl;
-                return true;
-            }
+            auto prompt =
+                FormattedString<>("$%04x (%s)>", m_cpu->Registers().PC, m_lastCommand.c_str());
+            inputCommand = Platform::ConsoleReadLine(prompt);
         }
 
         auto tokens = Tokenize(inputCommand);
