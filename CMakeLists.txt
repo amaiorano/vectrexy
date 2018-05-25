@@ -13,6 +13,10 @@ find_package(STB REQUIRED)
 find_package(Imgui REQUIRED)
 
 if (UNIX AND NOT APPLE)
+	set(LINUX true)
+endif()
+
+if (LINUX)
 	find_package(GTK2 2.4 REQUIRED gtk)
 	set(EXTRA_INCLUDE_DIRS ${EXTRA_INCLUDE_DIRS} ${GTK2_INCLUDE_DIRS})
 	set(EXTRA_LIBS ${EXTRA_LIBS} ${GTK2_LIBRARIES}) # required for filesystem
@@ -21,6 +25,8 @@ endif()
 # SDL2 dependent libs, required when linking against SDL2 static lib
 if (MSVC)
 	set(SDL2_REQUIRED_LIBS winmm.lib version.lib imm32.lib Ws2_32.lib Iphlpapi.lib)
+elseif (LINUX)
+	set(SDL2_REQUIRED_LIBS dl sndio)
 endif()
 
 # Enable DPI awareness on Windows 8+

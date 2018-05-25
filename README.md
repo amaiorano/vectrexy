@@ -70,25 +70,18 @@ vectrexy.sln ..
 
 Install:
 * gcc 8 or higher
+* CMake
 * [vcpkg](https://github.com/Microsoft/vcpkg)
 
-At this moment (5/16/2018), vcpkg for Linux doesn't build sdl2-net properly, so we need to get it using APT, along with sdl2 since it depends on it:
-
-```bash
-sudo apt-get install libsdl2-dev libsdl2-net-dev
-```
-
-We also need other Linux-specific libs:
+Install some Linux-specific libs we depend on:
 ```bah
-sudo apt-get install libgtk2.0-dev
+sudo apt-get install libgtk2.0-dev libsndio-dev
 ```
 
-(Note: this means we don't link statically against sdl2 and sdl2-net, which makes distribution more tricky).
-
-We can get the rest of the dependencies through vcpkg:
+Install the rest of the dependencies through vcpkg:
 ```bash
 cd ~/vcpkg
-./vcpkg install glew glm stb imgui
+./vcpkg install sdl2 sdl2-net glew glm stb
 ```
 
 Clone and build vectrexy using CMake:
