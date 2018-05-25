@@ -59,7 +59,7 @@ vcpkg install sdl2:x64-windows-static sdl2-net:x64-windows-static glew:x64-windo
 
 Clone and build vectrexy using CMake:
 ```bash
-git clone https://github.com/amaiorano/vectrexy.git
+git clone --recursive https://github.com/amaiorano/vectrexy.git
 cd vectrexy
 mkdir build && cd build
 cmake -G "Visual Studio 15 2017 Win64" -DCMAKE_TOOLCHAIN_FILE=C:/code/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-static ..
@@ -86,7 +86,7 @@ cd ~/vcpkg
 
 Clone and build vectrexy using CMake:
 ```bash
-git clone https://github.com/amaiorano/vectrexy.git
+git clone --recursive https://github.com/amaiorano/vectrexy.git
 cd vectrexy
 mkdir build && cd build
 cmake -DCMAKE_TOOLCHAIN_FILE=~/vcpkg/scripts/buildsystems/vcpkg.cmake ..
