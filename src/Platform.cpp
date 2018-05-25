@@ -11,9 +11,6 @@
 struct IUnknown; // Fix compile error in VS2017 15.3 when including windows.h
 #include <windows.h>
 
-// Undef the macro from windows.h so we can use the same name
-#undef SetConsoleTitle
-
 namespace {
     std::function<bool()> g_consoleCtrlHandler;
     BOOL WINAPI Win32ConsoleCtrlHandler(DWORD /*dwCtrlType*/) {
@@ -44,8 +41,6 @@ namespace Platform {
     }
 
     void SetConsoleFocus() { Platform::SetFocus(::GetConsoleWindow()); }
-
-    void SetConsoleTitle(const char* title) { ::SetConsoleTitleA(title); }
 
     void SetConsoleCtrlHandler(std::function<bool()> handler) {
         g_consoleCtrlHandler = std::move(handler);
@@ -101,8 +96,6 @@ namespace Platform {
     void SetFocus(WindowHandle windowHandle) {}
 
     void SetConsoleFocus() {}
-
-    void SetConsoleTitle(const char* title) {}
 
     void SetConsoleCtrlHandler(std::function<bool()> handler) {
         g_consoleCtrlHandler = std::move(handler);
