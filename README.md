@@ -81,7 +81,7 @@ sudo apt-get install libgtk2.0-dev libsndio-dev
 Install the rest of the dependencies through vcpkg:
 ```bash
 cd ~/vcpkg
-./vcpkg install sdl2 sdl2-net glew glm stb
+./vcpkg install sdl2 sdl2-net glew glm stb imgui
 ```
 
 Clone and build vectrexy using CMake:
