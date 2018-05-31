@@ -1,0 +1,63 @@
+language: cpp
+
+branches:
+  only:
+    #- master
+    # Build all branches
+    - /.*/
+
+env:
+  global:
+    - DEPS_DIR=${HOME}/deps
+    - secure: "GdizAkQ9Biz59hnmruV5jm8zpLrY/2BKY6q6+3jbStgvNeiWFAqlvpDirqj+rfCOwSvDQ3cPPwW8H2+IAvqZQoFdRElzwkDO0rI/qAgUgY6bTvrxWgayJAmHjWgUkr1uWsohDlo+CL5GsCFX8lJ2IfQm+/gNP+ayLZ17nZv9W2cwCRBMcw5c8ULHcE9razTa1lAxQhS4hgOGBs2iJV+CIaNzO7stcdQ6C/WQbhd77Raxy1xBaEuCc/cv1sjSm8IUrdLd5HiMEN4pjUhFVOkAQFMPdnqoFhLLMncYMCoOrck6cjIjJ1o+im1Zmb/EZjzOFXXS0f62adxVwIOyWBElhmjINy511+it2OFWV2lzL3SgFNSgw9lwNMtEDvYkTHmmWAyJlCsNnsqvZorjXd1vxgAt5dD5AXh2GQlfI6m3xP60PgPN7Y2EPT0CTgwakPfKNByQCyWW8SxKGYLbH54dR8leLCwI2ni5aTBTgtVGzwl5wQUGiXXym+GuOddRm2D89yhvgLqxNG3UnvRygQy7BwjAF/QEaqGNKgNmkC/luGqVncNVfz7IKOnivbeUKLgaz8c2qtKVbETiQKJg4fO7I8l9pp9w4SvCnAZyh42fPJxsEgol+/RjJdsDpFsd/WZLOnt0i8j70vE0/N1kVFaX4EYMkbU1IxX8VcnRRa4zjrw="
+    - secure: "BQPHdwAu3W04GHyBXdRwTyzUpQIlOUySWkAV2Ovklo76T8j0e2kagTO8jAQ9/s/79C1SrdWDOEwOSS1vmXd1dSa2ktWddJY0F4YO/suVE9ljNQpbcxQLzokXUfSmVdTWk3F/t+8NdSXTojV2qYj92OhmeXajMXzWS4xDSK8679ymXb3HY0lvOXHae16tKg6oGwVafEqi0Ec+YOUs6KhRe8yYGZ//F+bxtxq4Do/Kgz/HYlThXD0QRku+4iDrSRDmoUKAT2ZfHB/gUdPSPXu4urMGEV0yUjoMU7GeNaxOKQ2vDW+U9vHJaGaXb43xU4fPLTlyXfpS2UKMbuOIexbU10fz5A5gcLREy6SDzgpDlu/erfMz7xdJNtLbouPl9RwOhF9+2A1WRrLsyAownRhsLxoe+zphmYO2DGPTIRKKjCROOi1FMrA53WEr5Djx3H8LTL9KjHH3Dv3a3wCj1BRA5xDbs0PGMQZSyzts946NoaW7XMbQKVct/T4c49oU47RBGsYfrTxyqJZaRQBGdIZWOZ0Bu3bmluTewH9rI/zWmawYIo/rceaVvF8lQHqfLV0vfFlPzhuxepGjU7bJ+KuvQqBJI3MssBydn9zPg3IXZwMTMxEzdPA06YlBAL83TYkuOJx6MrkfqsrYc3rHZZbhl1b9JV47oj6fehl4LxaT3tI="
+
+matrix:
+  include:
+    - os: linux
+      dist: trusty
+      sudo: required
+      compiler: gcc-8
+      env:
+        - CC_COMPILER=gcc-8
+        - CXX_COMPILER=g++-8
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
+            - g++-8
+            - libsndio-dev
+            - libgtk2.0-dev
+
+before_install:
+  - export CXX_FLAGS=${CXX_FLAGS}" "${ENV_CXX_FLAGS}
+install:
+  # HACK: gcc 8.0.1 is missing movdirintrin.h so just download it. We need this for GLM and Vectrexy to build.
+  - sudo wget https://raw.githubusercontent.com/gcc-mirror/gcc/gcc-8-branch/gcc/config/i386/movdirintrin.h -P /usr/lib/gcc/x86_64-linux-gnu/8/include/
+
+  # Create deps dir
+  - mkdir -p ${DEPS_DIR}
+
+  # Set compiler vars
+  - export CC=${CC_COMPILER}
+  - export CXX=${CXX_COMPILER}
+
+  # Install vcpkg and dependencies
+  - git clone https://github.com/Microsoft/vcpkg.git ${DEPS_DIR}/vcpkg
+  - ${DEPS_DIR}/vcpkg/bootstrap-vcpkg.sh
+  - ${DEPS_DIR}/vcpkg/vcpkg install sdl2 sdl2-net glew glm stb imgui
+
+script:
+  - mkdir -p build && cd build
+  - cmake -DCMAKE_CXX_FLAGS=${CXX_FLAGS} -DCMAKE_TOOLCHAIN_FILE=${DEPS_DIR}/vcpkg/scripts/buildsystems/vcpkg.cmake ..
+  - make -j
+
+deploy:
+  skip_cleanup: true
+
+after_success:
+  - pushd $TRAVIS_BUILD_DIR
+  - bash ./package/package_linux.sh https://daroou.000webhostapp.com/vectrexy/package/
+  - curl -T vectrexy.zip -u $FTP_USER:$FTP_PASSWORD ftp://files.000webhost.com/public_html/vectrexy/build/vectrexy_linux.zip
+  - popd
