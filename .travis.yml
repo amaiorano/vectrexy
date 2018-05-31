@@ -53,9 +53,6 @@ script:
   - cmake -DCMAKE_CXX_FLAGS=${CXX_FLAGS} -DCMAKE_TOOLCHAIN_FILE=${DEPS_DIR}/vcpkg/scripts/buildsystems/vcpkg.cmake ..
   - make -j
 
-deploy:
-  skip_cleanup: true
-
 after_success:
   - pushd $TRAVIS_BUILD_DIR
   - bash ./package/package_linux.sh https://daroou.000webhostapp.com/vectrexy/package/
