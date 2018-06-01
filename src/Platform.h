@@ -62,6 +62,6 @@ namespace Platform {
                                               const char* filterTypes = "*.*",
                                               std::optional<fs::path> initialPath = {});
 
-    void ExecuteShellCommand(const char* command);
+    bool ExecuteShellCommand(const char* command);
 
 } // namespace Platform

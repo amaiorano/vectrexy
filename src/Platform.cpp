@@ -95,8 +95,9 @@ namespace Platform {
         return {};
     }
 
-    void ExecuteShellCommand(const char* command) {
+    bool ExecuteShellCommand(const char* command) {
         ::ShellExecute(NULL, "open", command, NULL, NULL, SW_SHOWNORMAL);
+        return true;
     }
 } // namespace Platform
 
@@ -104,6 +105,7 @@ namespace Platform {
 
 #include "linenoise/linenoise.h"
 #include <signal.h>
+#include <unistd.h>
 
 namespace {
     std::function<bool()> g_consoleCtrlHandler;
@@ -167,7 +169,18 @@ namespace Platform {
         return {};
     }
 
-    void ExecuteShellCommand(const char* command) {}
+    bool ExecuteShellCommand(const char* command) {
+        pid_t pid = fork();
+        if (pid == 0) {
+            // Child process
+            if (execlp("xdg-open", "xdg-open", command, NULL) < 0)
+                return false;
+        } else if (pid == -1) {
+            return false;
+        }
+        // Parent process
+        return true;
+    }
 } // namespace Platform
 
 #endif
