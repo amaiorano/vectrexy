@@ -18,6 +18,10 @@
 #include <iostream>
 #include <unordered_map>
 
+#include <gtk/gtk.h>
+// #include <gdk/gdk.h>
+// #include <gtk/gtkunixprint.h>
+
 // Include SDL_syswm.h for SDL_GetWindowWMInfo
 // This includes windows.h on Windows platforms, we have to do the usual dance of disabling certain
 // warnings and undef'ing certain macros
@@ -354,11 +358,104 @@ namespace {
 
 // Implement EngineClient free-standing functions
 void SetFocusMainWindow() {
-    Platform::SetFocus(GetMainWindowHandle());
+    // Platform::SetFocus(GetMainWindowHandle());
+    SDL_RaiseWindow(g_window);
+}
+
+// GtkWindow* g_consoleWindow = nullptr;
+#include <X11/Xlib.h>
+//#include <X11/Xutil.h>
+//#include <X11/Xmu/WinUtil.h>
+Window g_consoleWindow{};
+
+Window get_focus_window(Display* d){
+  Window w;
+  int revert_to;
+  printf("getting input focus window ... ");
+  XGetInputFocus(d, &w, &revert_to); // see man
+  /*if(xerror){
+    printf("fail\n");
+    exit(1);
+  }else*/ if(w == None){
+    printf("no focus window\n");
+    exit(1);
+  }else{
+    printf("success (window: %d)\n", (int)w);
+  }
+
+  return w;
+}
+
+Window get_top_window(Display* d, Window start){
+  Window w = start;
+  Window parent = start;
+  Window root = None;
+  Window *children;
+  unsigned int nchildren;
+  Status s;
+
+  printf("getting top window ... \n");
+  while (parent != root) {
+    w = parent;
+    s = XQueryTree(d, w, &root, &parent, &children, &nchildren); // see man
+
+    if (s)
+      XFree(children);
+
+    // if(xerror){
+    //   printf("fail\n");
+    //   exit(1);
+    // }
+
+    printf("  get parent (window: %d)\n", (int)w);
+  }
+
+  printf("success (window: %d)\n", (int)w);
+
+  return w;
 }
 
 void SetFocusConsole() {
-    Platform::SetConsoleFocus();
+    Display* display = XOpenDisplay(NULL);
+    if (g_consoleWindow == Window{}) {
+        int revert_to{};
+        //XGetInputFocus(display, &g_consoleWindow, &revert_to);
+        g_consoleWindow = get_focus_window(display);
+        //g_consoleWindow = get_top_window(display, g_consoleWindow);
+        return;
+    }
+
+    XRaiseWindow(display, g_consoleWindow);
+
+     // Main window identifier of your application
+    //WId win = winId();
+
+    XEvent event = { 0 };
+    event.xany.type = ClientMessage;
+    event.xclient.message_type = XInternAtom( display, "_NET_ACTIVE_WINDOW", False);
+    event.xclient.format = 32;
+    event.xclient.window = g_consoleWindow;
+    // event.xclient.serial = 0;
+    // event.xclient.send_event = True;
+    event.xclient.data.l[0] = 1;  /* source indication. 1 = application */
+    // event.xclient.data.l[1] = 0;//data->user_time;
+    // event.xclient.data.l[2] = 0;
+
+    XSendEvent( display, DefaultRootWindow(display), False, SubstructureRedirectMask | SubstructureNotifyMask, &event );
+    // XMapRaised( display, g_consoleWindow );
+
+    XFlush(display);
+
+
+    //XRaiseWindow(display, g_consoleWindow);
+    // X11_XFlush(display);
+
+    // SDL_Window consoleSDLWindow = *g_window;
+    // consoleSDLWindow.
+
+    // Platform::SetConsoleFocus();
+
+    // gtk_window_present(g_consoleWindow);
 }
 
 void ResetOverlay(const char* file) {
@@ -370,6 +467,8 @@ void SDLEngine::RegisterClient(IEngineClient& client) {
 }
 
 bool SDLEngine::Run(int argc, char** argv) {
+    SetFocusConsole();
+
     if (!FindAndSetRootPath(fs::path(fs::absolute(argv[0]))))
         return false;
 
@@ -382,6 +481,14 @@ bool SDLEngine::Run(int argc, char** argv) {
         std::cout << "SDLNet failed to init with error " << SDL_GetError() << std::endl;
         return false;
     }
+
+    // gtk_init_check(nullptr, nullptr);
+    // // auto screen = gdk_screen_get_default();
+    // // Errorf("Active screen: %x\n", screen);
+    // // auto window = gdk_screen_get_active_window(screen);
+    // auto window = gtk_application_get_active_window(nullptr);
+    // Errorf("Active window: %x\n", window);
+    // g_consoleWindow = window;
 
     g_options.Add<int>("windowX", -1);
     g_options.Add<int>("windowY", -1);

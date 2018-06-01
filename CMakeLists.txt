@@ -26,7 +26,7 @@ endif()
 if (MSVC)
 	set(SDL2_REQUIRED_LIBS winmm.lib version.lib imm32.lib Ws2_32.lib Iphlpapi.lib)
 elseif (LINUX)
-	set(SDL2_REQUIRED_LIBS dl sndio)
+	set(SDL2_REQUIRED_LIBS dl sndio X11)
 endif()
 
 # Enable DPI awareness on Windows 8+
