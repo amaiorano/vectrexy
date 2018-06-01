@@ -4,11 +4,12 @@ Vectrexy is a [Vectrex](https://en.wikipedia.org/wiki/Vectrex) emulator programm
 
 This project is open source and available on GitHub: https://github.com/amaiorano/vectrexy
 
-## Latest Build
+## Download Latest Build
 
-[![Build status](https://ci.appveyor.com/api/projects/status/0adcwixak7ul9oet?svg=true)](https://ci.appveyor.com/project/amaiorano/vectrexy)
+[Vectrexy for Windows (x64)](https://daroou.000webhostapp.com/vectrexy/build/vectrexy_win64.zip) [![Build status](https://ci.appveyor.com/api/projects/status/0adcwixak7ul9oet?svg=true)](https://ci.appveyor.com/project/amaiorano/vectrexy)
 
-Download: [Vectrexy (Windows 64-bit)](https://daroou.000webhostapp.com/vectrexy/build/vectrexy.zip)
+[Vectrexy for Linux (Ubuntu x64)](https://daroou.000webhostapp.com/vectrexy/build/vectrexy_linux64.zip) [![Build Status](https://travis-ci.org/amaiorano/vectrexy.svg?branch=master)](https://travis-ci.org/amaiorano/vectrexy)
+
 
 ## Twitch Development
 

@@ -2,9 +2,9 @@ language: cpp
 
 branches:
   only:
-    #- master
+    - master
     # Build all branches
-    - /.*/
+    #- /.*/
 
 git:
   # Need full depth for git describe (see package_linux.sh)
