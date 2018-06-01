@@ -33,6 +33,7 @@ matrix:
             - g++-8
             - libsndio-dev
             - libgtk2.0-dev
+            - lftp
 
 before_install:
   - export CXX_FLAGS=${CXX_FLAGS}" "${ENV_CXX_FLAGS}
@@ -58,5 +59,9 @@ script:
   - make -j
   - cd ..
   - bash ./package/package_linux.sh vectrexy_linux64 https://daroou.000webhostapp.com/vectrexy/package/
-  - ls -l
-  - curl -T vectrexy_linux64.zip -u $FTP_USER:$FTP_PASSWORD ftp://files.000webhost.com/public_html/vectrexy/build/vectrexy_linux64.zip
+  
+  # Force lftp to use IPv4, otherwise it fails to connect
+  - echo set dns:order inet > ~/.lftprc
+  - echo set net:max-retries 10 >> ~/.lftprc
+  - echo set net:persist-retries 10 >> ~/.lftprc
+  - lftp -c "debug 3; open -u $FTP_USER,$FTP_PASSWORD ftp://files.000webhost.com; put -O public_html/vectrexy/build/ vectrexy_linux64.zip"
