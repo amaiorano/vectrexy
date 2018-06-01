@@ -6,6 +6,10 @@ branches:
     # Build all branches
     - /.*/
 
+git:
+  # Need full depth for git describe (see package_linux.sh)
+  depth: false
+
 env:
   global:
     - DEPS_DIR=${HOME}/deps
@@ -52,9 +56,7 @@ script:
   - mkdir -p build && cd build
   - cmake -DCMAKE_CXX_FLAGS=${CXX_FLAGS} -DCMAKE_TOOLCHAIN_FILE=${DEPS_DIR}/vcpkg/scripts/buildsystems/vcpkg.cmake ..
   - make -j
-
-after_success:
-  - pushd $TRAVIS_BUILD_DIR
-  - bash ./package/package_linux.sh https://daroou.000webhostapp.com/vectrexy/package/
-  - curl -T vectrexy.zip -u $FTP_USER:$FTP_PASSWORD ftp://files.000webhost.com/public_html/vectrexy/build/vectrexy_linux.zip
-  - popd
+  - cd ..
+  - bash ./package/package_linux.sh vectrexy_linux64 https://daroou.000webhostapp.com/vectrexy/package/
+  - ls -l
+  - curl -T vectrexy_linux64.zip -u $FTP_USER:$FTP_PASSWORD ftp://files.000webhost.com/public_html/vectrexy/build/vectrexy_linux64.zip

@@ -1,11 +1,11 @@
-#!/bin/bash
+#!/bin/bash -x
 # Script creates a "vectrexy" folder root directory, populates it, and zips it as vectrexy.zip
 
-script_path="$( cd "$(dirname "$0")" ; pwd -P )"
-root_dir=$script_path/..
-echo $root_dir
-output_dir=$root_dir/vectrexy
-package_base_url=$1
+package_name=$1
+package_base_url=$2
+
+root_dir=$(pwd)
+output_dir=$root_dir/$package_name
 data_zip_url=$package_base_url/data.zip
 
 mkdir -p $output_dir
@@ -22,6 +22,6 @@ unzip data.zip -d $output_dir
 rm data.zip
 
 pushd $output_dir
-rm $root_dir/vectrexy.zip
-zip -r $root_dir/vectrexy.zip *
+rm $root_dir/${package_name}.zip
+zip -r $root_dir/${package_name}.zip *
 popd
