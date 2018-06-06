@@ -17,9 +17,9 @@ public:
     }
 
     void Clear() {
-        m_begin = &m_buffer.front();
+        m_begin = m_buffer.empty() ? nullptr : &m_buffer.front();
         m_front = m_back = m_begin;
-        m_end = &m_buffer.back() + 1;
+        m_end = m_buffer.empty() ? nullptr : &m_buffer.back() + 1;
         m_wrapped = 0;
     }
 
@@ -43,7 +43,7 @@ public:
 
     // Attempts to push numValues from source into buffer; will not go past the front pointer.
     // Returns number of values actually pushed.
-    size_t PushBack(T* source, size_t numValues) {
+    size_t PushBack(const T* source, size_t numValues) {
         assert(m_wrapped < 2);
         size_t numValuesActuallyWritten = 0;
 
