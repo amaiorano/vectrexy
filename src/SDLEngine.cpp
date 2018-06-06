@@ -8,6 +8,7 @@
 #include "Gui.h"
 #include "Options.h"
 #include "Platform.h"
+#include "SDLAudioDriver.h"
 #include "StringHelpers.h"
 #include "imgui_impl/imgui_impl_sdl_gl3.h"
 #include <SDL.h>
@@ -37,6 +38,7 @@ namespace {
     IEngineClient* g_client = nullptr;
     SDL_Window* g_window = NULL;
     SDL_GLContext g_glContext;
+    SDLAudioDriver g_audioDriver;
     Options g_options;
     namespace PauseSource {
         enum Type { Game, Menu, Size };
@@ -373,7 +375,7 @@ bool SDLEngine::Run(int argc, char** argv) {
     if (!FindAndSetRootPath(fs::path(fs::absolute(argv[0]))))
         return false;
 
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER) < 0) {
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER) < 0) {
         std::cout << "SDL cannot init with error " << SDL_GetError() << std::endl;
         return false;
     }
@@ -458,6 +460,8 @@ bool SDLEngine::Run(int argc, char** argv) {
     GLRender::Initialize(enableGLDebugging);
     GLRender::OnWindowResized(windowWidth, windowHeight);
 
+    g_audioDriver.Initialize();
+
     if (!g_client->Init(argc, argv)) {
         return false;
     }
@@ -521,6 +525,7 @@ bool SDLEngine::Run(int argc, char** argv) {
 
     g_client->Shutdown();
 
+    g_audioDriver.Shutdown();
     GLRender::Shutdown();
     ImGui_ImplSdlGL3_Shutdown();
 
