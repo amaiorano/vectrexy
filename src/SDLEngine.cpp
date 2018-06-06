@@ -521,6 +521,9 @@ bool SDLEngine::Run(int argc, char** argv) {
 
     g_client->Shutdown();
 
+    GLRender::Shutdown();
+    ImGui_ImplSdlGL3_Shutdown();
+
     SDL_DestroyWindow(g_window);
     SDLNet_Quit();
     SDL_Quit();
