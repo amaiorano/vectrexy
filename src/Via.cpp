@@ -34,8 +34,8 @@ namespace {
         const uint8_t MuxDisabled = BITS(0);
         const uint8_t MuxSelMask = BITS(1, 2);
         const uint8_t MuxSelShift = 1;
-        const uint8_t SoundBC1 = BITS(3);
-        const uint8_t SoundBDir = BITS(4);
+        const uint8_t SoundBC1 = BITS(3);  // Bus Control 1
+        const uint8_t SoundBDir = BITS(4); // Bus Direction
         const uint8_t Comparator = BITS(5);
         const uint8_t RampDisabled = BITS(7);
     } // namespace PortB
