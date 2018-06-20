@@ -2,11 +2,14 @@
 
 #include "Base.h"
 #include <array>
+#include <memory>
 
 // Implementation of the AY-3-8912 Programmable Sound Generator (PSG)
 
 class Psg {
 public:
+    void Init();
+
     void SetBDIR(bool enable) { m_BDIR = enable; }
     void SetBC1(bool enable) { m_BC1 = enable; }
     bool BDIR() const { return m_BDIR; }
@@ -20,6 +23,11 @@ public:
 
 private:
     void Clock();
+
+    uint8_t Read(uint16_t address);
+    void Write(uint16_t address, uint8_t value);
+
+    enum class Channel { A, B, C, NumTypes };
 
     enum class PsgMode {
         // Selected from BDIR (bit 1) and BC1 (bit 0) values
@@ -36,4 +44,6 @@ private:
     uint8_t m_DA{}; // Data/Address bus (DA7-DA0)
     uint8_t m_latchedAddress{};
     std::array<uint8_t, 16> m_registers;
+
+    std::unique_ptr<struct SquareWaveGenerator> m_squareWaveGenerators[(size_t)Channel::NumTypes];
 };

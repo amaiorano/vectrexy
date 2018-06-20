@@ -1,6 +1,55 @@
 #include "Psg.h"
 #include "BitOps.h"
 
+namespace {
+    namespace Register {
+        enum Type {
+            ChannelALow = 0,
+            ChannelAHigh = 1,
+            ChannelBLow = 2,
+            ChannelBHigh = 3,
+            ChannelCLow = 4,
+            ChannelCHigh = 5,
+        };
+    }
+} // namespace
+
+struct SquareWaveGenerator {
+    uint32_t m_period{}; // 12 bit value [0,4095]
+    uint32_t m_currPeriodCounter{};
+    uint16_t m_value{};
+
+    const uint32_t MinPeriod = 16; // Psg hardware always counts min 16
+
+    void SetPeriodHigh(uint8_t high) {
+        assert(high <= 0xf); // Only 4 bits should be set
+        m_period |= high << 16;
+    }
+    void SetPeriodLow(uint8_t low) { m_period |= low; }
+
+    uint8_t PeriodHigh() const {
+        return checked_static_cast<uint8_t>(m_period >> 16); // Top 12 bits
+    }
+    uint8_t PeriodLow() const { return checked_static_cast<uint8_t>(m_period & 0xff); }
+
+    void Clock() {
+        if (--m_currPeriodCounter == 0) {
+            m_value = m_value == 0 ? 1 : 0;
+            m_currPeriodCounter = m_period + MinPeriod;
+        }
+    }
+
+    uint16_t Value() const { m_value; }
+};
+
+void Psg::Init() {
+    for (auto& swg : m_squareWaveGenerators) {
+        swg.reset(new SquareWaveGenerator{});
+    }
+
+    Reset();
+}
+
 void Psg::WriteDA(uint8_t value) {
     m_DA = value;
 }
@@ -12,6 +61,7 @@ uint8_t Psg::ReadDA() {
 void Psg::Reset() {
     m_mode = {};
     m_DA = {};
+    m_registers.fill(0);
 }
 
 void Psg::Update(cycles_t cycles) {
@@ -36,12 +86,12 @@ void Psg::Clock() {
         break;
     case PsgMode::Read:
         if (lastMode == PsgMode::Inactive) {
-            m_DA = m_registers[m_latchedAddress];
+            m_DA = Read(m_latchedAddress);
         }
         break;
     case PsgMode::Write:
         if (lastMode == PsgMode::Inactive) {
-            m_registers[m_latchedAddress] = m_DA;
+            Write(m_latchedAddress, m_DA);
         }
         break;
     case PsgMode::LatchAddress:
@@ -50,4 +100,46 @@ void Psg::Clock() {
         }
         break;
     }
+
+    for (auto& swg : m_squareWaveGenerators) {
+        swg->Clock();
+    }
+}
+
+uint8_t Psg::Read(uint16_t address) {
+    switch (m_latchedAddress) {
+    case Register::ChannelAHigh:
+        return m_squareWaveGenerators[0]->PeriodHigh();
+    case Register::ChannelALow:
+        return m_squareWaveGenerators[0]->PeriodLow();
+    case Register::ChannelBHigh:
+        return m_squareWaveGenerators[1]->PeriodHigh();
+    case Register::ChannelBLow:
+        return m_squareWaveGenerators[1]->PeriodLow();
+    case Register::ChannelCHigh:
+        return m_squareWaveGenerators[2]->PeriodHigh();
+    case Register::ChannelCLow:
+        return m_squareWaveGenerators[2]->PeriodLow();
+    }
+
+    return m_registers[address];
+}
+
+void Psg::Write(uint16_t address, uint8_t value) {
+    switch (m_latchedAddress) {
+    case Register::ChannelAHigh:
+        return m_squareWaveGenerators[0]->SetPeriodHigh(value);
+    case Register::ChannelALow:
+        return m_squareWaveGenerators[0]->SetPeriodLow(value);
+    case Register::ChannelBHigh:
+        return m_squareWaveGenerators[1]->SetPeriodHigh(value);
+    case Register::ChannelBLow:
+        return m_squareWaveGenerators[1]->SetPeriodLow(value);
+    case Register::ChannelCHigh:
+        return m_squareWaveGenerators[2]->SetPeriodHigh(value);
+    case Register::ChannelCLow:
+        return m_squareWaveGenerators[2]->SetPeriodLow(value);
+    }
+
+    m_registers[address] = value;
 }
