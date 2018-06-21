@@ -16,16 +16,21 @@ namespace {
 
 struct SquareWaveGenerator {
     uint32_t m_period{}; // 12 bit value [0,4095]
-    uint32_t m_currPeriodCounter{};
-    uint16_t m_value{};
+    uint32_t m_duty{};   // Period / 2 (number of clocks before oscilating)
+    uint32_t m_time{};   // Time in period
+    uint16_t m_value{};  // 0 or 1
 
-    const uint32_t MinPeriod = 16; // Psg hardware always counts min 16
+    const uint32_t PeriodScale = 16; // Psg hardware always counts min 16
 
     void SetPeriodHigh(uint8_t high) {
         assert(high <= 0xf); // Only 4 bits should be set
         m_period |= high << 16;
+        UpdateDuty();
     }
-    void SetPeriodLow(uint8_t low) { m_period |= low; }
+    void SetPeriodLow(uint8_t low) {
+        m_period |= low;
+        UpdateDuty();
+    }
 
     uint8_t PeriodHigh() const {
         return checked_static_cast<uint8_t>(m_period >> 16); // Top 12 bits
@@ -33,13 +38,20 @@ struct SquareWaveGenerator {
     uint8_t PeriodLow() const { return checked_static_cast<uint8_t>(m_period & 0xff); }
 
     void Clock() {
-        if (--m_currPeriodCounter == 0) {
+        if (--m_time == 0) {
             m_value = m_value == 0 ? 1 : 0;
-            m_currPeriodCounter = m_period + MinPeriod;
+            m_time = m_duty;
         }
     }
 
     uint16_t Value() const { m_value; }
+
+private:
+    void UpdateDuty() {
+        m_duty = (std::max<uint32_t>(1, m_period) * PeriodScale) / 2;
+        assert(m_duty > 0);
+        // Should we reset time?
+    }
 };
 
 void Psg::Init() {
