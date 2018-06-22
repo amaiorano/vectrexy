@@ -14,7 +14,6 @@
 #include "Ram.h"
 #include "SDLEngine.h"
 #include "SyncProtocol.h"
-#include "UnmappedMemoryDevice.h"
 #include "Via.h"
 #include <memory>
 #include <random>
@@ -43,7 +42,6 @@ private:
         m_via.Init(m_memoryBus);
         m_ram.Init(m_memoryBus);
         m_biosRom.Init(m_memoryBus);
-        m_unmapped.Init(m_memoryBus);
         m_illegal.Init(m_memoryBus);
         m_cartridge.Init(m_memoryBus);
         m_debugger.Init(m_memoryBus, m_cpu, m_via);
@@ -159,7 +157,6 @@ private:
     Via m_via;
     Ram m_ram;
     BiosRom m_biosRom;
-    UnmappedMemoryDevice m_unmapped;
     IllegalMemoryDevice m_illegal;
     Cartridge m_cartridge;
     Debugger m_debugger;

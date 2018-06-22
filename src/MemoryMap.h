@@ -31,12 +31,10 @@ namespace MemoryMap {
     };
 
     // Cartridge ROM space
-    constexpr auto Cartridge = Mapping(0x0000, 0x7FFF);
-    static_assert(Cartridge.physicalSize == 32768, "");
-
-    // Unmapped
-    constexpr auto Unmapped = Mapping(0x8000, 0xC7FF);
-    static_assert(Unmapped.physicalSize == 18432, "");
+    // Turns out the Vectrex can actually address 48K for the cartridge, although it documents the
+    // first 32K for cartridge, and the next 16K as "unmapped".
+    constexpr auto Cartridge = Mapping(0x0000, 0xC7FF);
+    static_assert(Cartridge.physicalSize == 32768 + 18432, "");
 
     // RAM 1 KB shadowed twice
     // NOTES:
