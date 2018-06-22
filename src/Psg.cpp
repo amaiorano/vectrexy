@@ -20,29 +20,28 @@ namespace {
     }
 
     namespace MixerControl {
-        enum Type {
-            ToneA = BITS(0),
-            ToneB = BITS(1),
-            ToneC = BITS(2),
-            NoiseA = BITS(3),
-            NoiseB = BITS(4),
-            NoiseC = BITS(5),
-            // Bits 6 and 7 are to control IO ports A and B, but we don't use this on Vectrex
-        };
+        const uint8_t ToneA = BITS(0);
+        const uint8_t ToneB = BITS(1);
+        const uint8_t ToneC = BITS(2);
+        const uint8_t NoiseA = BITS(3);
+        const uint8_t NoiseB = BITS(4);
+        const uint8_t NoiseC = BITS(5);
+        // Bits 6 and 7 are to control IO ports A and B, but we don't use this on Vectrex
 
-        bool IsEnabled(uint8_t reg, Type type) {
+        bool IsEnabled(uint8_t reg, uint8_t type) {
             // Enabled when bit is 0
             return !TestBits(reg, type);
         }
 
+        uint8_t ToneChannelByIndex(int index) { return ToneA << index; }
+        uint8_t NoiseChannelByIndex(int index) { return NoiseA << index; }
+
     } // namespace MixerControl
 
     namespace AmplitudeControl {
-        enum Type {
-            FixedVolume = BITS(0, 1, 2, 3),
-            EnvelopeMode = BITS(4),
-            Unused = BITS(5, 6, 7),
-        };
+        const uint8_t FixedVolume = BITS(0, 1, 2, 3);
+        const uint8_t EnvelopeMode = BITS(4);
+        const uint8_t Unused = BITS(5, 6, 7);
 
         enum class Mode { Fixed, Envelope };
         Mode GetMode(uint8_t reg) {
@@ -121,58 +120,50 @@ void Psg::Clock() {
         }
     }
 
-    auto SampleChannel = [this](Register::Type amplitudeRegister,
-                                MixerControl::Type toneMixerControl,
-                                MixerControl::Type noiseMixerControl) -> float {
-        assert(amplitudeRegister >= Register::AmplitudeA &&
-               amplitudeRegister <= Register::AmplitudeC);
+    auto GetChannelVolume = [](uint8_t& amplitudeRegister) {
+        if (AmplitudeControl::GetMode(amplitudeRegister) == AmplitudeControl::Mode::Fixed) {
+            return AmplitudeControl::GetFixedVolumeRatio(amplitudeRegister);
+        } else {
+            //@TODO: envelope volume...
+            return 0.f;
+        }
+    };
 
-        assert(toneMixerControl == MixerControl::ToneA || toneMixerControl == MixerControl::ToneB ||
-               toneMixerControl == MixerControl::ToneC);
+    auto SampleChannel = [&GetChannelVolume](uint8_t& amplitudeRegister,
+                                             uint8_t& mixerControlRegister, int index,
+                                             ToneGenerator& toneGenerator) -> float {
+        auto toneChannel = MixerControl::ToneChannelByIndex(index);
+        auto noiseChannel = MixerControl::NoiseChannelByIndex(index);
 
-        assert(noiseMixerControl == MixerControl::NoiseA ||
-               noiseMixerControl == MixerControl::NoiseB ||
-               noiseMixerControl == MixerControl::NoiseC);
-
-        const int toneGeneratorIndex = amplitudeRegister - Register::AmplitudeA;
-
-        auto& reg = m_registers[amplitudeRegister];
-
-        const float volume = [&reg] {
-            if (AmplitudeControl::GetMode(reg) == AmplitudeControl::Mode::Fixed) {
-                return AmplitudeControl::GetFixedVolumeRatio(reg);
-            } else {
-                //@TODO: envelope volume...
-                return 0.f;
-            }
-        }();
+        const float volume = GetChannelVolume(amplitudeRegister);
 
         if (volume == 0.f)
             return 0.f;
 
         float sample = 0;
         float numValues = 0;
-        if (MixerControl::IsEnabled(reg, toneMixerControl)) {
-            sample += m_toneGenerators[toneGeneratorIndex].Value();
+        if (MixerControl::IsEnabled(mixerControlRegister, toneChannel)) {
+            sample += toneGenerator.Value();
             ++numValues;
         }
 
-        if (MixerControl::IsEnabled(reg, noiseMixerControl)) {
+        if (MixerControl::IsEnabled(mixerControlRegister, noiseChannel)) {
             //@TODO:
             // sample += m_noiseGenerator.Value();
             //++numValues;
         }
-
-        // sample = numValues > 0 ? sample / numValues : sample;
 
         return sample * volume;
     };
 
     auto SampleAllChannels = [this, &SampleChannel] {
         float sample = 0.f;
-        sample += SampleChannel(Register::AmplitudeA, MixerControl::ToneA, MixerControl::NoiseA);
-        sample += SampleChannel(Register::AmplitudeB, MixerControl::ToneB, MixerControl::NoiseB);
-        sample += SampleChannel(Register::AmplitudeC, MixerControl::ToneC, MixerControl::NoiseC);
+        for (int i = 0; i < 3; ++i) {
+            auto& amplitudeRegister = m_registers[Register::AmplitudeA + i];
+            auto& mixerControlRegister = m_registers[Register::MixerControl];
+            sample +=
+                SampleChannel(amplitudeRegister, mixerControlRegister, i, m_toneGenerators[i]);
+        }
         sample /= 6;
         return sample;
     };
