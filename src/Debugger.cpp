@@ -1095,7 +1095,7 @@ bool Debugger::FrameUpdate(double frameTime, const Input& input, const EmuEvents
         } else if (tokens[0] == "option") {
             if (tokens.size() > 2) {
                 if (tokens[1] == "errors") {
-                    auto policy = ErrorHandler::g_policy;
+                    auto& policy = ErrorHandler::g_policy;
                     if (tokens[2] == "ignore")
                         policy = ErrorHandler::Policy::Ignore;
                     else if (tokens[2] == "log")
