@@ -2,7 +2,7 @@ version: '{branch}-{build}'
 branches:
   only:
   - master
-  - appveyor-local
+  - dev
 
 image: Visual Studio 2017
 configuration: RelWithDebInfo
@@ -61,7 +61,8 @@ artifacts:
   name: vectrexy_win64
 
 deploy:
-- provider: FTP
+- branch: master
+  provider: FTP
   host: files.000webhost.com
   protocol: ftp
   username: daroou
