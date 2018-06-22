@@ -89,6 +89,8 @@ private:
     uint8_t Read(uint16_t address);
     void Write(uint16_t address, uint8_t value);
 
+    float SampleChannelsAndMix();
+
     enum class PsgMode {
         // Selected from BDIR (bit 1) and BC1 (bit 0) values
         Inactive,    // BDIR off BC1 off

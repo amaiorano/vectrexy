@@ -120,6 +120,9 @@ void Psg::Clock() {
         }
     }
 
+}
+
+float Psg::SampleChannelsAndMix() {
     auto GetChannelVolume = [](uint8_t& amplitudeRegister) {
         if (AmplitudeControl::GetMode(amplitudeRegister) == AmplitudeControl::Mode::Fixed) {
             return AmplitudeControl::GetFixedVolumeRatio(amplitudeRegister);
@@ -156,17 +159,15 @@ void Psg::Clock() {
         return sample * volume;
     };
 
-    auto SampleAllChannels = [this, &SampleChannel] {
-        float sample = 0.f;
-        for (int i = 0; i < 3; ++i) {
-            auto& amplitudeRegister = m_registers[Register::AmplitudeA + i];
-            auto& mixerControlRegister = m_registers[Register::MixerControl];
-            sample +=
-                SampleChannel(amplitudeRegister, mixerControlRegister, i, m_toneGenerators[i]);
-        }
-        sample /= 6;
-        return sample;
-    };
+    // Sample and mix each of the 3 channels
+    float sample = 0.f;
+    for (int i = 0; i < 3; ++i) {
+        auto& amplitudeRegister = m_registers[Register::AmplitudeA + i];
+        auto& mixerControlRegister = m_registers[Register::MixerControl];
+        sample += SampleChannel(amplitudeRegister, mixerControlRegister, i, m_toneGenerators[i]);
+    }
+    sample /= 6;
+    return sample;
 }
 
 uint8_t Psg::Read(uint16_t address) {
