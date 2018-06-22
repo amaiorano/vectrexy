@@ -12,6 +12,10 @@ namespace {
             ChannelCHigh = 5,
 
             MixerControl = 7,
+
+            AmplitudeA = 10,
+            AmplitudeB = 11,
+            AmplitudeC = 12,
         };
     }
 
@@ -32,6 +36,25 @@ namespace {
         }
 
     } // namespace MixerControl
+
+    namespace AmplitudeControl {
+        enum Type {
+            FixedVolume = BITS(0, 1, 2, 3),
+            EnvelopeMode = BITS(4),
+            Unused = BITS(5, 6, 7),
+        };
+
+        enum class Mode { Fixed, Envelope };
+        Mode GetMode(uint8_t reg) {
+            return TestBits(reg, EnvelopeMode) ? Mode::Envelope : Mode::Fixed;
+        }
+
+        float GetFixedVolumeRatio(uint8_t reg) {
+            assert(GetMode(reg) == Mode::Fixed);
+            return ReadBits(reg, FixedVolume) / 16.f;
+        }
+
+    } // namespace AmplitudeControl
 } // namespace
 
 void Psg::Init() {
@@ -98,8 +121,58 @@ void Psg::Clock() {
         }
     }
 
-    //@TODO: when we need to create a sample...
-    // if (MixerControl::IsEnabled(m_registers[Register::MixerControl], MixerControl::ToneA)) {...}
+    auto SampleChannel = [this](Register::Type amplitudeRegister,
+                                MixerControl::Type toneMixerControl,
+                                MixerControl::Type noiseMixerControl) -> float {
+        assert(amplitudeRegister >= Register::AmplitudeA &&
+               amplitudeRegister <= Register::AmplitudeC);
+        assert(TestBits(toneMixerControl,
+                        MixerControl::ToneA | MixerControl::ToneB | MixerControl::ToneC));
+        assert(TestBits(noiseMixerControl,
+                        MixerControl::NoiseA | MixerControl::NoiseB | MixerControl::NoiseC));
+
+        const int toneGeneratorIndex = amplitudeRegister - Register::AmplitudeA;
+
+        auto& reg = m_registers[amplitudeRegister];
+
+        const float volume = [&reg] {
+            if (AmplitudeControl::GetMode(reg) == AmplitudeControl::Mode::Fixed) {
+                return AmplitudeControl::GetFixedVolumeRatio(reg);
+            } else {
+                //@TODO: envelope volume...
+                return 0.f;
+            }
+        }();
+
+        if (volume == 0.f)
+            return 0.f;
+
+        float sample = 0;
+        float numValues = 0;
+        if (MixerControl::IsEnabled(reg, toneMixerControl)) {
+            sample += m_squareWaveGenerators[toneGeneratorIndex].Value();
+            ++numValues;
+        }
+
+        if (MixerControl::IsEnabled(reg, noiseMixerControl)) {
+            //@TODO:
+            // sample += m_noiseGenerator.Value();
+            //++numValues;
+        }
+
+        // sample = numValues > 0 ? sample / numValues : sample;
+
+        return sample * volume;
+    };
+
+    auto SampleAllChannels = [this, &SampleChannel] {
+        float sample = 0.f;
+        sample += SampleChannel(Register::AmplitudeA, MixerControl::ToneA, MixerControl::NoiseA);
+        sample += SampleChannel(Register::AmplitudeB, MixerControl::ToneB, MixerControl::NoiseB);
+        sample += SampleChannel(Register::AmplitudeC, MixerControl::ToneC, MixerControl::NoiseC);
+        sample /= 6;
+        return sample;
+    };
 }
 
 uint8_t Psg::Read(uint16_t address) {

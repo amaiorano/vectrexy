@@ -49,7 +49,7 @@ public:
         }
     }
 
-    uint16_t Value() const { m_value; }
+    uint16_t Value() const { return m_value; }
 
 private:
     uint32_t m_period{}; // 12 bit value [0,4095]
@@ -63,6 +63,8 @@ private:
         // Should we reset time?
     }
 };
+
+class NoiseGenerator {};
 
 // Implementation of the AY-3-8912 Programmable Sound Generator (PSG)
 
