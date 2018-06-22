@@ -126,10 +126,13 @@ void Psg::Clock() {
                                 MixerControl::Type noiseMixerControl) -> float {
         assert(amplitudeRegister >= Register::AmplitudeA &&
                amplitudeRegister <= Register::AmplitudeC);
-        assert(TestBits(toneMixerControl,
-                        MixerControl::ToneA | MixerControl::ToneB | MixerControl::ToneC));
-        assert(TestBits(noiseMixerControl,
-                        MixerControl::NoiseA | MixerControl::NoiseB | MixerControl::NoiseC));
+
+        assert(toneMixerControl == MixerControl::ToneA || toneMixerControl == MixerControl::ToneB ||
+               toneMixerControl == MixerControl::ToneC);
+
+        assert(noiseMixerControl == MixerControl::NoiseA ||
+               noiseMixerControl == MixerControl::NoiseB ||
+               noiseMixerControl == MixerControl::NoiseC);
 
         const int toneGeneratorIndex = amplitudeRegister - Register::AmplitudeA;
 
