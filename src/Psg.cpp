@@ -72,8 +72,11 @@ void Psg::Clock() {
         break;
     }
 
-    for (auto& swg : m_squareWaveGenerators) {
-        swg.Clock();
+    // Clock generators every 16 input clocks
+    if (m_masterDivider.Clock()) {
+        for (auto& swg : m_squareWaveGenerators) {
+            swg.Clock();
+        }
     }
 }
 
