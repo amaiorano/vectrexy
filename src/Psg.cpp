@@ -10,8 +10,28 @@ namespace {
             ChannelBHigh = 3,
             ChannelCLow = 4,
             ChannelCHigh = 5,
+
+            MixerControl = 7,
         };
     }
+
+    namespace MixerControl {
+        enum Type {
+            ToneA = BITS(0),
+            ToneB = BITS(1),
+            ToneC = BITS(2),
+            NoiseA = BITS(3),
+            NoiseB = BITS(4),
+            NoiseC = BITS(5),
+            // Bits 6 and 7 are to control IO ports A and B, but we don't use this on Vectrex
+        };
+
+        bool IsEnabled(uint8_t reg, Type type) {
+            // Enabled when bit is 0
+            return !TestBits(reg, type);
+        }
+
+    } // namespace MixerControl
 } // namespace
 
 void Psg::Init() {
@@ -30,9 +50,8 @@ void Psg::Reset() {
     m_mode = {};
     m_DA = {};
     m_registers.fill(0);
-    for (auto& swg : m_squareWaveGenerators) {
-        swg = {};
-    }
+    m_masterDivider.Reset();
+    m_squareWaveGenerators = {};
 }
 
 void Psg::Update(cycles_t cycles) {
@@ -78,6 +97,9 @@ void Psg::Clock() {
             swg.Clock();
         }
     }
+
+    //@TODO: when we need to create a sample...
+    // if (MixerControl::IsEnabled(m_registers[Register::MixerControl], MixerControl::ToneA)) {...}
 }
 
 uint8_t Psg::Read(uint16_t address) {
@@ -113,6 +135,9 @@ void Psg::Write(uint16_t address, uint8_t value) {
         return m_squareWaveGenerators[2].SetPeriodHigh(value);
     case Register::ChannelCLow:
         return m_squareWaveGenerators[2].SetPeriodLow(value);
+    case Register::MixerControl:
+        ASSERT_MSG(ReadBits(value, 0b1100'0000) == 0, "Not supporting I/O ports on PSG");
+        break;
     }
 
     m_registers[address] = value;

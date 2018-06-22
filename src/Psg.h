@@ -87,8 +87,6 @@ private:
     uint8_t Read(uint16_t address);
     void Write(uint16_t address, uint8_t value);
 
-    enum class Channel { A, B, C };
-
     enum class PsgMode {
         // Selected from BDIR (bit 1) and BC1 (bit 0) values
         Inactive,    // BDIR off BC1 off
@@ -103,7 +101,7 @@ private:
     bool m_BC1{};
     uint8_t m_DA{}; // Data/Address bus (DA7-DA0)
     uint8_t m_latchedAddress{};
-    std::array<uint8_t, 16> m_registers;
+    std::array<uint8_t, 16> m_registers{};
     Divider m_masterDivider{16}; // Input clock divided by 16
-    std::array<SquareWaveGenerator, 3> m_squareWaveGenerators;
+    std::array<SquareWaveGenerator, 3> m_squareWaveGenerators{};
 };
