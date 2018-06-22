@@ -25,7 +25,7 @@ private:
     uint32_t m_counter{};
 };
 
-class SquareWaveGenerator {
+class ToneGenerator {
 public:
     void SetPeriodHigh(uint8_t high) {
         assert(high <= 0xf); // Only 4 bits should be set
@@ -105,5 +105,5 @@ private:
     uint8_t m_latchedAddress{};
     std::array<uint8_t, 16> m_registers{};
     Divider m_masterDivider{16}; // Input clock divided by 16
-    std::array<SquareWaveGenerator, 3> m_squareWaveGenerators{};
+    std::array<ToneGenerator, 3> m_toneGenerators{};
 };

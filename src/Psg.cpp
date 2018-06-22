@@ -74,7 +74,7 @@ void Psg::Reset() {
     m_DA = {};
     m_registers.fill(0);
     m_masterDivider.Reset();
-    m_squareWaveGenerators = {};
+    m_toneGenerators = {};
 }
 
 void Psg::Update(cycles_t cycles) {
@@ -116,7 +116,7 @@ void Psg::Clock() {
 
     // Clock generators every 16 input clocks
     if (m_masterDivider.Clock()) {
-        for (auto& swg : m_squareWaveGenerators) {
+        for (auto& swg : m_toneGenerators) {
             swg.Clock();
         }
     }
@@ -153,7 +153,7 @@ void Psg::Clock() {
         float sample = 0;
         float numValues = 0;
         if (MixerControl::IsEnabled(reg, toneMixerControl)) {
-            sample += m_squareWaveGenerators[toneGeneratorIndex].Value();
+            sample += m_toneGenerators[toneGeneratorIndex].Value();
             ++numValues;
         }
 
@@ -181,17 +181,17 @@ void Psg::Clock() {
 uint8_t Psg::Read(uint16_t address) {
     switch (m_latchedAddress) {
     case Register::ChannelAHigh:
-        return m_squareWaveGenerators[0].PeriodHigh();
+        return m_toneGenerators[0].PeriodHigh();
     case Register::ChannelALow:
-        return m_squareWaveGenerators[0].PeriodLow();
+        return m_toneGenerators[0].PeriodLow();
     case Register::ChannelBHigh:
-        return m_squareWaveGenerators[1].PeriodHigh();
+        return m_toneGenerators[1].PeriodHigh();
     case Register::ChannelBLow:
-        return m_squareWaveGenerators[1].PeriodLow();
+        return m_toneGenerators[1].PeriodLow();
     case Register::ChannelCHigh:
-        return m_squareWaveGenerators[2].PeriodHigh();
+        return m_toneGenerators[2].PeriodHigh();
     case Register::ChannelCLow:
-        return m_squareWaveGenerators[2].PeriodLow();
+        return m_toneGenerators[2].PeriodLow();
     }
 
     return m_registers[address];
@@ -200,17 +200,17 @@ uint8_t Psg::Read(uint16_t address) {
 void Psg::Write(uint16_t address, uint8_t value) {
     switch (m_latchedAddress) {
     case Register::ChannelAHigh:
-        return m_squareWaveGenerators[0].SetPeriodHigh(value);
+        return m_toneGenerators[0].SetPeriodHigh(value);
     case Register::ChannelALow:
-        return m_squareWaveGenerators[0].SetPeriodLow(value);
+        return m_toneGenerators[0].SetPeriodLow(value);
     case Register::ChannelBHigh:
-        return m_squareWaveGenerators[1].SetPeriodHigh(value);
+        return m_toneGenerators[1].SetPeriodHigh(value);
     case Register::ChannelBLow:
-        return m_squareWaveGenerators[1].SetPeriodLow(value);
+        return m_toneGenerators[1].SetPeriodLow(value);
     case Register::ChannelCHigh:
-        return m_squareWaveGenerators[2].SetPeriodHigh(value);
+        return m_toneGenerators[2].SetPeriodHigh(value);
     case Register::ChannelCLow:
-        return m_squareWaveGenerators[2].SetPeriodLow(value);
+        return m_toneGenerators[2].SetPeriodLow(value);
     case Register::MixerControl:
         ASSERT_MSG(ReadBits(value, 0b1100'0000) == 0, "Not supporting I/O ports on PSG");
         break;
