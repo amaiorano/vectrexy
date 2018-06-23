@@ -1,9 +1,4 @@
 version: '{branch}-{build}'
-branches:
-  only:
-  - master
-  - dev
-
 image: Visual Studio 2017
 configuration: RelWithDebInfo
 platform: x64
@@ -47,6 +42,7 @@ install:
     cmake -G "Visual Studio 15 2017 Win64" -DCMAKE_TOOLCHAIN_FILE=C:/projects/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-static ..
     
     cd ..
+
 build:
   project: C:\projects\vectrexy\
   parallel: true
@@ -60,19 +56,6 @@ artifacts:
 - path: vectrexy_win64/
   name: vectrexy_win64
 
-deploy:
-- branch: master
-  provider: FTP
-  host: files.000webhost.com
-  protocol: ftp
-  username: daroou
-  password:
-    secure: KoprVjPZkpO98R+JgKuAaZUXHrUVBwY6kPwdvaMTuqk=
-  folder: public_html/vectrexy/build
-  active_mode: false
-  beta: true
-  debug: true
-
 notifications:
 - provider: Email
   to:
@@ -80,3 +63,24 @@ notifications:
   on_build_success: true
   on_build_failure: true
   on_build_status_changed: true
+
+deploy: off
+
+for:
+
+# Deploy only for master branch
+-
+  branches:
+    only:
+    - master
+  deploy:
+    provider: FTP
+    host: files.000webhost.com
+    protocol: ftp
+    username: daroou
+    password:
+      secure: KoprVjPZkpO98R+JgKuAaZUXHrUVBwY6kPwdvaMTuqk=
+    folder: public_html/vectrexy/build
+    active_mode: false
+    beta: true
+    debug: true
