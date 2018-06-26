@@ -6,9 +6,14 @@ This project is open source and available on GitHub: https://github.com/amaioran
 
 ## Download Latest Build
 
-[Vectrexy for Windows (x64)](https://daroou.000webhostapp.com/vectrexy/build/vectrexy_win64.zip) [![Build status](https://ci.appveyor.com/api/projects/status/0adcwixak7ul9oet?svg=true)](https://ci.appveyor.com/project/amaiorano/vectrexy)
+Windows [![Build status](https://ci.appveyor.com/api/projects/status/0adcwixak7ul9oet?svg=true)](https://ci.appveyor.com/project/amaiorano/vectrexy)
 
-[Vectrexy for Linux (Ubuntu x64)](https://daroou.000webhostapp.com/vectrexy/build/vectrexy_linux64.zip) [![Build Status](https://travis-ci.org/amaiorano/vectrexy.svg?branch=master)](https://travis-ci.org/amaiorano/vectrexy)
+* [Vectrexy for Windows 64-bit](https://daroou.000webhostapp.com/vectrexy/build/vectrexy_win64.zip) 
+* [Vectrexy for Windows 32-bit](https://daroou.000webhostapp.com/vectrexy/build/vectrexy_win32.zip)
+
+Linux [![Build Status](https://travis-ci.org/amaiorano/vectrexy.svg?branch=master)](https://travis-ci.org/amaiorano/vectrexy)
+
+* [Vectrexy for Linux 64-bit](https://daroou.000webhostapp.com/vectrexy/build/vectrexy_linux64.zip) 
 
 
 ## Twitch Development
