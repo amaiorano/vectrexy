@@ -605,7 +605,7 @@ namespace GLRender {
         const double halfHeight = crtHeight / 2.0;
         g_projectionMatrix = glm::ortho(-halfWidth, halfWidth, -halfHeight, halfHeight);
 
-        g_modelViewMatrix = {};
+        g_modelViewMatrix = glm::mat4(1.0f);
 
         // (Re)create resources that depend on viewport size
         g_vectorsTexture[0].Allocate(crtWidth, crtHeight, GL_RGB32F);
