@@ -38,3 +38,4 @@ options.txt
 imgui.ini
 startup.txt
 trace*.txt
+*.raw
