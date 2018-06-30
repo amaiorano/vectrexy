@@ -809,7 +809,8 @@ void Debugger::SyncInstructionHash(SyncProtocol& syncProtocol,
 }
 
 bool Debugger::FrameUpdate(double frameTime, const Input& input, const EmuEvents& emuEvents,
-                           RenderContext& renderContext, SyncProtocol& syncProtocol) {
+                           RenderContext& renderContext, AudioContext& audioContext,
+                           SyncProtocol& syncProtocol) {
 
     int numInstructionsExecutedThisFrame = 0;
 
@@ -872,7 +873,7 @@ bool Debugger::FrameUpdate(double frameTime, const Input& input, const EmuEvents
 
             cycles_t effectiveCycles = cpuCycles == 0 ? 10 : cpuCycles;
 
-            m_via->Update(effectiveCycles, input, renderContext);
+            m_via->Update(effectiveCycles, input, renderContext, audioContext);
             return effectiveCycles;
 
         } catch (std::exception& ex) {

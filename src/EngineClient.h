@@ -67,11 +67,19 @@ struct RenderContext {
     std::vector<Line> lines; // Lines to draw this frame
 };
 
+struct AudioContext {
+    AudioContext(float cpuCyclesPerAudioSample)
+        : CpuCyclesPerAudioSample(cpuCyclesPerAudioSample) {}
+
+    const float CpuCyclesPerAudioSample;
+    std::vector<float> samples; // Samples produced this frame
+};
+
 class IEngineClient {
 public:
     virtual bool Init(int argc, char** argv) = 0;
     virtual bool FrameUpdate(double frameTime, const Input& input, const EmuContext& emuContext,
-                             RenderContext& renderContext) = 0;
+                             RenderContext& renderContext, AudioContext& audioContext) = 0;
     virtual void Shutdown() = 0;
 };
 

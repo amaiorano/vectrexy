@@ -3,6 +3,7 @@
 #include "Line.h"
 #include "MemoryBus.h"
 #include "MemoryMap.h"
+#include "Psg.h"
 #include "Screen.h"
 #include "ShiftRegister.h"
 #include "Timers.h"
@@ -18,7 +19,8 @@ class Via : public IMemoryBusDevice {
 public:
     void Init(MemoryBus& memoryBus);
     void Reset();
-    void Update(cycles_t cycles, const Input& input, RenderContext& renderContext);
+    void Update(cycles_t cycles, const Input& input, RenderContext& renderContext,
+                AudioContext& audioContext);
     void FrameUpdate();
 
     bool IrqEnabled() const;
@@ -38,6 +40,7 @@ private:
     uint8_t m_interruptEnable;
 
     Screen m_screen;
+    Psg m_psg;
     Timer1 m_timer1;
     Timer2 m_timer2;
     ShiftRegister m_shiftRegister;

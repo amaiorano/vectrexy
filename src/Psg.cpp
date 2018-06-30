@@ -1,5 +1,6 @@
 #include "Psg.h"
 #include "BitOps.h"
+#include "EngineClient.h"
 
 namespace {
     namespace Register {
@@ -76,17 +77,17 @@ void Psg::Reset() {
     m_toneGenerators = {};
 }
 
-void Psg::Update(cycles_t cycles) {
+void Psg::Update(cycles_t cycles, AudioContext& audioContext) {
     for (cycles_t cycle = 0; cycle < cycles; ++cycle) {
-        Clock();
+        Clock(audioContext);
     }
 }
 
-void Psg::Clock() {
+void Psg::Clock(AudioContext& audioContext) {
     auto ModeFromBDIRandBC1 = [](bool BDIR, bool BC1) -> Psg::PsgMode {
         uint8_t value{};
-        SetBits(value, 1, BDIR);
-        SetBits(value, 0, BC1);
+        SetBits(value, 0b10, BDIR);
+        SetBits(value, 0b01, BC1);
         return static_cast<Psg::PsgMode>(value);
     };
 
@@ -120,16 +121,31 @@ void Psg::Clock() {
         }
     }
 
+    const float sample = SampleChannelsAndMix();
+
+    // Resample source to target sample rate
+    m_sampleSum += sample;
+    ++m_numSamples;
+    if (m_numSamples >= audioContext.CpuCyclesPerAudioSample) {
+        float outputSample = m_sampleSum / m_numSamples;
+        audioContext.samples.push_back(outputSample);
+        m_sampleSum = 0;
+        m_numSamples -= audioContext.CpuCyclesPerAudioSample;
+    }
 }
 
 float Psg::SampleChannelsAndMix() {
     auto GetChannelVolume = [](uint8_t& amplitudeRegister) {
-        if (AmplitudeControl::GetMode(amplitudeRegister) == AmplitudeControl::Mode::Fixed) {
-            return AmplitudeControl::GetFixedVolumeRatio(amplitudeRegister);
-        } else {
-            //@TODO: envelope volume...
-            return 0.f;
-        }
+        // if (AmplitudeControl::GetMode(amplitudeRegister) == AmplitudeControl::Mode::Fixed) {
+        //    return AmplitudeControl::GetFixedVolumeRatio(amplitudeRegister);
+        //} else {
+        //    //@TODO: envelope volume...
+        //    Errorf("Envelope volume not yet implemented\n");
+        //    return 0.f;
+        //}
+
+        (void)amplitudeRegister;
+        return 1.f;
     };
 
     auto SampleChannel = [&GetChannelVolume](uint8_t& amplitudeRegister,
@@ -144,10 +160,8 @@ float Psg::SampleChannelsAndMix() {
             return 0.f;
 
         float sample = 0;
-        float numValues = 0;
         if (MixerControl::IsEnabled(mixerControlRegister, toneChannel)) {
             sample += toneGenerator.Value();
-            ++numValues;
         }
 
         if (MixerControl::IsEnabled(mixerControlRegister, noiseChannel)) {
@@ -166,7 +180,9 @@ float Psg::SampleChannelsAndMix() {
         auto& mixerControlRegister = m_registers[Register::MixerControl];
         sample += SampleChannel(amplitudeRegister, mixerControlRegister, i, m_toneGenerators[i]);
     }
-    sample /= 6;
+
+    sample /= 6.f;
+
     return sample;
 }
 

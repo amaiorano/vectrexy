@@ -99,7 +99,7 @@ private:
     }
 
     bool FrameUpdate(double frameTime, const Input& inputArg, const EmuContext& emuContext,
-                     RenderContext& renderContext) override {
+                     RenderContext& renderContext, AudioContext& audioContext) override {
         Input input = inputArg;
         EmuEvents& emuEvents = emuContext.emuEvents;
         Options& options = emuContext.options;
@@ -136,8 +136,8 @@ private:
             }
         }
 
-        bool keepGoing =
-            m_debugger.FrameUpdate(frameTime, input, emuEvents, renderContext, m_syncProtocol);
+        bool keepGoing = m_debugger.FrameUpdate(frameTime, input, emuEvents, renderContext,
+                                                audioContext, m_syncProtocol);
 
         m_via.FrameUpdate();
 

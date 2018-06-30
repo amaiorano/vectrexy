@@ -148,7 +148,8 @@ void Via::Reset() {
     SetBits(m_portB, PortB::RampDisabled, true);
 }
 
-void Via::Update(cycles_t cycles, const Input& input, RenderContext& renderContext) {
+void Via::Update(cycles_t cycles, const Input& input, RenderContext& renderContext,
+                 AudioContext& audioContext) {
     // Update cached input state
     m_joystickButtonState = input.ButtonStateMask();
 
@@ -169,6 +170,9 @@ void Via::Update(cycles_t cycles, const Input& input, RenderContext& renderConte
 
     m_firqEnabled = input.IsButtonDown(0, 3);
 
+    m_psg.Update(cycles, audioContext);
+
+    //@TODO: Move this code into a Clock() function and call it cycles number of times
     // For cycle-accurate drawing, we update our timers, shift register, and beam movement 1 cycle
     // at a time
     cycles_t cyclesLeft = cycles;
@@ -215,12 +219,19 @@ uint8_t Via::Read(uint16_t address) const {
         int8_t portASigned = static_cast<int8_t>(m_portA);
         SetBits(result, PortB::Comparator, portASigned < m_joystickPot);
 
+        SetBits(result, PortB::SoundBC1, m_psg.BC1());
+        SetBits(result, PortB::SoundBDir, m_psg.BDIR());
+
         return result;
     }
     case Register::PortA: {
         m_ca1InterruptFlag = false; // Cleared by read/write of Port A
 
         uint8_t result = m_portA;
+
+        // @TODO: Vectrex probably only ever reads from PSG to read joystick state. Right now we're
+        // reading joystick inputs directly here in the Via, so we'll skip reading DA value from PSG
+        // here. Eventually, we should move the joystick reading logic into PSG and clean this up.
 
         // Digital input
         if (!TestBits(m_portB, PortB::SoundBDir) && TestBits(m_portB, PortB::SoundBC1)) {
@@ -292,7 +303,7 @@ uint8_t Via::Read(uint16_t address) const {
 
 void Via::Write(uint16_t address, uint8_t value) {
 
-    auto UpdateIntegrators = [&] {
+    auto UpdateIntegratorsAndPsg = [&] {
         const bool muxEnabled = !TestBits(m_portB, PortB::MuxDisabled);
         if (muxEnabled) {
             switch (ReadBitsWithShift(m_portB, PortB::MuxSelMask, PortB::MuxSelShift)) {
@@ -312,7 +323,14 @@ void Via::Write(uint16_t address, uint8_t value) {
                 FAIL();
                 break;
             }
+        } else {
+            m_psg.SetBC1(TestBits(m_portB, PortB::SoundBC1));
+            m_psg.SetBDIR(TestBits(m_portB, PortB::SoundBDir));
+            // @TODO: not sure if we should always send port A value to PSG's DA bus, or just when
+            // MUX disabled
+            m_psg.WriteDA(m_portA);
         }
+
         // Always output to X-axis integrator
         m_screen.SetIntegratorX(static_cast<int8_t>(m_portA));
     };
@@ -321,7 +339,7 @@ void Via::Write(uint16_t address, uint8_t value) {
     switch (index) {
     case Register::PortB:
         m_portB = value;
-        UpdateIntegrators();
+        UpdateIntegratorsAndPsg();
         break;
 
     case Register::PortA:
@@ -331,7 +349,7 @@ void Via::Write(uint16_t address, uint8_t value) {
         // outputs, and to the X-axis integrator.
         m_portA = value;
         if (m_dataDirA == 0xFF) {
-            UpdateIntegrators();
+            UpdateIntegratorsAndPsg();
         }
         break;
 

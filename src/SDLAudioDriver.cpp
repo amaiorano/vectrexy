@@ -1,25 +1,44 @@
 #include "SDLAudioDriver.h"
 #include "CircularBuffer.h"
+#include "Gui.h"
 #include "Stream.h"
 #include <SDL.h>
 #include <SDL_audio.h>
+#include <array>
 
-#define OUTPUT_RAW_AUDIO_FILE_STREAM 0
+constexpr struct {
+    static const bool Enabled = true;
+
+    // Whether to output the source samples or the target samples
+    static const bool SourceSamples = false;
+
+} OutputRawAudioFileStream;
 
 namespace {
     template <SDL_AudioFormat Format>
-    struct FormatToType;
+    struct AudioFormat;
+
     template <>
-    struct FormatToType<AUDIO_S16> {
+    struct AudioFormat<AUDIO_S16> {
         typedef int16_t Type;
+        static Type Remap(float ratio) {
+            return static_cast<Type>(((ratio - 0.5f) * 2.f) *
+                                     (std::numeric_limits<Type>::max() - 1));
+        }
     };
+
     template <>
-    struct FormatToType<AUDIO_U16> {
+    struct AudioFormat<AUDIO_U16> {
         typedef uint16_t Type;
+        static Type Remap(float ratio) {
+            return static_cast<Type>(ratio * std::numeric_limits<Type>::max());
+        }
     };
+
     template <>
-    struct FormatToType<AUDIO_F32> {
+    struct AudioFormat<AUDIO_F32> {
         typedef float Type;
+        static Type Remap(float ratio) { return (ratio - 0.5f) * 2.f; }
     };
 } // namespace
 
@@ -32,7 +51,8 @@ public:
     static const int kNumChannels = 1;
     static const int kSamplesPerCallback = 1024;
 
-    typedef FormatToType<kSampleFormat>::Type SampleFormatType;
+    using CurrAudioFormat = AudioFormat<kSampleFormat>;
+    using SampleFormatType = CurrAudioFormat::Type;
 
     SDLAudioDriverImpl()
         : m_audioDeviceID(0) {}
@@ -52,8 +72,10 @@ public:
         desired.userdata = this;
 
         SDL_AudioSpec actual;
-        m_audioDeviceID = SDL_OpenAudioDevice(NULL, 0, &desired, &actual /*NULL*/ /*&m_audioSpec*/,
-                                              SDL_AUDIO_ALLOW_ANY_CHANGE);
+        // No changes allowed, meaning SDL will take care of converting our samples in our desired
+        // format to the actual target format.
+        int allowedChanges = 0;
+        m_audioDeviceID = SDL_OpenAudioDevice(NULL, 0, &desired, &actual, allowedChanges);
         m_audioSpec = desired;
 
         if (m_audioDeviceID == 0)
@@ -66,10 +88,11 @@ public:
             desiredLatencySamples * 2); // We wait until buffer is 50% full to start playing
         m_samples.Init(bufferSize);
 
-#if OUTPUT_RAW_AUDIO_FILE_STREAM
-        m_rawAudioOutputFS.Open("RawAudio.raw", "wb");
-#endif
+        if constexpr (OutputRawAudioFileStream.Enabled) {
+            m_rawAudioOutputFS.Open("RawAudio.raw", "wb");
+        }
 
+        m_paused = false;
         SetPaused(true);
     }
 
@@ -78,6 +101,41 @@ public:
 
         SDL_CloseAudioDevice(m_audioDeviceID);
         SDL_QuitSubSystem(SDL_INIT_AUDIO);
+    }
+
+    void Update(double /*frameTime*/) {
+        AdjustBufferFlow();
+
+        // Debug output
+        {
+            //@TODO: Control with option
+            Gui::EnabledWindows[Gui::Window::AudioDebug] = true;
+
+            static std::array<float, 10000> bufferUsageHistory;
+            static std::array<float, 10000> pauseHistory;
+            static int index = 0;
+
+            bufferUsageHistory[index] = GetBufferUsageRatio();
+            pauseHistory[index] = m_paused ? 0.f : 1.f;
+            index = (index + 1) % bufferUsageHistory.size();
+            if (index == 0) {
+                std::fill(bufferUsageHistory.begin(), bufferUsageHistory.end(), 0.f);
+                std::fill(pauseHistory.begin(), pauseHistory.end(), 0.f);
+            }
+
+            IMGUI_CALL(AudioDebug, ImGui::PlotLines("Buffer Usage", bufferUsageHistory.data(),
+                                                    (int)bufferUsageHistory.size(), 0, 0, 0.f, 1.f,
+                                                    ImVec2(0, 100.f)));
+
+            IMGUI_CALL(AudioDebug,
+                       ImGui::PlotLines("Unpaused", pauseHistory.data(), (int)pauseHistory.size(),
+                                        0, 0, 0.f, 1.f, ImVec2(0, 100.f)));
+
+            const auto color = m_paused ? IM_COL32(255, 0, 0, 255) : IM_COL32(255, 255, 0, 255);
+            IMGUI_CALL(AudioDebug, ImGui::PushStyleColor(ImGuiCol_PlotHistogram, color));
+            IMGUI_CALL(AudioDebug, ImGui::ProgressBar(GetBufferUsageRatio(), ImVec2(-1, 100)));
+            IMGUI_CALL(AudioDebug, ImGui::PopStyleColor());
+        }
     }
 
     size_t GetSampleRate() const { return m_audioSpec.freq; }
@@ -93,15 +151,7 @@ public:
         }
     }
 
-    void AddSampleF32(float sample) {
-        assert(sample >= 0.0f && sample <= 1.0f);
-        //@TODO: This multiply is wrong for signed format types (S16, S32)
-        float targetSample = sample * std::numeric_limits<SampleFormatType>::max();
-
-        SDL_LockAudioDevice(m_audioDeviceID);
-        m_samples.PushBack(static_cast<SampleFormatType>(targetSample));
-        SDL_UnlockAudioDevice(m_audioDeviceID);
-
+    void AdjustBufferFlow() {
         // Unpause when buffer is half full; pause if almost depleted to give buffer a chance to
         // fill up again.
         const auto bufferUsageRatio = GetBufferUsageRatio();
@@ -110,10 +160,26 @@ public:
         } else if (bufferUsageRatio < 0.1f) {
             SetPaused(true);
         }
+    }
 
-#if OUTPUT_RAW_AUDIO_FILE_STREAM
-        m_rawAudioOutputFS.WriteValue(sample);
-#endif
+    void AddSample(float sample) {
+        assert(sample >= 0.0f && sample <= 1.0f);
+        auto targetSample = CurrAudioFormat::Remap(sample);
+
+        SDL_LockAudioDevice(m_audioDeviceID);
+        m_samples.PushBack(targetSample);
+        SDL_UnlockAudioDevice(m_audioDeviceID);
+
+        // AdjustBufferFlow();
+
+        if constexpr (OutputRawAudioFileStream.Enabled && OutputRawAudioFileStream.SourceSamples) {
+            m_rawAudioOutputFS.WriteValue(sample);
+        }
+    }
+
+    void AddSamples(float* samples, size_t size) {
+        for (size_t i = 0; i < size; ++i)
+            AddSample(samples[i]);
     }
 
 private:
@@ -123,13 +189,20 @@ private:
 
         size_t numSamplesToRead = byteStreamLength / sizeof(SampleFormatType);
 
-        size_t numSamplesRead = audioDriver->m_samples.PopBack(stream, numSamplesToRead);
+        //@TODO: sync access to m_samples with a mutex here
+        size_t numSamplesRead = audioDriver->m_samples.PopFront(stream, numSamplesToRead);
 
         // If we haven't written enough samples, fill out the rest with the last sample
         // written. This will usually hide the error.
         if (numSamplesRead < numSamplesToRead) {
             SampleFormatType lastSample = numSamplesRead == 0 ? 0 : stream[numSamplesRead - 1];
             std::fill_n(stream + numSamplesRead, numSamplesToRead - numSamplesRead, lastSample);
+        }
+
+        if constexpr (OutputRawAudioFileStream.Enabled && !OutputRawAudioFileStream.SourceSamples) {
+            for (int i = 0; i < numSamplesToRead; ++i) {
+                audioDriver->m_rawAudioOutputFS.WriteValue(stream[i]);
+            }
         }
     }
 
@@ -151,6 +224,10 @@ void SDLAudioDriver::Shutdown() {
     m_impl->Shutdown();
 }
 
+void SDLAudioDriver::Update(double frameTime) {
+    m_impl->Update(frameTime);
+}
+
 size_t SDLAudioDriver::GetSampleRate() const {
     return m_impl->GetSampleRate();
 }
@@ -159,6 +236,10 @@ float SDLAudioDriver::GetBufferUsageRatio() const {
     return m_impl->GetBufferUsageRatio();
 }
 
-void SDLAudioDriver::AddSampleF32(float sample) {
-    m_impl->AddSampleF32(sample);
+void SDLAudioDriver::AddSample(float sample) {
+    m_impl->AddSample(sample);
+}
+
+void SDLAudioDriver::AddSamples(float* samples, size_t size) {
+    m_impl->AddSamples(samples, size);
 }

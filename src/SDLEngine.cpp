@@ -468,6 +468,12 @@ bool SDLEngine::Run(int argc, char** argv) {
 
     RenderContext renderContext{};
 
+    float CpuCyclesPerSec = 1'500'000;
+    // float PsgCyclesPerSec = CpuCyclesPerSec / 16;
+    // float PsgCyclesPerAudioSample = PsgCyclesPerSec / g_audioDriver.GetSampleRate();
+    float CpuCyclesPerAudioSample = CpuCyclesPerSec / g_audioDriver.GetSampleRate();
+    AudioContext audioContext{CpuCyclesPerAudioSample};
+
     bool quit = false;
     while (!quit) {
         PollEvents(quit);
@@ -505,8 +511,13 @@ bool SDLEngine::Run(int argc, char** argv) {
         HACK_Simulate3dImager(frameTime, input);
 
         if (!g_client->FrameUpdate(frameTime, input, {std::ref(emuEvents), std::ref(g_options)},
-                                   renderContext))
+                                   renderContext, audioContext))
             quit = true;
+
+        // Audio update
+        g_audioDriver.AddSamples(audioContext.samples.data(), audioContext.samples.size());
+        audioContext.samples.clear();
+        g_audioDriver.Update(frameTime);
 
         GLRender::RenderScene(frameTime, renderContext);
         ImGui_Render();

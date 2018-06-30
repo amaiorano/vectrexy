@@ -4,6 +4,8 @@
 #include <array>
 #include <memory>
 
+struct AudioContext;
+
 class Divider {
 public:
     Divider(uint32_t period = 0) {
@@ -27,13 +29,13 @@ private:
 
 class ToneGenerator {
 public:
-    void SetPeriodHigh(uint8_t high) {
+    void NO_INLINE_FUNC SetPeriodHigh(uint8_t high) {
         assert(high <= 0xf); // Only 4 bits should be set
-        m_period |= high << 16;
+        m_period = (high << 8) | (m_period & 0x00ff);
         UpdateDuty();
     }
-    void SetPeriodLow(uint8_t low) {
-        m_period |= low;
+    void NO_INLINE_FUNC SetPeriodLow(uint8_t low) {
+        m_period = (m_period & 0xff00) | low;
         UpdateDuty();
     }
 
@@ -43,7 +45,7 @@ public:
     uint8_t PeriodLow() const { return checked_static_cast<uint8_t>(m_period & 0xff); }
 
     void Clock() {
-        if (--m_time == 0) {
+        if (m_time > 0 && --m_time == 0) {
             m_value = m_value == 0 ? 1 : 0;
             m_time = m_duty;
         }
@@ -57,10 +59,11 @@ private:
     uint32_t m_time{};   // Time in period
     uint16_t m_value{};  // 0 or 1
 
-    void UpdateDuty() {
+    void NO_INLINE_FUNC UpdateDuty() {
         m_duty = std::max<uint32_t>(1, m_period) / 2;
-        assert(m_duty > 0);
+        // assert(m_duty > 0);
         // Should we reset time?
+        m_time = m_duty;
     }
 };
 
@@ -81,10 +84,10 @@ public:
     uint8_t ReadDA();
 
     void Reset();
-    void Update(cycles_t cycles);
+    void Update(cycles_t cycles, AudioContext& audioContext);
 
 private:
-    void Clock();
+    void Clock(AudioContext& audioContext);
 
     uint8_t Read(uint16_t address);
     void Write(uint16_t address, uint8_t value);
@@ -108,4 +111,7 @@ private:
     std::array<uint8_t, 16> m_registers{};
     Divider m_masterDivider{16}; // Input clock divided by 16
     std::array<ToneGenerator, 3> m_toneGenerators{};
+
+    float m_sampleSum{};
+    float m_numSamples{};
 };

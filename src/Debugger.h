@@ -18,7 +18,8 @@ public:
     void Init(MemoryBus& memoryBus, Cpu& cpu, Via& via);
     void Reset();
     bool FrameUpdate(double frameTime, const Input& input, const EmuEvents& emuEvents,
-                     RenderContext& renderContext, SyncProtocol& syncProtocol);
+                     RenderContext& renderContext, AudioContext& audioContext,
+                     SyncProtocol& syncProtocol);
 
     using SymbolTable = std::multimap<uint16_t, std::string>;
 
