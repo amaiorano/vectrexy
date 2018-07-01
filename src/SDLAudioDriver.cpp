@@ -97,10 +97,9 @@ public:
     }
 
     void Shutdown() {
-        m_rawAudioOutputFS.Close();
-
         SDL_CloseAudioDevice(m_audioDeviceID);
         SDL_QuitSubSystem(SDL_INIT_AUDIO);
+        m_rawAudioOutputFS.Close();
     }
 
     void Update(double /*frameTime*/) {
@@ -200,7 +199,7 @@ private:
         }
 
         if constexpr (OutputRawAudioFileStream.Enabled && !OutputRawAudioFileStream.SourceSamples) {
-            for (int i = 0; i < numSamplesToRead; ++i) {
+            for (size_t i = 0; i < numSamplesToRead; ++i) {
                 audioDriver->m_rawAudioOutputFS.WriteValue(stream[i]);
             }
         }
