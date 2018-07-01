@@ -11,12 +11,15 @@ namespace {
             ChannelBHigh = 3,
             ChannelCLow = 4,
             ChannelCHigh = 5,
-
             MixerControl = 7,
-
-            AmplitudeA = 10,
-            AmplitudeB = 11,
-            AmplitudeC = 12,
+            AmplitudeA = 8,
+            AmplitudeB = 9,
+            AmplitudeC = 10,
+            EnvelopePeriodLow = 11,
+            EnvelopePeriodHigh = 12,
+            EnvelopeShape = 13,
+            IOPortADataStore = 14,
+            IOPortBDataStore = 15
         };
     }
 
@@ -51,7 +54,9 @@ namespace {
 
         float GetFixedVolumeRatio(uint8_t reg) {
             assert(GetMode(reg) == Mode::Fixed);
-            return ReadBits(reg, FixedVolume) / 16.f;
+            auto volume = ReadBits(reg, FixedVolume);
+            assert(volume >= 0 && volume <= 15);
+            return volume / 15.f;
         }
 
     } // namespace AmplitudeControl
@@ -136,16 +141,13 @@ void Psg::Clock(AudioContext& audioContext) {
 
 float Psg::SampleChannelsAndMix() {
     auto GetChannelVolume = [](uint8_t& amplitudeRegister) {
-        // if (AmplitudeControl::GetMode(amplitudeRegister) == AmplitudeControl::Mode::Fixed) {
-        //    return AmplitudeControl::GetFixedVolumeRatio(amplitudeRegister);
-        //} else {
-        //    //@TODO: envelope volume...
-        //    Errorf("Envelope volume not yet implemented\n");
-        //    return 0.f;
-        //}
-
-        (void)amplitudeRegister;
-        return 1.f;
+        if (AmplitudeControl::GetMode(amplitudeRegister) == AmplitudeControl::Mode::Fixed) {
+            return AmplitudeControl::GetFixedVolumeRatio(amplitudeRegister);
+        } else {
+            //@TODO: envelope volume...
+            // Errorf("Envelope volume not yet implemented\n");
+            return 0.f;
+        }
     };
 
     auto SampleChannel = [&GetChannelVolume](uint8_t& amplitudeRegister,
