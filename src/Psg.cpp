@@ -5,12 +5,14 @@
 namespace {
     namespace Register {
         enum Type {
+            //@TODO rename "Channel" to "ToneGeneratorControl" or something
             ChannelALow = 0,
             ChannelAHigh = 1,
             ChannelBLow = 2,
             ChannelBHigh = 3,
             ChannelCLow = 4,
             ChannelCHigh = 5,
+            NoiseGeneratorControl = 6,
             MixerControl = 7,
             AmplitudeA = 8,
             AmplitudeB = 9,
@@ -121,9 +123,10 @@ void Psg::Clock(AudioContext& audioContext) {
 
     // Clock generators every 16 input clocks
     if (m_masterDivider.Clock()) {
-        for (auto& swg : m_toneGenerators) {
-            swg.Clock();
+        for (auto& toneGenerator : m_toneGenerators) {
+            toneGenerator.Clock();
         }
+        m_noiseGenerator.Clock();
     }
 
     const float sample = SampleChannelsAndMix();
@@ -146,13 +149,13 @@ float Psg::SampleChannelsAndMix() {
         } else {
             //@TODO: envelope volume...
             // Errorf("Envelope volume not yet implemented\n");
-            return 0.f;
+            return 1.f;
         }
     };
 
-    auto SampleChannel = [&GetChannelVolume](uint8_t& amplitudeRegister,
-                                             uint8_t& mixerControlRegister, int index,
-                                             ToneGenerator& toneGenerator) -> float {
+    auto SampleChannel =
+        [&GetChannelVolume](uint8_t& amplitudeRegister, uint8_t& mixerControlRegister, int index,
+                            ToneGenerator& toneGenerator, NoiseGenerator& noiseGenerator) -> float {
         auto toneChannel = MixerControl::ToneChannelByIndex(index);
         auto noiseChannel = MixerControl::NoiseChannelByIndex(index);
 
@@ -167,9 +170,7 @@ float Psg::SampleChannelsAndMix() {
         }
 
         if (MixerControl::IsEnabled(mixerControlRegister, noiseChannel)) {
-            //@TODO:
-            // sample += m_noiseGenerator.Value();
-            //++numValues;
+            sample += noiseGenerator.Value();
         }
 
         return sample * volume;
@@ -180,7 +181,8 @@ float Psg::SampleChannelsAndMix() {
     for (int i = 0; i < 3; ++i) {
         auto& amplitudeRegister = m_registers[Register::AmplitudeA + i];
         auto& mixerControlRegister = m_registers[Register::MixerControl];
-        sample += SampleChannel(amplitudeRegister, mixerControlRegister, i, m_toneGenerators[i]);
+        sample += SampleChannel(amplitudeRegister, mixerControlRegister, i, m_toneGenerators[i],
+                                m_noiseGenerator);
     }
 
     sample /= 6.f;
@@ -202,6 +204,8 @@ uint8_t Psg::Read(uint16_t address) {
         return m_toneGenerators[2].PeriodHigh();
     case Register::ChannelCLow:
         return m_toneGenerators[2].PeriodLow();
+    case Register::NoiseGeneratorControl:
+        return m_noiseGenerator.Period();
     }
 
     return m_registers[address];
@@ -221,6 +225,8 @@ void Psg::Write(uint16_t address, uint8_t value) {
         return m_toneGenerators[2].SetPeriodHigh(value);
     case Register::ChannelCLow:
         return m_toneGenerators[2].SetPeriodLow(value);
+    case Register::NoiseGeneratorControl:
+        return m_noiseGenerator.SetPeriod(value);
     case Register::MixerControl:
         ASSERT_MSG(ReadBits(value, 0b1100'0000) == 0, "Not supporting I/O ports on PSG");
         break;

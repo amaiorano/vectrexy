@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Base.h"
+#include "BitOps.h"
 #include <array>
 #include <memory>
 
@@ -27,16 +28,42 @@ private:
     uint32_t m_counter{};
 };
 
+// Timer used by Tone and Noise Generators
+class Timer {
+public:
+    // Resets time
+    void SetPeriod(uint32_t period) {
+        m_period = period;
+        ResetTime();
+    }
+    uint32_t Period() const { return m_period; }
+
+    // Returns true when timer expires (and auto-resets)
+    bool Clock() {
+        if (m_time > 0 && --m_time == 0) {
+            ResetTime();
+            return true;
+        }
+        return false;
+    }
+
+private:
+    void ResetTime() { m_time = m_period; }
+
+    uint32_t m_period{};
+    uint32_t m_time{}; // Time in period
+};
+
 class ToneGenerator {
 public:
-    void NO_INLINE_FUNC SetPeriodHigh(uint8_t high) {
+    void SetPeriodHigh(uint8_t high) {
         assert(high <= 0xf); // Only 4 bits should be set
         m_period = (high << 8) | (m_period & 0x00ff);
-        UpdateDuty();
+        UpdateTimer();
     }
-    void NO_INLINE_FUNC SetPeriodLow(uint8_t low) {
+    void SetPeriodLow(uint8_t low) {
         m_period = (m_period & 0xff00) | low;
-        UpdateDuty();
+        UpdateTimer();
     }
 
     uint8_t PeriodHigh() const {
@@ -45,29 +72,60 @@ public:
     uint8_t PeriodLow() const { return checked_static_cast<uint8_t>(m_period & 0xff); }
 
     void Clock() {
-        if (m_time > 0 && --m_time == 0) {
+        if (m_timer.Clock()) {
             m_value = m_value == 0 ? 1 : 0;
-            m_time = m_duty;
         }
     }
 
-    uint16_t Value() const { return m_value; }
+    uint32_t Value() const { return m_value; }
 
 private:
-    uint32_t m_period{}; // 12 bit value [0,4095]
-    uint32_t m_duty{};   // Period / 2 (number of clocks before oscilating)
-    uint32_t m_time{};   // Time in period
-    uint16_t m_value{};  // 0 or 1
-
-    void NO_INLINE_FUNC UpdateDuty() {
-        m_duty = std::max<uint32_t>(1, m_period) / 2;
-        // assert(m_duty > 0);
-        // Should we reset time?
-        m_time = m_duty;
+    void UpdateTimer() {
+        auto duty = std::max<uint32_t>(1, m_period) / 2;
+        m_timer.SetPeriod(duty);
     }
+
+    Timer m_timer;
+    uint32_t m_period{}; // 12 bit value [0,4095]
+    uint32_t m_value{};  // 0 or 1
 };
 
-class NoiseGenerator {};
+class NoiseGenerator {
+public:
+    void SetPeriod(uint8_t period) {
+        assert(period < 32);
+        period = std::max<uint8_t>(1, period & 0b0001'1111);
+        m_timer.SetPeriod(period);
+    }
+
+    uint8_t Period() const { return static_cast<uint8_t>(m_timer.Period()); }
+
+    void Clock() {
+        if (m_timer.Clock()) {
+            ClockShiftRegister();
+        }
+    }
+
+    uint32_t Value() const { return m_value; }
+
+private:
+    void ClockShiftRegister() {
+        // From http://www.cpcwiki.eu/index.php/PSG#06h_-_Noise_Frequency_.285bit.29
+        // noise_level = noise_level XOR shiftreg.bit0
+        // newbit = shiftreg.bit0 XOR shiftreg.bit3
+        // shiftreg = (shiftreg SHR 1) + (newbit SHL 16)
+        uint32_t bit0 = ReadBits(m_shiftRegister, BITS(0));
+        uint32_t bit3 = ReadBits(m_shiftRegister, BITS(3)) >> 3;
+        m_value = m_value ^ bit0;
+        uint32_t newBit = bit0 ^ bit3;
+        m_shiftRegister = (m_shiftRegister >> 1) | (newBit << 16);
+        ASSERT(m_shiftRegister < BITS(18));
+    }
+
+    Timer m_timer;
+    uint32_t m_shiftRegister = 1; // Must be initialized to a non-zero value
+    uint32_t m_value{};           // 0 or 1
+};
 
 // Implementation of the AY-3-8912 Programmable Sound Generator (PSG)
 
@@ -111,6 +169,7 @@ private:
     std::array<uint8_t, 16> m_registers{};
     Divider m_masterDivider{16}; // Input clock divided by 16
     std::array<ToneGenerator, 3> m_toneGenerators{};
+    NoiseGenerator m_noiseGenerator{};
 
     float m_sampleSum{};
     float m_numSamples{};
