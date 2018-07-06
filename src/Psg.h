@@ -7,6 +7,7 @@
 
 struct AudioContext;
 
+//@TODO: get rid of this and just use Timer
 class Divider {
 public:
     Divider(uint32_t period = 0) {
@@ -31,6 +32,8 @@ private:
 // Timer used by Tone and Noise Generators
 class Timer {
 public:
+    Timer(uint32_t period = 0) { SetPeriod(period); }
+
     // Resets time
     void SetPeriod(uint32_t period) {
         m_period = period;
@@ -67,7 +70,7 @@ public:
     }
 
     uint8_t PeriodHigh() const {
-        return checked_static_cast<uint8_t>(m_period >> 16); // Top 12 bits
+        return checked_static_cast<uint8_t>(m_period >> 8); // Top 4 bits
     }
     uint8_t PeriodLow() const { return checked_static_cast<uint8_t>(m_period & 0xff); }
 
@@ -81,7 +84,7 @@ public:
 
 private:
     void UpdateTimer() {
-        auto duty = std::max<uint32_t>(1, m_period) / 2;
+        auto duty = std::max<uint32_t>(1, m_period / 2);
         m_timer.SetPeriod(duty);
     }
 

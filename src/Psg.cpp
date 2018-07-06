@@ -54,11 +54,9 @@ namespace {
             return TestBits(reg, EnvelopeMode) ? Mode::Envelope : Mode::Fixed;
         }
 
-        float GetFixedVolumeRatio(uint8_t reg) {
+        uint32_t GetFixedVolume(uint8_t reg) {
             assert(GetMode(reg) == Mode::Fixed);
-            auto volume = ReadBits(reg, FixedVolume);
-            assert(volume >= 0 && volume <= 15);
-            return volume / 15.f;
+            return ReadBits(reg, FixedVolume);
         }
 
     } // namespace AmplitudeControl
@@ -143,14 +141,28 @@ void Psg::Clock(AudioContext& audioContext) {
 }
 
 float Psg::SampleChannelsAndMix() {
-    auto GetChannelVolume = [](uint8_t& amplitudeRegister) {
-        if (AmplitudeControl::GetMode(amplitudeRegister) == AmplitudeControl::Mode::Fixed) {
-            return AmplitudeControl::GetFixedVolumeRatio(amplitudeRegister);
-        } else {
+    auto GetChannelVolume = [](uint8_t& amplitudeRegister) -> float {
+        uint32_t volume = 0;
+        switch (AmplitudeControl::GetMode(amplitudeRegister)) {
+        case AmplitudeControl::Mode::Fixed:
+            volume = AmplitudeControl::GetFixedVolume(amplitudeRegister);
+            break;
+        case AmplitudeControl::Mode::Envelope:
             //@TODO: envelope volume...
-            // Errorf("Envelope volume not yet implemented\n");
-            return 1.f;
+            volume = 15;
+            break;
         }
+
+        // The volume is non-linear. Below formula does comply with the PSG datasheet, and does more
+        // or less match the voltages measured on the CPCs speaker (the voltages on the CPCs stereo
+        // connector seem to be slightly different though).
+        // amplitude = max / sqrt(2)^(15-nn)
+        // eg. 15 --> max / 1, 14 --> max / 1.414, 13 --> max / 2, etc.
+        // http://www.cpcwiki.eu/index.php/PSG#0Ah_-_Channel_C_Volume_.280-0Fh.3Dvolume.2C_10h.3Duse_envelope_instead.29
+        assert(volume < 16);
+        if (volume == 0)
+            return 0.f;
+        return 1.f / ::powf(::sqrtf(2), 15.f - volume);
     };
 
     auto SampleChannel =
