@@ -130,6 +130,122 @@ private:
     uint32_t m_value{};           // 0 or 1
 };
 
+class EnvelopeGenerator {
+public:
+    void SetPeriodHigh(uint8_t high) {
+        m_period = (high << 8) | (m_period & 0x00ff);
+        UpdateTimer();
+    }
+    void SetPeriodLow(uint8_t low) {
+        m_period = (m_period & 0xff00) | low;
+        UpdateTimer();
+    }
+
+    void SetShape(uint8_t shape) {
+        assert(shape < 16);
+        m_shape = shape;
+        m_currShapeIndex = 0;
+        UpdateValue();
+    }
+
+    uint8_t PeriodHigh() const { return checked_static_cast<uint8_t>(m_period >> 8); }
+
+    uint8_t PeriodLow() const { return checked_static_cast<uint8_t>(m_period & 0xff); }
+
+    uint8_t Shape() { return m_shape; }
+
+    void Clock() {
+        if (!m_divider.Clock())
+            return;
+
+        if (!m_timer.Clock())
+            return;
+
+        UpdateValue();
+    }
+
+    uint32_t Value() const { return m_value; }
+
+private:
+    void UpdateTimer() {
+        auto timeToIncrementShapeIndex = std::max<uint32_t>(1, m_period / 16);
+        m_timer.SetPeriod(timeToIncrementShapeIndex);
+    }
+
+    void UpdateValue() {
+        using Shape = std::array<uint32_t, 32>;
+        using Table = std::array<Shape, 16>;
+
+        // 4-bit pattern where bits:
+        // Bit 3: continue
+        // Bit 2: attack
+        // Bit 1: alternate
+        // Bit 0: hold
+        // Instead of a state machine, we use a lookup table.
+        // This table contains 2 cycles worth of values.
+        static const Table table = {
+            // clang-format off
+			// 0000 to 0011
+			Shape{ 15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 },
+			Shape{ 15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 },
+			Shape{ 15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 },
+			Shape{ 15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 },
+			// 0100 to 0111
+			Shape{ 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 },
+			Shape{ 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 },
+			Shape{ 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 },
+			Shape{ 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 },
+			// 1000
+			Shape{ 15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0 },
+			// 1001
+			Shape{ 15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 },
+			// 1010
+			Shape{ 15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15 },
+			// 1011
+			Shape{ 15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15 },
+			// 1100
+			Shape{ 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15 },
+			// 1101
+			Shape{ 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15 },
+			// 1110
+			Shape{ 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0 },
+			// 1111
+			Shape{ 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 },
+            // clang-format on
+        };
+
+        const Shape& shape = table[m_shape];
+
+        m_value = shape[m_currShapeIndex];
+
+        // If we're on the last value, then check if we should hold this last value or restart the
+        // shape.
+        const bool holdCurrentIndex = [this, &shape] {
+            if (m_currShapeIndex < (shape.size() - 1))
+                return false;
+
+            bool continuePattern = TestBits(m_shape, 0b1000);
+            if (!continuePattern)
+                return true;
+
+            bool holdPattern = TestBits(m_shape, 0b0001);
+            return holdPattern;
+        }();
+
+        if (!holdCurrentIndex) {
+            m_currShapeIndex = (m_currShapeIndex + 1) % shape.size();
+        }
+    }
+
+    Timer m_divider{16}; // Envelope further divides by 16 (so it produces values every 256 cycles)
+    Timer m_timer;
+    uint32_t m_period{}; // 16 bit value
+    uint32_t m_value{};  // 0 or 1
+
+    uint8_t m_shape{};          // 4 bit shape index
+    uint8_t m_currShapeIndex{}; // Index into current shape (0-31)
+};
+
 // Implementation of the AY-3-8912 Programmable Sound Generator (PSG)
 
 class Psg {
@@ -146,6 +262,8 @@ public:
 
     void Reset();
     void Update(cycles_t cycles, AudioContext& audioContext);
+
+    void FrameUpdate();
 
 private:
     void Clock(AudioContext& audioContext);
@@ -173,6 +291,7 @@ private:
     Divider m_masterDivider{16}; // Input clock divided by 16
     std::array<ToneGenerator, 3> m_toneGenerators{};
     NoiseGenerator m_noiseGenerator{};
+    EnvelopeGenerator m_envelopeGenerator{};
 
     float m_sampleSum{};
     float m_numSamples{};

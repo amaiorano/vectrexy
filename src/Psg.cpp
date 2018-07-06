@@ -1,6 +1,7 @@
 #include "Psg.h"
 #include "BitOps.h"
 #include "EngineClient.h"
+#include "Gui.h"
 
 namespace {
     namespace Register {
@@ -88,6 +89,23 @@ void Psg::Update(cycles_t cycles, AudioContext& audioContext) {
     }
 }
 
+void Psg::FrameUpdate() {
+    // Debug output
+    {
+        static int index = 0;
+        static std::array<float, 10000> envelopeHistory;
+
+        envelopeHistory[index] = (float)m_envelopeGenerator.Value();
+        if (index == 0) {
+            std::fill(envelopeHistory.begin(), envelopeHistory.end(), 0.f);
+        }
+        index = (index + 1) % envelopeHistory.size();
+        IMGUI_CALL(AudioDebug,
+                   ImGui::PlotLines("Envelope", envelopeHistory.data(), (int)envelopeHistory.size(),
+                                    0, 0, 0.f, 15.f, ImVec2(0, 100.f)));
+    }
+}
+
 void Psg::Clock(AudioContext& audioContext) {
     auto ModeFromBDIRandBC1 = [](bool BDIR, bool BC1) -> Psg::PsgMode {
         uint8_t value{};
@@ -125,6 +143,7 @@ void Psg::Clock(AudioContext& audioContext) {
             toneGenerator.Clock();
         }
         m_noiseGenerator.Clock();
+        m_envelopeGenerator.Clock();
     }
 
     const float sample = SampleChannelsAndMix();
@@ -141,15 +160,14 @@ void Psg::Clock(AudioContext& audioContext) {
 }
 
 float Psg::SampleChannelsAndMix() {
-    auto GetChannelVolume = [](uint8_t& amplitudeRegister) -> float {
+    auto GetChannelVolume = [](uint8_t& amplitudeRegister, EnvelopeGenerator& envelopeGenerator) {
         uint32_t volume = 0;
         switch (AmplitudeControl::GetMode(amplitudeRegister)) {
         case AmplitudeControl::Mode::Fixed:
             volume = AmplitudeControl::GetFixedVolume(amplitudeRegister);
             break;
         case AmplitudeControl::Mode::Envelope:
-            //@TODO: envelope volume...
-            volume = 15;
+            volume = envelopeGenerator.Value();
             break;
         }
 
@@ -167,14 +185,14 @@ float Psg::SampleChannelsAndMix() {
 
     auto SampleChannel =
         [&GetChannelVolume](uint8_t& amplitudeRegister, uint8_t& mixerControlRegister, int index,
-                            ToneGenerator& toneGenerator, NoiseGenerator& noiseGenerator) -> float {
-        auto toneChannel = MixerControl::ToneChannelByIndex(index);
-        auto noiseChannel = MixerControl::NoiseChannelByIndex(index);
-
-        const float volume = GetChannelVolume(amplitudeRegister);
-
+                            ToneGenerator& toneGenerator, NoiseGenerator& noiseGenerator,
+                            EnvelopeGenerator& envelopeGenerator) -> float {
+        const float volume = GetChannelVolume(amplitudeRegister, envelopeGenerator);
         if (volume == 0.f)
             return 0.f;
+
+        auto toneChannel = MixerControl::ToneChannelByIndex(index);
+        auto noiseChannel = MixerControl::NoiseChannelByIndex(index);
 
         float sample = 0;
         if (MixerControl::IsEnabled(mixerControlRegister, toneChannel)) {
@@ -194,7 +212,7 @@ float Psg::SampleChannelsAndMix() {
         auto& amplitudeRegister = m_registers[Register::AmplitudeA + i];
         auto& mixerControlRegister = m_registers[Register::MixerControl];
         sample += SampleChannel(amplitudeRegister, mixerControlRegister, i, m_toneGenerators[i],
-                                m_noiseGenerator);
+                                m_noiseGenerator, m_envelopeGenerator);
     }
 
     sample /= 6.f;
@@ -218,6 +236,12 @@ uint8_t Psg::Read(uint16_t address) {
         return m_toneGenerators[2].PeriodLow();
     case Register::NoiseGeneratorControl:
         return m_noiseGenerator.Period();
+    case Register::EnvelopePeriodHigh:
+        return m_envelopeGenerator.PeriodHigh();
+    case Register::EnvelopePeriodLow:
+        return m_envelopeGenerator.PeriodLow();
+    case Register::EnvelopeShape:
+        return m_envelopeGenerator.Shape();
     }
 
     return m_registers[address];
@@ -242,6 +266,12 @@ void Psg::Write(uint16_t address, uint8_t value) {
     case Register::MixerControl:
         ASSERT_MSG(ReadBits(value, 0b1100'0000) == 0, "Not supporting I/O ports on PSG");
         break;
+    case Register::EnvelopePeriodHigh:
+        return m_envelopeGenerator.SetPeriodHigh(value);
+    case Register::EnvelopePeriodLow:
+        return m_envelopeGenerator.SetPeriodLow(value);
+    case Register::EnvelopeShape:
+        return m_envelopeGenerator.SetShape(value);
     }
 
     m_registers[address] = value;
