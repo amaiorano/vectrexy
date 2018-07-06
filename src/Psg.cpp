@@ -191,15 +191,23 @@ float Psg::SampleChannelsAndMix() {
         if (volume == 0.f)
             return 0.f;
 
+        // If both Tone and Noise are disabled on a channel, then a constant HIGH level is output
+        // (useful for digitized speech). If both Tone and Noise are enabled on the same channel,
+        // then the signals are ANDed (the signals aren't ADDed) (ie. HIGH is output only if both
+        // are HIGH).
+        // http://www.cpcwiki.eu/index.php/PSG#07h_-_Mixer_Control_Register
+
         auto toneChannel = MixerControl::ToneChannelByIndex(index);
         auto noiseChannel = MixerControl::NoiseChannelByIndex(index);
+        bool toneEnabled = MixerControl::IsEnabled(mixerControlRegister, toneChannel);
+        bool noiseEnabled = MixerControl::IsEnabled(mixerControlRegister, noiseChannel);
 
         float sample = 0;
-        if (MixerControl::IsEnabled(mixerControlRegister, toneChannel)) {
+        if (toneEnabled && noiseEnabled) {
+            sample += toneGenerator.Value() & noiseGenerator.Value();
+        } else if (toneEnabled) {
             sample += toneGenerator.Value();
-        }
-
-        if (MixerControl::IsEnabled(mixerControlRegister, noiseChannel)) {
+        } else if (noiseEnabled) {
             sample += noiseGenerator.Value();
         }
 
@@ -214,9 +222,7 @@ float Psg::SampleChannelsAndMix() {
         sample += SampleChannel(amplitudeRegister, mixerControlRegister, i, m_toneGenerators[i],
                                 m_noiseGenerator, m_envelopeGenerator);
     }
-
-    sample /= 6.f;
-
+    sample /= 3.f;
     return sample;
 }
 
