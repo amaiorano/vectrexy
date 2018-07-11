@@ -2,6 +2,7 @@
 #include "BitOps.h"
 #include "EngineClient.h"
 #include "Gui.h"
+#include <cmath>
 
 namespace {
     namespace Register {
@@ -152,7 +153,7 @@ void Psg::Clock(AudioContext& audioContext) {
     m_sampleSum += sample;
     ++m_numSamples;
     if (m_numSamples >= audioContext.CpuCyclesPerAudioSample) {
-        float outputSample = m_sampleSum / m_numSamples;
+        float outputSample = m_sampleSum / std::floor(m_numSamples);
         audioContext.samples.push_back(outputSample);
         m_sampleSum = 0;
         m_numSamples -= audioContext.CpuCyclesPerAudioSample;
