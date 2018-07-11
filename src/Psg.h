@@ -7,28 +7,6 @@
 
 struct AudioContext;
 
-//@TODO: get rid of this and just use Timer
-class Divider {
-public:
-    Divider(uint32_t period = 0) {
-        SetPeriod(period);
-        Reset();
-    }
-    void SetPeriod(uint32_t period) { m_period = period; }
-    void Reset() { m_counter = m_period; }
-    bool Clock() {
-        if (m_period > 0 && --m_counter == 0) {
-            m_counter = m_period;
-            return true;
-        }
-        return false;
-    }
-
-private:
-    uint32_t m_period{};
-    uint32_t m_counter{};
-};
-
 // Timer used by Tone and Noise Generators
 class Timer {
 public:
@@ -37,22 +15,22 @@ public:
     // Resets time
     void SetPeriod(uint32_t period) {
         m_period = period;
-        ResetTime();
+        Reset();
     }
     uint32_t Period() const { return m_period; }
+
+    void Reset() { m_time = m_period; }
 
     // Returns true when timer expires (and auto-resets)
     bool Clock() {
         if (m_time > 0 && --m_time == 0) {
-            ResetTime();
+            Reset();
             return true;
         }
         return false;
     }
 
 private:
-    void ResetTime() { m_time = m_period; }
-
     uint32_t m_period{};
     uint32_t m_time{}; // Time in period
 };
@@ -288,7 +266,7 @@ private:
     uint8_t m_DA{}; // Data/Address bus (DA7-DA0)
     uint8_t m_latchedAddress{};
     std::array<uint8_t, 16> m_registers{};
-    Divider m_masterDivider{16}; // Input clock divided by 16
+    Timer m_masterDivider{16}; // Input clock divided by 16
     std::array<ToneGenerator, 3> m_toneGenerators{};
     NoiseGenerator m_noiseGenerator{};
     EnvelopeGenerator m_envelopeGenerator{};
