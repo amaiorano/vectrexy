@@ -189,7 +189,7 @@ float Psg::SampleChannelsAndMix() {
                             EnvelopeGenerator& envelopeGenerator) -> float {
         const float volume = GetChannelVolume(amplitudeRegister, envelopeGenerator);
         if (volume == 0.f)
-            return 0.f;
+            return 0.5f;
 
         // If both Tone and Noise are disabled on a channel, then a constant HIGH level is output
         // (useful for digitized speech). If both Tone and Noise are enabled on the same channel,
@@ -211,7 +211,7 @@ float Psg::SampleChannelsAndMix() {
             sample += noiseGenerator.Value();
         }
 
-        return sample * volume;
+        return ((sample - 0.5f) * volume) + 0.5f;
     };
 
     // Sample and mix each of the 3 channels
