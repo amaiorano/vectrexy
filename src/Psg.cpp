@@ -8,13 +8,13 @@ namespace {
     namespace Register {
         enum Type {
             //@TODO rename "Channel" to "ToneGeneratorControl" or something
-            ChannelALow = 0,
-            ChannelAHigh = 1,
-            ChannelBLow = 2,
-            ChannelBHigh = 3,
-            ChannelCLow = 4,
-            ChannelCHigh = 5,
-            NoiseGeneratorControl = 6,
+            ToneGeneratorALow = 0,
+            ToneGeneratorAHigh = 1,
+            ToneGeneratorBLow = 2,
+            ToneGeneratorBHigh = 3,
+            ToneGeneratorCLow = 4,
+            ToneGeneratorCHigh = 5,
+            NoiseGenerator = 6,
             MixerControl = 7,
             AmplitudeA = 8,
             AmplitudeB = 9,
@@ -229,19 +229,19 @@ float Psg::SampleChannelsAndMix() {
 
 uint8_t Psg::Read(uint16_t address) {
     switch (m_latchedAddress) {
-    case Register::ChannelAHigh:
+    case Register::ToneGeneratorAHigh:
         return m_toneGenerators[0].PeriodHigh();
-    case Register::ChannelALow:
+    case Register::ToneGeneratorALow:
         return m_toneGenerators[0].PeriodLow();
-    case Register::ChannelBHigh:
+    case Register::ToneGeneratorBHigh:
         return m_toneGenerators[1].PeriodHigh();
-    case Register::ChannelBLow:
+    case Register::ToneGeneratorBLow:
         return m_toneGenerators[1].PeriodLow();
-    case Register::ChannelCHigh:
+    case Register::ToneGeneratorCHigh:
         return m_toneGenerators[2].PeriodHigh();
-    case Register::ChannelCLow:
+    case Register::ToneGeneratorCLow:
         return m_toneGenerators[2].PeriodLow();
-    case Register::NoiseGeneratorControl:
+    case Register::NoiseGenerator:
         return m_noiseGenerator.Period();
     case Register::EnvelopePeriodHigh:
         return m_envelopeGenerator.PeriodHigh();
@@ -256,19 +256,19 @@ uint8_t Psg::Read(uint16_t address) {
 
 void Psg::Write(uint16_t address, uint8_t value) {
     switch (m_latchedAddress) {
-    case Register::ChannelAHigh:
+    case Register::ToneGeneratorAHigh:
         return m_toneGenerators[0].SetPeriodHigh(value);
-    case Register::ChannelALow:
+    case Register::ToneGeneratorALow:
         return m_toneGenerators[0].SetPeriodLow(value);
-    case Register::ChannelBHigh:
+    case Register::ToneGeneratorBHigh:
         return m_toneGenerators[1].SetPeriodHigh(value);
-    case Register::ChannelBLow:
+    case Register::ToneGeneratorBLow:
         return m_toneGenerators[1].SetPeriodLow(value);
-    case Register::ChannelCHigh:
+    case Register::ToneGeneratorCHigh:
         return m_toneGenerators[2].SetPeriodHigh(value);
-    case Register::ChannelCLow:
+    case Register::ToneGeneratorCLow:
         return m_toneGenerators[2].SetPeriodLow(value);
-    case Register::NoiseGeneratorControl:
+    case Register::NoiseGenerator:
         return m_noiseGenerator.SetPeriod(value);
     case Register::MixerControl:
         ASSERT_MSG(ReadBits(value, 0b1100'0000) == 0, "Not supporting I/O ports on PSG");
