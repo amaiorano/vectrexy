@@ -150,9 +150,6 @@ void Psg::Clock() {
         m_noiseGenerator.Clock();
         m_envelopeGenerator.Clock();
     }
-
-    m_sampleSum += SampleChannelsAndMix();
-    ++m_numSamples;
 }
 
 bool Psg::IsProducingSound() const {
@@ -169,14 +166,7 @@ bool Psg::IsProducingSound() const {
 }
 
 float Psg::Sample() const {
-    if (g_multiSample) {
-        float outputSample = m_sampleSum / m_numSamples;
-        //@TODO: No mutable state here!
-        m_sampleSum = m_numSamples = 0;
-        return outputSample;
-    } else {
-        return SampleChannelsAndMix();
-    }
+    return SampleChannelsAndMix();
 }
 
 float Psg::SampleChannelsAndMix() const {

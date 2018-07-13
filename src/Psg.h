@@ -280,7 +280,4 @@ private:
     std::array<ToneGenerator, 3> m_toneGenerators{};
     NoiseGenerator m_noiseGenerator{};
     EnvelopeGenerator m_envelopeGenerator{};
-
-    mutable float m_sampleSum{};
-    mutable float m_numSamples{};
 };
