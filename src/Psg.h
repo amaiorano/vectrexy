@@ -83,7 +83,7 @@ public:
     uint8_t Period() const { return static_cast<uint8_t>(m_timer.Period()); }
 
     void Clock() {
-        if (m_timer.Period() > 1 && m_timer.Clock()) {
+        if (m_timer.Clock()) {
             ClockShiftRegister();
         }
     }
