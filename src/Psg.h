@@ -40,11 +40,11 @@ public:
     void SetPeriodHigh(uint8_t high) {
         assert(high <= 0xf); // Only 4 bits should be set
         m_period = (high << 8) | (m_period & 0x00ff);
-        UpdateTimer();
+        OnPeriodUpdated();
     }
     void SetPeriodLow(uint8_t low) {
         m_period = (m_period & 0xff00) | low;
-        UpdateTimer();
+        OnPeriodUpdated();
     }
 
     uint8_t PeriodHigh() const {
@@ -53,7 +53,7 @@ public:
     uint8_t PeriodLow() const { return checked_static_cast<uint8_t>(m_period & 0xff); }
 
     void Clock() {
-        if (m_timer.Clock()) {
+        if (m_period > 1 && m_timer.Clock()) {
             m_value = m_value == 0 ? 1 : 0;
         }
     }
@@ -61,9 +61,10 @@ public:
     uint32_t Value() const { return m_value; }
 
 private:
-    void UpdateTimer() {
+    void OnPeriodUpdated() {
         auto duty = std::max<uint32_t>(1, m_period / 2);
         m_timer.SetPeriod(duty);
+        m_value = 0;
     }
 
     Timer m_timer;
@@ -76,13 +77,13 @@ public:
     void SetPeriod(uint8_t period) {
         assert(period < 32);
         period = std::max<uint8_t>(1, period & 0b0001'1111);
-        m_timer.SetPeriod(period);
+        OnPeriodUpdated(period);
     }
 
     uint8_t Period() const { return static_cast<uint8_t>(m_timer.Period()); }
 
     void Clock() {
-        if (m_timer.Clock()) {
+        if (m_timer.Period() > 1 && m_timer.Clock()) {
             ClockShiftRegister();
         }
     }
@@ -103,6 +104,11 @@ private:
         ASSERT(m_shiftRegister < BITS(18));
     }
 
+    void OnPeriodUpdated(uint32_t period) {
+        m_timer.SetPeriod(period);
+        m_value = 0;
+    }
+
     Timer m_timer;
     uint32_t m_shiftRegister = 1; // Must be initialized to a non-zero value
     uint32_t m_value{};           // 0 or 1
@@ -112,11 +118,11 @@ class EnvelopeGenerator {
 public:
     void SetPeriodHigh(uint8_t high) {
         m_period = (high << 8) | (m_period & 0x00ff);
-        UpdateTimer();
+        OnPeriodUpdated();
     }
     void SetPeriodLow(uint8_t low) {
         m_period = (m_period & 0xff00) | low;
-        UpdateTimer();
+        OnPeriodUpdated();
     }
 
     void SetShape(uint8_t shape) {
@@ -136,7 +142,7 @@ public:
         if (!m_divider.Clock())
             return;
 
-        if (!m_timer.Clock())
+        if (!(m_period > 1 && m_timer.Clock()))
             return;
 
         UpdateValue();
@@ -145,9 +151,10 @@ public:
     uint32_t Value() const { return m_value; }
 
 private:
-    void UpdateTimer() {
+    void OnPeriodUpdated() {
         auto timeToIncrementShapeIndex = std::max<uint32_t>(1, m_period / 16);
         m_timer.SetPeriod(timeToIncrementShapeIndex);
+        m_value = 0;
     }
 
     void UpdateValue() {
