@@ -239,17 +239,20 @@ public:
     uint8_t ReadDA();
 
     void Reset();
-    void Update(cycles_t cycles, AudioContext& audioContext);
+    void Update(cycles_t cycles);
+
+    bool IsProducingSound() const;
+    float Sample() const;
 
     void FrameUpdate();
 
 private:
-    void Clock(AudioContext& audioContext);
+    void Clock();
 
     uint8_t Read(uint16_t address);
     void Write(uint16_t address, uint8_t value);
 
-    float SampleChannelsAndMix();
+    float SampleChannelsAndMix() const;
 
     enum class PsgMode {
         // Selected from BDIR (bit 1) and BC1 (bit 0) values
@@ -271,6 +274,6 @@ private:
     NoiseGenerator m_noiseGenerator{};
     EnvelopeGenerator m_envelopeGenerator{};
 
-    float m_sampleSum{};
-    float m_numSamples{};
+    mutable float m_sampleSum{};
+    mutable float m_numSamples{};
 };

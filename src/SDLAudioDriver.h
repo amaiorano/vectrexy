@@ -16,7 +16,7 @@ public:
 
     // Value in range [0,1]
     void AddSample(float sample);
-    void AddSamples(float* samples, size_t size);
+    void AddSamples(const float* samples, size_t size);
 
 private:
     pimpl::Pimpl<class SDLAudioDriverImpl, 256> m_impl;

@@ -176,7 +176,7 @@ public:
         }
     }
 
-    void AddSamples(float* samples, size_t size) {
+    void AddSamples(const float* samples, size_t size) {
         for (size_t i = 0; i < size; ++i)
             AddSample(samples[i]);
     }
@@ -239,6 +239,6 @@ void SDLAudioDriver::AddSample(float sample) {
     m_impl->AddSample(sample);
 }
 
-void SDLAudioDriver::AddSamples(float* samples, size_t size) {
+void SDLAudioDriver::AddSamples(const float* samples, size_t size) {
     m_impl->AddSamples(samples, size);
 }

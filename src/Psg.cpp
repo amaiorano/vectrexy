@@ -84,11 +84,13 @@ void Psg::Reset() {
     m_toneGenerators = {};
 }
 
-void Psg::Update(cycles_t cycles, AudioContext& audioContext) {
+void Psg::Update(cycles_t cycles) {
     for (cycles_t cycle = 0; cycle < cycles; ++cycle) {
-        Clock(audioContext);
+        Clock();
     }
 }
+
+static bool g_multiSample = false;
 
 void Psg::FrameUpdate() {
     // Debug output
@@ -104,10 +106,12 @@ void Psg::FrameUpdate() {
         IMGUI_CALL(AudioDebug,
                    ImGui::PlotLines("Envelope", envelopeHistory.data(), (int)envelopeHistory.size(),
                                     0, 0, 0.f, 15.f, ImVec2(0, 100.f)));
+
+        IMGUI_CALL(AudioDebug, ImGui::Checkbox("Multisample", &g_multiSample));
     }
 }
 
-void Psg::Clock(AudioContext& audioContext) {
+void Psg::Clock() {
     auto ModeFromBDIRandBC1 = [](bool BDIR, bool BC1) -> Psg::PsgMode {
         uint8_t value{};
         SetBits(value, 0b10, BDIR);
@@ -147,21 +151,37 @@ void Psg::Clock(AudioContext& audioContext) {
         m_envelopeGenerator.Clock();
     }
 
-    const float sample = SampleChannelsAndMix();
-
-    // Resample source to target sample rate
-    m_sampleSum += sample;
+    m_sampleSum += SampleChannelsAndMix();
     ++m_numSamples;
-    if (m_numSamples >= audioContext.CpuCyclesPerAudioSample) {
-        float outputSample = m_sampleSum / std::floor(m_numSamples);
-        audioContext.samples.push_back(outputSample);
-        m_sampleSum = 0;
-        m_numSamples -= audioContext.CpuCyclesPerAudioSample;
+}
+
+bool Psg::IsProducingSound() const {
+    for (int i = 0; i < 3; ++i) {
+        auto& mixerControlRegister = m_registers[Register::MixerControl];
+        auto toneChannel = MixerControl::ToneChannelByIndex(i);
+        auto noiseChannel = MixerControl::NoiseChannelByIndex(i);
+        bool toneEnabled = MixerControl::IsEnabled(mixerControlRegister, toneChannel);
+        bool noiseEnabled = MixerControl::IsEnabled(mixerControlRegister, noiseChannel);
+        if (toneEnabled || noiseEnabled)
+            return true;
+    }
+    return false;
+}
+
+float Psg::Sample() const {
+    if (g_multiSample) {
+        float outputSample = m_sampleSum / m_numSamples;
+        //@TODO: No mutable state here!
+        m_sampleSum = m_numSamples = 0;
+        return outputSample;
+    } else {
+        return SampleChannelsAndMix();
     }
 }
 
-float Psg::SampleChannelsAndMix() {
-    auto GetChannelVolume = [](uint8_t& amplitudeRegister, EnvelopeGenerator& envelopeGenerator) {
+float Psg::SampleChannelsAndMix() const {
+    auto GetChannelVolume = [](const uint8_t& amplitudeRegister,
+                               const EnvelopeGenerator& envelopeGenerator) {
         uint32_t volume = 0;
         switch (AmplitudeControl::GetMode(amplitudeRegister)) {
         case AmplitudeControl::Mode::Fixed:
@@ -184,10 +204,11 @@ float Psg::SampleChannelsAndMix() {
         return 1.f / ::powf(::sqrtf(2), 15.f - volume);
     };
 
-    auto SampleChannel =
-        [&GetChannelVolume](uint8_t& amplitudeRegister, uint8_t& mixerControlRegister, int index,
-                            ToneGenerator& toneGenerator, NoiseGenerator& noiseGenerator,
-                            EnvelopeGenerator& envelopeGenerator) -> float {
+    auto SampleChannel = [&GetChannelVolume](const uint8_t& amplitudeRegister,
+                                             const uint8_t& mixerControlRegister, int index,
+                                             const ToneGenerator& toneGenerator,
+                                             const NoiseGenerator& noiseGenerator,
+                                             const EnvelopeGenerator& envelopeGenerator) -> float {
         const float volume = GetChannelVolume(amplitudeRegister, envelopeGenerator);
         if (volume == 0.f)
             return 0.5f;
@@ -203,13 +224,13 @@ float Psg::SampleChannelsAndMix() {
         bool toneEnabled = MixerControl::IsEnabled(mixerControlRegister, toneChannel);
         bool noiseEnabled = MixerControl::IsEnabled(mixerControlRegister, noiseChannel);
 
-        float sample = 0;
+        uint32_t sample = 0;
         if (toneEnabled && noiseEnabled) {
-            sample += toneGenerator.Value() & noiseGenerator.Value();
+            sample = toneGenerator.Value() & noiseGenerator.Value();
         } else if (toneEnabled) {
-            sample += toneGenerator.Value();
+            sample = toneGenerator.Value();
         } else if (noiseEnabled) {
-            sample += noiseGenerator.Value();
+            sample = noiseGenerator.Value();
         }
 
         return ((sample - 0.5f) * volume) + 0.5f;

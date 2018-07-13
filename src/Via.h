@@ -49,4 +49,6 @@ private:
     bool m_ca1Enabled{};
     mutable bool m_ca1InterruptFlag{};
     bool m_firqEnabled{};
+    float m_elapsedAudioCycles{};
+    uint8_t m_lastDirectSoundSample{};
 };

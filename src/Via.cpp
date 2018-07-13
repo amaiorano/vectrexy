@@ -170,7 +170,23 @@ void Via::Update(cycles_t cycles, const Input& input, RenderContext& renderConte
 
     m_firqEnabled = input.IsButtonDown(0, 3);
 
-    m_psg.Update(cycles, audioContext);
+    // Audio update
+    m_psg.Update(cycles);
+
+    for (cycles_t i = 0; i < cycles; ++i) {
+        if (++m_elapsedAudioCycles >= audioContext.CpuCyclesPerAudioSample) {
+            m_elapsedAudioCycles -= audioContext.CpuCyclesPerAudioSample;
+
+            // Need a target sample
+            float psgSample = m_psg.Sample();
+
+            float directSample = static_cast<int8_t>(m_lastDirectSoundSample) / 128.f; // [-1,1]
+            directSample = (directSample + 1.f) / 2.f;                                 // [0,1]
+
+            float targetSample = (psgSample + directSample) / 2.f;
+            audioContext.samples.push_back(targetSample);
+        }
+    }
 
     //@TODO: Move this code into a Clock() function and call it cycles number of times
     // For cycle-accurate drawing, we update our timers, shift register, and beam movement 1 cycle
@@ -306,6 +322,10 @@ void Via::Write(uint16_t address, uint8_t value) {
 
     auto UpdateIntegratorsAndPsg = [&] {
         const bool muxEnabled = !TestBits(m_portB, PortB::MuxDisabled);
+
+        // Always reset unless written to directly
+        m_lastDirectSoundSample = 0;
+
         if (muxEnabled) {
             switch (ReadBitsWithShift(m_portB, PortB::MuxSelMask, PortB::MuxSelShift)) {
             case 0: // Y-axis integrator
@@ -318,7 +338,7 @@ void Via::Write(uint16_t address, uint8_t value) {
                 m_screen.SetBrightness(m_portA);
                 break;
             case 3: // Connected to sound output line via divider network
-                //@TODO
+                m_lastDirectSoundSample = m_portA;
                 break;
             default:
                 FAIL();
