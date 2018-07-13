@@ -323,9 +323,6 @@ void Via::Write(uint16_t address, uint8_t value) {
     auto UpdateIntegratorsAndPsg = [&] {
         const bool muxEnabled = !TestBits(m_portB, PortB::MuxDisabled);
 
-        // Always reset unless written to directly
-        m_lastDirectSoundSample = 0;
-
         if (muxEnabled) {
             switch (ReadBitsWithShift(m_portB, PortB::MuxSelMask, PortB::MuxSelShift)) {
             case 0: // Y-axis integrator
@@ -345,6 +342,14 @@ void Via::Write(uint16_t address, uint8_t value) {
                 break;
             }
         } else {
+            // Reset the last direct sound sample when we're about to write new values to PSG if the
+            // PSG will produce sound. This may not be 100% correct, but we need to reset this value
+            // when no more samples are being sent, otherwise if the last value sent is non-zero,
+            // not resetting it would end up shifting the output audio samples (since we average
+            // these with the output of the PSG).
+            if (m_psg.IsProducingSound())
+                m_lastDirectSoundSample = 0;
+
             m_psg.SetBC1(TestBits(m_portB, PortB::SoundBC1));
             m_psg.SetBDIR(TestBits(m_portB, PortB::SoundBDir));
             // @TODO: not sure if we should always send port A value to PSG's DA bus, or just when
