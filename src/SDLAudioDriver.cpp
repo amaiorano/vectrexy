@@ -106,10 +106,9 @@ public:
         AdjustBufferFlow();
 
         // Debug output
-        {
-            //@TODO: Control with option
-            Gui::EnabledWindows[Gui::Window::AudioDebug] = true;
-
+        static bool SDLAudioDriverImGui = false;
+        IMGUI_CALL(Debug, ImGui::Checkbox("<<< SDLAudioDriver >>>", &SDLAudioDriverImGui));
+        if (SDLAudioDriverImGui) {
             static std::array<float, 10000> bufferUsageHistory;
             static std::array<float, 10000> pauseHistory;
             static int index = 0;
@@ -122,18 +121,18 @@ public:
                 std::fill(pauseHistory.begin(), pauseHistory.end(), 0.f);
             }
 
-            IMGUI_CALL(AudioDebug, ImGui::PlotLines("Buffer Usage", bufferUsageHistory.data(),
-                                                    (int)bufferUsageHistory.size(), 0, 0, 0.f, 1.f,
-                                                    ImVec2(0, 100.f)));
+            IMGUI_CALL(Debug, ImGui::PlotLines("Buffer Usage", bufferUsageHistory.data(),
+                                               (int)bufferUsageHistory.size(), 0, 0, 0.f, 1.f,
+                                               ImVec2(0, 100.f)));
 
-            IMGUI_CALL(AudioDebug,
+            IMGUI_CALL(Debug,
                        ImGui::PlotLines("Unpaused", pauseHistory.data(), (int)pauseHistory.size(),
                                         0, 0, 0.f, 1.f, ImVec2(0, 100.f)));
 
             const auto color = m_paused ? IM_COL32(255, 0, 0, 255) : IM_COL32(255, 255, 0, 255);
-            IMGUI_CALL(AudioDebug, ImGui::PushStyleColor(ImGuiCol_PlotHistogram, color));
-            IMGUI_CALL(AudioDebug, ImGui::ProgressBar(GetBufferUsageRatio(), ImVec2(-1, 100)));
-            IMGUI_CALL(AudioDebug, ImGui::PopStyleColor());
+            IMGUI_CALL(Debug, ImGui::PushStyleColor(ImGuiCol_PlotHistogram, color));
+            IMGUI_CALL(Debug, ImGui::ProgressBar(GetBufferUsageRatio(), ImVec2(-1, 100)));
+            IMGUI_CALL(Debug, ImGui::PopStyleColor());
         }
     }
 

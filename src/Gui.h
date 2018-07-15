@@ -5,7 +5,7 @@
 
 namespace Gui {
     namespace Window {
-        enum Type { Debug, AudioDebug, Size };
+        enum Type { Debug, Size };
     }
 
     inline std::array<bool, Window::Size> EnabledWindows = {};
@@ -29,4 +29,9 @@ namespace Gui {
 
 #define IMGUI_CALL(window, func)                                                                   \
     Gui::Internal::DoImguiCall(#window, Gui::Window::window, [&] { func; })
+
+#define IMGUI_CALL_IF(condition, window, func)                                                     \
+    if (condition)                                                                                 \
+    Gui::Internal::DoImguiCall(#window, Gui::Window::window, [&] { func; })
+
 } // namespace Gui

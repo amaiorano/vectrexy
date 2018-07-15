@@ -90,11 +90,11 @@ void Psg::Update(cycles_t cycles) {
     }
 }
 
-static bool g_multiSample = false;
-
 void Psg::FrameUpdate() {
     // Debug output
-    {
+    static bool PsgImGui = false;
+    IMGUI_CALL(Debug, ImGui::Checkbox("<<< Psg >>>", &PsgImGui));
+    if (PsgImGui) {
         static int index = 0;
         static std::array<float, 10000> envelopeHistory;
 
@@ -103,11 +103,9 @@ void Psg::FrameUpdate() {
             std::fill(envelopeHistory.begin(), envelopeHistory.end(), 0.f);
         }
         index = (index + 1) % envelopeHistory.size();
-        IMGUI_CALL(AudioDebug,
+        IMGUI_CALL(Debug,
                    ImGui::PlotLines("Envelope", envelopeHistory.data(), (int)envelopeHistory.size(),
                                     0, 0, 0.f, 15.f, ImVec2(0, 100.f)));
-
-        IMGUI_CALL(AudioDebug, ImGui::Checkbox("Multisample", &g_multiSample));
     }
 }
 
