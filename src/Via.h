@@ -11,6 +11,31 @@
 class Input;
 struct RenderContext;
 
+// @TODO: Move to a separate header, and maybe find a better name
+class AverageValue {
+public:
+    void Reset() {
+        m_sum = {};
+        m_count = {};
+    }
+    void Add(float v) {
+        m_sum += v;
+        ++m_count;
+    }
+    float Sum() const { return m_sum; }
+    size_t Count() const { return m_count; }
+    float Average() const { return m_count == 0 ? 0 : m_sum / m_count; }
+    float AverageAndReset() {
+        auto result = Average();
+        Reset();
+        return result;
+    }
+
+private:
+    float m_sum{};
+    size_t m_count{};
+};
+
 // Implementation of the 6522 Versatile Interface Adapter (VIA)
 // Used to control all of the Vectrex peripherals, such as keypads, vector generator, DAC, sound
 // chip, etc.
@@ -50,5 +75,6 @@ private:
     mutable bool m_ca1InterruptFlag{};
     bool m_firqEnabled{};
     float m_elapsedAudioCycles{};
-    uint8_t m_lastDirectSoundSample{};
+
+    AverageValue m_directAudioSamples;
 };

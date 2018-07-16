@@ -145,6 +145,8 @@ void Via::Reset() {
     m_ca1Enabled = {};
     m_ca1InterruptFlag = {};
     m_firqEnabled = {};
+    m_elapsedAudioCycles = {};
+    m_directAudioSamples.Reset();
 
     SetBits(m_portB, PortB::RampDisabled, true);
 }
@@ -178,10 +180,16 @@ void Via::Update(cycles_t cycles, const Input& input, RenderContext& renderConte
         if (++m_elapsedAudioCycles >= audioContext.CpuCyclesPerAudioSample) {
             m_elapsedAudioCycles -= audioContext.CpuCyclesPerAudioSample;
 
-            // Need a target sample
+            // Need a target sample...
+
             float psgSample = m_psg.Sample();
-            float directSample = static_cast<int8_t>(m_lastDirectSoundSample) / 128.f; // [-1,1]
-            float targetSample = (psgSample + directSample) / 2.f;
+            float directSample = m_directAudioSamples.AverageAndReset();
+
+            //@TODO: Is this right? Averaging means getting half the volume when only one source is
+            // playing, which is most of the time.
+            float targetSample = directSample != 0 ? directSample : psgSample;
+            // float targetSample = (psgSample + directSample) / 2.f;
+
             audioContext.samples.push_back(targetSample);
         }
     }
@@ -332,7 +340,7 @@ void Via::Write(uint16_t address, uint8_t value) {
                 m_screen.SetBrightness(m_portA);
                 break;
             case 3: // Connected to sound output line via divider network
-                m_lastDirectSoundSample = m_portA;
+                m_directAudioSamples.Add(static_cast<int8_t>(m_portA) / 128.f); // [-1,1]
                 break;
             default:
                 FAIL();
@@ -348,14 +356,6 @@ void Via::Write(uint16_t address, uint8_t value) {
         const bool muxEnabled = !TestBits(m_portB, PortB::MuxDisabled);
 
         if (!muxEnabled) {
-            // Reset the last direct sound sample when we're about to write new values to PSG if the
-            // PSG will produce sound. This may not be 100% correct, but we need to reset this value
-            // when no more samples are being sent, otherwise if the last value sent is non-zero,
-            // not resetting it would end up shifting the output audio samples (since we average
-            // these with the output of the PSG).
-            if (m_psg.IsProducingSound())
-                m_lastDirectSoundSample = 0;
-
             m_psg.SetBC1(TestBits(m_portB, PortB::SoundBC1));
             m_psg.SetBDIR(TestBits(m_portB, PortB::SoundBDir));
             // @TODO: not sure if we should always send port A value to PSG's DA bus, or just when
