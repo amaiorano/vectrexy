@@ -82,6 +82,8 @@ void Psg::Reset() {
     m_registers.fill(0);
     m_masterDivider.Reset();
     m_toneGenerators = {};
+    m_noiseGenerator = {};
+    m_envelopeGenerator = {};
 }
 
 void Psg::Update(cycles_t cycles) {
@@ -180,15 +182,21 @@ float Psg::SampleChannelsAndMix() const {
             break;
         }
 
+        assert(volume < 16);
+
+        // There's a bug in the Vectrex BIOS Clear_Sound routine ($F272) that is suppposed to
+        // initialize the PSG registers to 0, but instead, only does so for one register, and sets
+        // the rest to 1. This makes it so that we hear some noise when we reset. We can "fix" this
+        // hear by considering volume 1 to be silent.
+        if (volume <= 1)
+            return 0.f;
+
         // The volume is non-linear. Below formula does comply with the PSG datasheet, and does more
         // or less match the voltages measured on the CPCs speaker (the voltages on the CPCs stereo
         // connector seem to be slightly different though).
         // amplitude = max / sqrt(2)^(15-nn)
         // eg. 15 --> max / 1, 14 --> max / 1.414, 13 --> max / 2, etc.
         // http://www.cpcwiki.eu/index.php/PSG#0Ah_-_Channel_C_Volume_.280-0Fh.3Dvolume.2C_10h.3Duse_envelope_instead.29
-        assert(volume < 16);
-        if (volume == 0)
-            return 0.f;
         return 1.f / ::powf(::sqrtf(2), 15.f - volume);
     };
 
@@ -199,7 +207,7 @@ float Psg::SampleChannelsAndMix() const {
                                              const EnvelopeGenerator& envelopeGenerator) -> float {
         const float volume = GetChannelVolume(amplitudeRegister, envelopeGenerator);
         if (volume == 0.f)
-            return 0.5f;
+            return 0.f;
 
         // If both Tone and Noise are disabled on a channel, then a constant HIGH level is output
         // (useful for digitized speech). If both Tone and Noise are enabled on the same channel,
@@ -221,7 +229,13 @@ float Psg::SampleChannelsAndMix() const {
             sample = noiseGenerator.Value();
         }
 
-        return ((sample - 0.5f) * volume) + 0.5f;
+        // Convert int sample [0,1] to float [-1,1]
+        auto finalSample = (sample * 2.f) - 1.f;
+
+        // Apply volume
+        finalSample *= volume;
+
+        return finalSample;
     };
 
     // Sample and mix each of the 3 channels

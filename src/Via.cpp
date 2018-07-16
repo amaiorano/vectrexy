@@ -137,6 +137,7 @@ void Via::Reset() {
     m_interruptEnable = 0;
 
     m_screen = Screen{};
+    m_psg.Reset();
     m_timer1 = Timer1{};
     m_timer2 = Timer2{};
     m_shiftRegister = ShiftRegister{};
@@ -179,10 +180,7 @@ void Via::Update(cycles_t cycles, const Input& input, RenderContext& renderConte
 
             // Need a target sample
             float psgSample = m_psg.Sample();
-
             float directSample = static_cast<int8_t>(m_lastDirectSoundSample) / 128.f; // [-1,1]
-            directSample = (directSample + 1.f) / 2.f;                                 // [0,1]
-
             float targetSample = (psgSample + directSample) / 2.f;
             audioContext.samples.push_back(targetSample);
         }
@@ -319,8 +317,7 @@ uint8_t Via::Read(uint16_t address) const {
 }
 
 void Via::Write(uint16_t address, uint8_t value) {
-
-    auto UpdateIntegratorsAndPsg = [&] {
+    auto UpdateIntegrators = [&] {
         const bool muxEnabled = !TestBits(m_portB, PortB::MuxDisabled);
 
         if (muxEnabled) {
@@ -341,7 +338,16 @@ void Via::Write(uint16_t address, uint8_t value) {
                 FAIL();
                 break;
             }
-        } else {
+        }
+
+        // Always output to X-axis integrator
+        m_screen.SetIntegratorX(static_cast<int8_t>(m_portA));
+    };
+
+    auto UpdatePsg = [&] {
+        const bool muxEnabled = !TestBits(m_portB, PortB::MuxDisabled);
+
+        if (!muxEnabled) {
             // Reset the last direct sound sample when we're about to write new values to PSG if the
             // PSG will produce sound. This may not be 100% correct, but we need to reset this value
             // when no more samples are being sent, otherwise if the last value sent is non-zero,
@@ -356,16 +362,14 @@ void Via::Write(uint16_t address, uint8_t value) {
             // MUX disabled
             m_psg.WriteDA(m_portA);
         }
-
-        // Always output to X-axis integrator
-        m_screen.SetIntegratorX(static_cast<int8_t>(m_portA));
     };
 
     const uint16_t index = MemoryMap::Via.MapAddress(address);
     switch (index) {
     case Register::PortB:
         m_portB = value;
-        UpdateIntegratorsAndPsg();
+        UpdateIntegrators();
+        UpdatePsg();
         break;
 
     case Register::PortA:
@@ -375,7 +379,7 @@ void Via::Write(uint16_t address, uint8_t value) {
         // outputs, and to the X-axis integrator.
         m_portA = value;
         if (m_dataDirA == 0xFF) {
-            UpdateIntegratorsAndPsg();
+            UpdateIntegrators();
         }
         break;
 

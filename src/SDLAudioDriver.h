@@ -14,7 +14,7 @@ public:
     size_t GetSampleRate() const;
     float GetBufferUsageRatio() const;
 
-    // Value in range [0,1]
+    // Value in range [-1,1]
     void AddSample(float sample);
     void AddSamples(const float* samples, size_t size);
 

@@ -22,8 +22,7 @@ namespace {
     struct AudioFormat<AUDIO_S16> {
         typedef int16_t Type;
         static Type Remap(float ratio) {
-            return static_cast<Type>(((ratio - 0.5f) * 2.f) *
-                                     (std::numeric_limits<Type>::max() - 1));
+            return static_cast<Type>(ratio * (std::numeric_limits<Type>::max() - 1));
         }
     };
 
@@ -31,21 +30,21 @@ namespace {
     struct AudioFormat<AUDIO_U16> {
         typedef uint16_t Type;
         static Type Remap(float ratio) {
-            return static_cast<Type>(ratio * std::numeric_limits<Type>::max());
+            return static_cast<Type>(((ratio + 1.f) / 2.f) * std::numeric_limits<Type>::max());
         }
     };
 
     template <>
     struct AudioFormat<AUDIO_F32> {
         typedef float Type;
-        static Type Remap(float ratio) { return (ratio - 0.5f) * 2.f; }
+        static Type Remap(float ratio) { return ratio; }
     };
 } // namespace
 
 class SDLAudioDriverImpl {
 public:
     static const int kSampleRate = 44100;
-    static const SDL_AudioFormat kSampleFormat = AUDIO_S16; // Apparently supported by all drivers?
+    static const SDL_AudioFormat kSampleFormat = AUDIO_S16;
     // static const SDL_AudioFormat kSampleFormat = AUDIO_U16;
     // static const SDL_AudioFormat kSampleFormat = AUDIO_F32;
     static const int kNumChannels = 1;
