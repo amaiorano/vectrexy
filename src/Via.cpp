@@ -177,12 +177,15 @@ void Via::Update(cycles_t cycles, const Input& input, RenderContext& renderConte
     m_psg.Update(cycles);
 
     for (cycles_t i = 0; i < cycles; ++i) {
+        m_psgAudioSamples.Add(m_psg.Sample());
+
         if (++m_elapsedAudioCycles >= audioContext.CpuCyclesPerAudioSample) {
             m_elapsedAudioCycles -= audioContext.CpuCyclesPerAudioSample;
 
             // Need a target sample...
 
-            float psgSample = m_psg.Sample();
+            float psgSample = m_psgAudioSamples.AverageAndReset();
+            // float psgSample = m_psg.Sample();
             float directSample = m_directAudioSamples.AverageAndReset();
 
             //@TODO: Is this right? Averaging means getting half the volume when only one source is
