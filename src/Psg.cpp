@@ -227,6 +227,8 @@ float Psg::SampleChannelsAndMix() const {
             sample = toneGenerator.Value();
         } else if (noiseEnabled) {
             sample = noiseGenerator.Value();
+        } else {
+            return 0.f; // No sound, return "center" value
         }
 
         // Convert int sample [0,1] to float [-1,1]
