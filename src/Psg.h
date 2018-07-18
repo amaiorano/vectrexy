@@ -287,6 +287,11 @@ public:
     void SetToneEnabled(bool enabled) { m_toneEnabled = enabled; }
     void SetNoiseEnabled(bool enabled) { m_noiseEnabled = enabled; }
     AmplitudeControl& GetAmplitudeControl() { return m_amplitudeControl; }
+    const ToneGenerator& GetToneGenerator() const { return m_toneGenerator; }
+    const NoiseGenerator& GetNoiseGenerator() const { return m_noiseGenerator; }
+
+    bool OverrideToneEnabled = true;
+    bool OverrideNoiseEnabled = true;
 
     float Sample() const {
         float volume = m_amplitudeControl.Volume();
@@ -298,11 +303,14 @@ public:
         // http://www.cpcwiki.eu/index.php/PSG#07h_-_Mixer_Control_Register
 
         uint32_t sample = 0;
-        if (m_toneEnabled && m_noiseEnabled) {
+        const bool toneEnabled = m_toneEnabled && OverrideToneEnabled;
+        const bool noiseEnabled = m_noiseEnabled && OverrideNoiseEnabled;
+
+        if (toneEnabled && noiseEnabled) {
             sample = m_toneGenerator.Value() & m_noiseGenerator.Value();
-        } else if (m_toneEnabled) {
+        } else if (toneEnabled) {
             sample = m_toneGenerator.Value();
-        } else if (m_noiseEnabled) {
+        } else if (noiseEnabled) {
             sample = m_noiseGenerator.Value();
         } else {
             return 0.f; // No sound, return "center" value

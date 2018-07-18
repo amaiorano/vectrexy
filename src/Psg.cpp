@@ -57,6 +57,31 @@ namespace {
         }
 
     } // namespace AmplitudeControlRegister
+
+    //@TODO: move into utility header
+    template <typename T, size_t size>
+    class PlotData {
+    public:
+        using ArrayType = std::array<T, size>;
+
+        PlotData() { Clear(); }
+
+        void Clear() { std::fill(values.begin(), values.end(), 0.f); }
+
+        void AddValue(const T& value) {
+            if (index == 0)
+                Clear();
+            values[index] = value;
+            index = (index + 1) % values.size();
+        }
+
+        const ArrayType& Values() const { return values; }
+
+    private:
+        ArrayType values;
+        size_t index = 0;
+    };
+
 } // namespace
 
 Psg::Psg()
@@ -97,17 +122,74 @@ void Psg::FrameUpdate() {
     static bool PsgImGui = false;
     IMGUI_CALL(Debug, ImGui::Checkbox("<<< Psg >>>", &PsgImGui));
     if (PsgImGui) {
-        static int index = 0;
-        static std::array<float, 10000> envelopeHistory;
+        auto IndexToChannelName = [](auto index) {
+            switch (index) {
+            case 0:
+                return "A";
+            case 1:
+                return "B";
+            case 2:
+                return "C";
+            }
+            return "";
+        };
 
-        envelopeHistory[index] = (float)m_envelopeGenerator.Value();
-        if (index == 0) {
-            std::fill(envelopeHistory.begin(), envelopeHistory.end(), 0.f);
+        auto ImGuiLoopLabel = [](const char* name, size_t index) {
+            return FormattedString<>("%s##%d", name, (int)index);
+        };
+
+        const int NumHistoryValues = 1000;
+        static std::array<PlotData<float, NumHistoryValues>, 3> channelHistories;
+        static std::array<PlotData<float, NumHistoryValues>, 3> toneHistories;
+        static std::array<PlotData<float, NumHistoryValues>, 3> noiseHistories;
+        static std::array<PlotData<float, NumHistoryValues>, 3> volumeHistories;
+        static PlotData<float, NumHistoryValues> envelopeHistory;
+
+        for (size_t i = 0; i < m_channels.size(); ++i) {
+            auto& channel = m_channels[i];
+
+            IMGUI_CALL(Debug, ImGui::Text("Channel %s", IndexToChannelName(i)));
+
+            IMGUI_CALL(Debug,
+                       ImGui::Checkbox(ImGuiLoopLabel("Tone", i), &channel.OverrideToneEnabled));
+            IMGUI_CALL(Debug,
+                       ImGui::Checkbox(ImGuiLoopLabel("Noise", i), &channel.OverrideNoiseEnabled));
+
+            auto& channelHistory = channelHistories[i];
+            channelHistory.AddValue(channel.Sample());
+            IMGUI_CALL(Debug, ImGui::PlotLines(ImGuiLoopLabel("Channel History", i),
+                                               channelHistory.Values().data(),
+                                               (int)channelHistory.Values().size(), 0, 0, -1.f, 1.f,
+                                               ImVec2(0, 100.f)));
+
+            auto& toneHistory = toneHistories[i];
+            toneHistory.AddValue((float)channel.GetToneGenerator().Value());
+            IMGUI_CALL(Debug, ImGui::PlotLines(ImGuiLoopLabel("Tone History", i),
+                                               toneHistory.Values().data(),
+                                               (int)toneHistory.Values().size(), 0, 0, 0.f, 1.f,
+                                               ImVec2(0, 100.f)));
+
+            auto& noiseHistory = noiseHistories[i];
+            noiseHistory.AddValue((float)channel.GetNoiseGenerator().Value());
+            IMGUI_CALL(Debug, ImGui::PlotLines(ImGuiLoopLabel("Noise History", i),
+                                               noiseHistory.Values().data(),
+                                               (int)toneHistory.Values().size(), 0, 0, 0.f, 1.f,
+                                               ImVec2(0, 100.f)));
+
+            auto& volumeHistory = volumeHistories[i];
+            volumeHistory.AddValue((float)channel.GetAmplitudeControl().Volume());
+            IMGUI_CALL(Debug, ImGui::PlotLines(ImGuiLoopLabel("Volume History", i),
+                                               volumeHistory.Values().data(),
+                                               (int)volumeHistory.Values().size(), 0, 0, 0.f, 1.f,
+                                               ImVec2(0, 100.f)));
         }
-        index = (index + 1) % envelopeHistory.size();
-        IMGUI_CALL(Debug,
-                   ImGui::PlotLines("Envelope", envelopeHistory.data(), (int)envelopeHistory.size(),
-                                    0, 0, 0.f, 15.f, ImVec2(0, 100.f)));
+
+        IMGUI_CALL(Debug, ImGui::Text("General"));
+
+        envelopeHistory.AddValue(static_cast<float>(m_envelopeGenerator.Value()));
+        IMGUI_CALL(Debug, ImGui::PlotLines("Envelope", envelopeHistory.Values().data(),
+                                           (int)envelopeHistory.Values().size(), 0, 0, 0.f, 15.f,
+                                           ImVec2(0, 100.f)));
     }
 }
 
