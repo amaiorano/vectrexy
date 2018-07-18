@@ -52,8 +52,11 @@ public:
     }
     uint8_t PeriodLow() const { return checked_static_cast<uint8_t>(m_period & 0xff); }
 
+    // When period is 0, we don't want to hear anything from the tone generator
+    bool IsEnabled() const { return m_period > 0; }
+
     void Clock() {
-        if (/*m_period > 0 &&*/ m_timer.Clock()) {
+        if (IsEnabled() && m_timer.Clock()) {
             m_value = (m_value == 0 ? 1 : 0);
         }
     }
@@ -76,14 +79,17 @@ class NoiseGenerator {
 public:
     void SetPeriod(uint8_t period) {
         assert(period < 32);
-        m_period = std::max<uint8_t>(1, period & 0b0001'1111);
+        m_period = period;
         OnPeriodUpdated();
     }
 
     uint8_t Period() const { return static_cast<uint8_t>(m_timer.Period()); }
 
+    // Looks like even when period is 0, noise generator needs to keep generating values
+    bool IsEnabled() const { return true; }
+
     void Clock() {
-        if (m_timer.Clock()) {
+        if (IsEnabled() && m_timer.Clock()) {
             ClockShiftRegister();
         }
     }
@@ -105,8 +111,8 @@ private:
     }
 
     void OnPeriodUpdated() {
-        m_timer.SetPeriod(m_period);
-        // m_value = 0;
+        m_timer.SetPeriod(std::max<uint8_t>(1, m_period & 0b0001'1111));
+        m_value = 0;
     }
 
     Timer m_timer;
@@ -140,7 +146,7 @@ public:
     uint8_t Shape() { return m_shape; }
 
     void Clock() {
-        if (/*m_period > 0 &&*/ m_divider.Clock() && m_timer.Clock()) {
+        if (m_divider.Clock() && m_timer.Clock()) {
             UpdateValue();
         }
     }
@@ -303,8 +309,13 @@ public:
         // http://www.cpcwiki.eu/index.php/PSG#07h_-_Mixer_Control_Register
 
         uint32_t sample = 0;
-        const bool toneEnabled = m_toneEnabled && OverrideToneEnabled;
-        const bool noiseEnabled = m_noiseEnabled && OverrideNoiseEnabled;
+        const bool toneEnabled = m_toneEnabled                  // Enabled on channel
+                                 && m_toneGenerator.IsEnabled() // Enabled on chip
+                                 && OverrideToneEnabled;        // Enabled for debugging
+
+        const bool noiseEnabled = m_noiseEnabled                  // Enabled on channel
+                                  && m_noiseGenerator.IsEnabled() // Enabled on chip
+                                  && OverrideNoiseEnabled;        // Enabled for debugging
 
         if (toneEnabled && noiseEnabled) {
             sample = m_toneGenerator.Value() & m_noiseGenerator.Value();
