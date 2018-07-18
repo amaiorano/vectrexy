@@ -19,11 +19,11 @@ public:
     }
     uint32_t Period() const { return m_period; }
 
-    void Reset() { m_time = m_period; }
+    void Reset() { m_time = 0; }
 
     // Returns true when timer expires (and auto-resets)
     bool Clock() {
-        if (m_time > 0 && --m_time == 0) {
+        if ((m_period > 0) && (++m_time == m_period)) {
             Reset();
             return true;
         }
@@ -53,8 +53,8 @@ public:
     uint8_t PeriodLow() const { return checked_static_cast<uint8_t>(m_period & 0xff); }
 
     void Clock() {
-        if (m_period > 1 && m_timer.Clock()) {
-            m_value = m_value == 0 ? 1 : 0;
+        if (/*m_period > 0 &&*/ m_timer.Clock()) {
+            m_value = (m_value == 0 ? 1 : 0);
         }
     }
 
@@ -76,8 +76,8 @@ class NoiseGenerator {
 public:
     void SetPeriod(uint8_t period) {
         assert(period < 32);
-        period = std::max<uint8_t>(1, period & 0b0001'1111);
-        OnPeriodUpdated(period);
+        m_period = std::max<uint8_t>(1, period & 0b0001'1111);
+        OnPeriodUpdated();
     }
 
     uint8_t Period() const { return static_cast<uint8_t>(m_timer.Period()); }
@@ -104,12 +104,13 @@ private:
         ASSERT(m_shiftRegister < BITS(18));
     }
 
-    void OnPeriodUpdated(uint32_t period) {
-        m_timer.SetPeriod(period);
-        m_value = 0;
+    void OnPeriodUpdated() {
+        m_timer.SetPeriod(m_period);
+        // m_value = 0;
     }
 
     Timer m_timer;
+    uint32_t m_period{};          // 5 bit value [0,32]
     uint32_t m_shiftRegister = 1; // Must be initialized to a non-zero value
     uint32_t m_value{};           // 0 or 1
 };
@@ -139,22 +140,19 @@ public:
     uint8_t Shape() { return m_shape; }
 
     void Clock() {
-        if (!m_divider.Clock())
-            return;
-
-        if (!(m_period > 1 && m_timer.Clock()))
-            return;
-
-        UpdateValue();
+        if (/*m_period > 0 &&*/ m_divider.Clock() && m_timer.Clock()) {
+            UpdateValue();
+        }
     }
 
     uint32_t Value() const { return m_value; }
 
 private:
     void OnPeriodUpdated() {
+        //@TODO: why am I dividing by 16 here?
         auto timeToIncrementShapeIndex = std::max<uint32_t>(1, m_period / 16);
         m_timer.SetPeriod(timeToIncrementShapeIndex);
-        m_value = 0;
+        UpdateValue();
     }
 
     void UpdateValue() {
