@@ -27,7 +27,7 @@ namespace {
         };
     }
 
-    namespace MixerControl {
+    namespace MixerControlRegister {
         const uint8_t ToneA = BITS(0);
         const uint8_t ToneB = BITS(1);
         const uint8_t ToneC = BITS(2);
@@ -40,29 +40,29 @@ namespace {
             // Enabled when bit is 0
             return !TestBits(reg, type);
         }
+    } // namespace MixerControlRegister
 
-        uint8_t ToneChannelByIndex(int index) { return ToneA << index; }
-        uint8_t NoiseChannelByIndex(int index) { return NoiseA << index; }
-
-    } // namespace MixerControl
-
-    namespace AmplitudeControl {
+    namespace AmplitudeControlRegister {
         const uint8_t FixedVolume = BITS(0, 1, 2, 3);
         const uint8_t EnvelopeMode = BITS(4);
         const uint8_t Unused = BITS(5, 6, 7);
 
-        enum class Mode { Fixed, Envelope };
-        Mode GetMode(uint8_t reg) {
-            return TestBits(reg, EnvelopeMode) ? Mode::Envelope : Mode::Fixed;
+        AmplitudeMode GetMode(uint8_t reg) {
+            return TestBits(reg, EnvelopeMode) ? AmplitudeMode::Envelope : AmplitudeMode::Fixed;
         }
 
         uint32_t GetFixedVolume(uint8_t reg) {
-            assert(GetMode(reg) == Mode::Fixed);
+            // assert(GetMode(reg) == Mode::Fixed);
             return ReadBits(reg, FixedVolume);
         }
 
-    } // namespace AmplitudeControl
+    } // namespace AmplitudeControlRegister
 } // namespace
+
+Psg::Psg()
+    : m_channels{PsgChannel{m_toneGenerators[0], m_noiseGenerator, m_envelopeGenerator},
+                 PsgChannel{m_toneGenerators[1], m_noiseGenerator, m_envelopeGenerator},
+                 PsgChannel{m_toneGenerators[2], m_noiseGenerator, m_envelopeGenerator}} {}
 
 void Psg::Init() {
     Reset();
@@ -153,100 +153,18 @@ void Psg::Clock() {
 }
 
 bool Psg::IsProducingSound() const {
-    for (int i = 0; i < 3; ++i) {
-        auto& mixerControlRegister = m_registers[Register::MixerControl];
-        auto toneChannel = MixerControl::ToneChannelByIndex(i);
-        auto noiseChannel = MixerControl::NoiseChannelByIndex(i);
-        bool toneEnabled = MixerControl::IsEnabled(mixerControlRegister, toneChannel);
-        bool noiseEnabled = MixerControl::IsEnabled(mixerControlRegister, noiseChannel);
-        if (toneEnabled || noiseEnabled)
+    for (auto& channel : m_channels) {
+        if (channel.ToneEnabled() || channel.NoiseEnabled())
             return true;
     }
     return false;
 }
 
 float Psg::Sample() const {
-    return SampleChannelsAndMix();
-}
-
-float Psg::SampleChannelsAndMix() const {
-    auto GetChannelVolume = [](const uint8_t& amplitudeRegister,
-                               const EnvelopeGenerator& envelopeGenerator) {
-        uint32_t volume = 0;
-        switch (AmplitudeControl::GetMode(amplitudeRegister)) {
-        case AmplitudeControl::Mode::Fixed:
-            volume = AmplitudeControl::GetFixedVolume(amplitudeRegister);
-            break;
-        case AmplitudeControl::Mode::Envelope:
-            volume = envelopeGenerator.Value();
-            break;
-        }
-
-        assert(volume < 16);
-
-        // There's a bug in the Vectrex BIOS Clear_Sound routine ($F272) that is suppposed to
-        // initialize the PSG registers to 0, but instead, only does so for one register, and sets
-        // the rest to 1. This makes it so that we hear some noise when we reset. We can "fix" this
-        // hear by considering volume 1 to be silent.
-        if (volume <= 1)
-            return 0.f;
-
-        // The volume is non-linear. Below formula does comply with the PSG datasheet, and does more
-        // or less match the voltages measured on the CPCs speaker (the voltages on the CPCs stereo
-        // connector seem to be slightly different though).
-        // amplitude = max / sqrt(2)^(15-nn)
-        // eg. 15 --> max / 1, 14 --> max / 1.414, 13 --> max / 2, etc.
-        // http://www.cpcwiki.eu/index.php/PSG#0Ah_-_Channel_C_Volume_.280-0Fh.3Dvolume.2C_10h.3Duse_envelope_instead.29
-        return 1.f / ::powf(::sqrtf(2), 15.f - volume);
-    };
-
-    auto SampleChannel = [&GetChannelVolume](const uint8_t& amplitudeRegister,
-                                             const uint8_t& mixerControlRegister, int index,
-                                             const ToneGenerator& toneGenerator,
-                                             const NoiseGenerator& noiseGenerator,
-                                             const EnvelopeGenerator& envelopeGenerator) -> float {
-        const float volume = GetChannelVolume(amplitudeRegister, envelopeGenerator);
-        if (volume == 0.f)
-            return 0.f;
-
-        // If both Tone and Noise are disabled on a channel, then a constant HIGH level is output
-        // (useful for digitized speech). If both Tone and Noise are enabled on the same channel,
-        // then the signals are ANDed (the signals aren't ADDed) (ie. HIGH is output only if both
-        // are HIGH).
-        // http://www.cpcwiki.eu/index.php/PSG#07h_-_Mixer_Control_Register
-
-        auto toneChannel = MixerControl::ToneChannelByIndex(index);
-        auto noiseChannel = MixerControl::NoiseChannelByIndex(index);
-        bool toneEnabled = MixerControl::IsEnabled(mixerControlRegister, toneChannel);
-        bool noiseEnabled = MixerControl::IsEnabled(mixerControlRegister, noiseChannel);
-
-        uint32_t sample = 0;
-        if (toneEnabled && noiseEnabled) {
-            sample = toneGenerator.Value() & noiseGenerator.Value();
-        } else if (toneEnabled) {
-            sample = toneGenerator.Value();
-        } else if (noiseEnabled) {
-            sample = noiseGenerator.Value();
-        } else {
-            return 0.f; // No sound, return "center" value
-        }
-
-        // Convert int sample [0,1] to float [-1,1]
-        auto finalSample = (sample * 2.f) - 1.f;
-
-        // Apply volume
-        finalSample *= volume;
-
-        return finalSample;
-    };
-
     // Sample and mix each of the 3 channels
     float sample = 0.f;
-    for (int i = 0; i < 3; ++i) {
-        auto& amplitudeRegister = m_registers[Register::AmplitudeA + i];
-        auto& mixerControlRegister = m_registers[Register::MixerControl];
-        sample += SampleChannel(amplitudeRegister, mixerControlRegister, i, m_toneGenerators[i],
-                                m_noiseGenerator, m_envelopeGenerator);
+    for (auto& channel : m_channels) {
+        sample += channel.Sample();
     }
     sample /= 3.f;
     return sample;
@@ -254,26 +172,37 @@ float Psg::SampleChannelsAndMix() const {
 
 uint8_t Psg::Read(uint16_t address) {
     switch (m_latchedAddress) {
-    case Register::ToneGeneratorAHigh:
-        return m_toneGenerators[0].PeriodHigh();
     case Register::ToneGeneratorALow:
         return m_toneGenerators[0].PeriodLow();
-    case Register::ToneGeneratorBHigh:
-        return m_toneGenerators[1].PeriodHigh();
+    case Register::ToneGeneratorAHigh:
+        return m_toneGenerators[0].PeriodHigh();
     case Register::ToneGeneratorBLow:
         return m_toneGenerators[1].PeriodLow();
-    case Register::ToneGeneratorCHigh:
-        return m_toneGenerators[2].PeriodHigh();
+    case Register::ToneGeneratorBHigh:
+        return m_toneGenerators[1].PeriodHigh();
     case Register::ToneGeneratorCLow:
         return m_toneGenerators[2].PeriodLow();
+    case Register::ToneGeneratorCHigh:
+        return m_toneGenerators[2].PeriodHigh();
     case Register::NoiseGenerator:
         return m_noiseGenerator.Period();
-    case Register::EnvelopePeriodHigh:
-        return m_envelopeGenerator.PeriodHigh();
+    case Register::MixerControl:
+        break;
+    case Register::AmplitudeA:
+    case Register::AmplitudeB:
+    case Register::AmplitudeC:
+        break;
     case Register::EnvelopePeriodLow:
         return m_envelopeGenerator.PeriodLow();
+    case Register::EnvelopePeriodHigh:
+        return m_envelopeGenerator.PeriodHigh();
     case Register::EnvelopeShape:
         return m_envelopeGenerator.Shape();
+    case Register::IOPortADataStore:
+    case Register::IOPortBDataStore:
+        break;
+    default:
+        ASSERT(false);
     }
 
     return m_registers[address];
@@ -281,29 +210,54 @@ uint8_t Psg::Read(uint16_t address) {
 
 void Psg::Write(uint16_t address, uint8_t value) {
     switch (m_latchedAddress) {
-    case Register::ToneGeneratorAHigh:
-        return m_toneGenerators[0].SetPeriodHigh(value);
     case Register::ToneGeneratorALow:
         return m_toneGenerators[0].SetPeriodLow(value);
-    case Register::ToneGeneratorBHigh:
-        return m_toneGenerators[1].SetPeriodHigh(value);
+    case Register::ToneGeneratorAHigh:
+        return m_toneGenerators[0].SetPeriodHigh(value);
     case Register::ToneGeneratorBLow:
         return m_toneGenerators[1].SetPeriodLow(value);
-    case Register::ToneGeneratorCHigh:
-        return m_toneGenerators[2].SetPeriodHigh(value);
+    case Register::ToneGeneratorBHigh:
+        return m_toneGenerators[1].SetPeriodHigh(value);
     case Register::ToneGeneratorCLow:
         return m_toneGenerators[2].SetPeriodLow(value);
+    case Register::ToneGeneratorCHigh:
+        return m_toneGenerators[2].SetPeriodHigh(value);
     case Register::NoiseGenerator:
         return m_noiseGenerator.SetPeriod(value);
     case Register::MixerControl:
         ASSERT_MSG(ReadBits(value, 0b1100'0000) == 0, "Not supporting I/O ports on PSG");
+        m_channels[0].SetToneEnabled(
+            MixerControlRegister::IsEnabled(value, MixerControlRegister::ToneA));
+        m_channels[1].SetToneEnabled(
+            MixerControlRegister::IsEnabled(value, MixerControlRegister::ToneB));
+        m_channels[2].SetToneEnabled(
+            MixerControlRegister::IsEnabled(value, MixerControlRegister::ToneC));
+        m_channels[0].SetNoiseEnabled(
+            MixerControlRegister::IsEnabled(value, MixerControlRegister::NoiseA));
+        m_channels[1].SetNoiseEnabled(
+            MixerControlRegister::IsEnabled(value, MixerControlRegister::NoiseB));
+        m_channels[2].SetNoiseEnabled(
+            MixerControlRegister::IsEnabled(value, MixerControlRegister::NoiseC));
         break;
-    case Register::EnvelopePeriodHigh:
-        return m_envelopeGenerator.SetPeriodHigh(value);
+    case Register::AmplitudeA:
+    case Register::AmplitudeB:
+    case Register::AmplitudeC: {
+        auto& channel = m_channels[m_latchedAddress - Register::AmplitudeA];
+        channel.GetAmplitudeControl().SetMode(AmplitudeControlRegister::GetMode(value));
+        channel.GetAmplitudeControl().SetFixedVolume(
+            AmplitudeControlRegister::GetFixedVolume(value));
+    } break;
     case Register::EnvelopePeriodLow:
         return m_envelopeGenerator.SetPeriodLow(value);
+    case Register::EnvelopePeriodHigh:
+        return m_envelopeGenerator.SetPeriodHigh(value);
     case Register::EnvelopeShape:
         return m_envelopeGenerator.SetShape(value);
+    case Register::IOPortADataStore:
+    case Register::IOPortBDataStore:
+        break;
+    default:
+        ASSERT(false);
     }
 
     m_registers[address] = value;

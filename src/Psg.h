@@ -229,10 +229,107 @@ private:
     uint8_t m_currShapeIndex{}; // Index into current shape (0-31)
 };
 
+enum class AmplitudeMode { Fixed, Envelope };
+
+class AmplitudeControl {
+public:
+    AmplitudeControl(EnvelopeGenerator& envelopeGenerator)
+        : m_envelopeGenerator(envelopeGenerator) {}
+
+    void SetMode(AmplitudeMode mode) { m_mode = mode; }
+    void SetFixedVolume(uint32_t volume) { m_fixedVolume = volume; }
+
+    // Returns volume in [0,1]
+    float Volume() const {
+        uint32_t volume = 0;
+        switch (m_mode) {
+        case AmplitudeMode::Fixed:
+            volume = m_fixedVolume;
+            break;
+        case AmplitudeMode::Envelope:
+            volume = m_envelopeGenerator.Value();
+            break;
+        }
+
+        assert(volume < 16);
+
+        // There's a bug in the Vectrex BIOS Clear_Sound routine ($F272) that is suppposed to
+        // initialize the PSG registers to 0, but instead, only does so for one register, and
+        // sets the rest to 1. This makes it so that we hear some noise when we reset. We can
+        // "fix" this hear by considering volume 1 to be silent.
+        if (volume <= 1)
+            return 0.f;
+
+        // The volume is non-linear. Below formula does comply with the PSG datasheet, and does
+        // more or less match the voltages measured on the CPCs speaker (the voltages on the
+        // CPCs stereo connector seem to be slightly different though). amplitude = max /
+        // sqrt(2)^(15-nn) eg. 15 --> max / 1, 14 --> max / 1.414, 13 --> max / 2, etc.
+        // http://www.cpcwiki.eu/index.php/PSG#0Ah_-_Channel_C_Volume_.280-0Fh.3Dvolume.2C_10h.3Duse_envelope_instead.29
+        return 1.f / ::powf(::sqrtf(2), 15.f - volume);
+    }
+
+private:
+    AmplitudeMode m_mode = AmplitudeMode::Fixed;
+    uint32_t m_fixedVolume{};
+    EnvelopeGenerator& m_envelopeGenerator;
+};
+
+class PsgChannel {
+public:
+    PsgChannel(ToneGenerator& toneGenerator, NoiseGenerator& noiseGenerator,
+               EnvelopeGenerator& envelopeGenerator)
+        : m_toneGenerator(toneGenerator)
+        , m_noiseGenerator(noiseGenerator)
+        , m_amplitudeControl(envelopeGenerator) {}
+
+    bool ToneEnabled() const { return m_toneEnabled; }
+    bool NoiseEnabled() const { return m_noiseEnabled; }
+    void SetToneEnabled(bool enabled) { m_toneEnabled = enabled; }
+    void SetNoiseEnabled(bool enabled) { m_noiseEnabled = enabled; }
+    AmplitudeControl& GetAmplitudeControl() { return m_amplitudeControl; }
+
+    float Sample() const {
+        float volume = m_amplitudeControl.Volume();
+
+        // If both Tone and Noise are disabled on a channel, then a constant HIGH level is output
+        // (useful for digitized speech). If both Tone and Noise are enabled on the same channel,
+        // then the signals are ANDed (the signals aren't ADDed) (ie. HIGH is output only if both
+        // are HIGH).
+        // http://www.cpcwiki.eu/index.php/PSG#07h_-_Mixer_Control_Register
+
+        uint32_t sample = 0;
+        if (m_toneEnabled && m_noiseEnabled) {
+            sample = m_toneGenerator.Value() & m_noiseGenerator.Value();
+        } else if (m_toneEnabled) {
+            sample = m_toneGenerator.Value();
+        } else if (m_noiseEnabled) {
+            sample = m_noiseGenerator.Value();
+        } else {
+            return 0.f; // No sound, return "center" value
+        }
+
+        // Convert int sample [0,1] to float [-1,1]
+        auto finalSample = (sample * 2.f) - 1.f;
+
+        // Apply volume
+        finalSample *= volume;
+
+        return finalSample;
+    }
+
+private:
+    bool m_toneEnabled{};
+    bool m_noiseEnabled{};
+    ToneGenerator& m_toneGenerator;
+    NoiseGenerator& m_noiseGenerator;
+    AmplitudeControl m_amplitudeControl;
+};
+
 // Implementation of the AY-3-8912 Programmable Sound Generator (PSG)
 
 class Psg {
 public:
+    Psg();
     void Init();
 
     void SetBDIR(bool enable) { m_BDIR = enable; }
@@ -257,8 +354,6 @@ private:
     uint8_t Read(uint16_t address);
     void Write(uint16_t address, uint8_t value);
 
-    float SampleChannelsAndMix() const;
-
     enum class PsgMode {
         // Selected from BDIR (bit 1) and BC1 (bit 0) values
         Inactive,    // BDIR off BC1 off
@@ -278,4 +373,5 @@ private:
     std::array<ToneGenerator, 3> m_toneGenerators{};
     NoiseGenerator m_noiseGenerator{};
     EnvelopeGenerator m_envelopeGenerator{};
+    std::array<PsgChannel, 3> m_channels;
 };
