@@ -1,6 +1,7 @@
 #include "Psg.h"
 #include "BitOps.h"
 #include "EngineClient.h"
+#include "ErrorHandler.h"
 #include "Gui.h"
 #include <cmath>
 
@@ -51,10 +52,7 @@ namespace {
             return TestBits(reg, EnvelopeMode) ? AmplitudeMode::Envelope : AmplitudeMode::Fixed;
         }
 
-        uint32_t GetFixedVolume(uint8_t reg) {
-            // assert(GetMode(reg) == Mode::Fixed);
-            return ReadBits(reg, FixedVolume);
-        }
+        uint32_t GetFixedVolume(uint8_t reg) { return ReadBits(reg, FixedVolume); }
 
     } // namespace AmplitudeControlRegister
 
@@ -307,7 +305,9 @@ void Psg::Write(uint16_t address, uint8_t value) {
     case Register::NoiseGenerator:
         return m_noiseGenerator.SetPeriod(value);
     case Register::MixerControl:
-        ASSERT_MSG(ReadBits(value, 0b1100'0000) == 0, "Not supporting I/O ports on PSG");
+        if (ReadBits(value, 0b1100'0000) != 0)
+            ErrorHandler::Undefined("Not supporting I/O ports on PSG");
+
         m_channels[0].SetToneEnabled(
             MixerControlRegister::IsEnabled(value, MixerControlRegister::ToneA));
         m_channels[1].SetToneEnabled(
