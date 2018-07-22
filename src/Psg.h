@@ -10,12 +10,17 @@ struct AudioContext;
 // Timer used by Tone and Noise Generators
 class Timer {
 public:
-    Timer(uint32_t period = 0) { SetPeriod(period); }
+    Timer(uint32_t period = 0) {
+        SetPeriod(period);
+        Reset();
+    }
 
     // Resets time
     void SetPeriod(uint32_t period) {
+        // Keep relative position when changing period
+        float ratio = m_period == 0 ? 0.f : static_cast<float>(m_time) / m_period;
         m_period = period;
-        Reset();
+        m_time = static_cast<uint32_t>(m_period * ratio);
     }
     uint32_t Period() const { return m_period; }
 
