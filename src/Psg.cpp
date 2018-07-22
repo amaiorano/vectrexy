@@ -136,7 +136,7 @@ void Psg::FrameUpdate() {
             return FormattedString<>("%s##%d", name, (int)index);
         };
 
-        const int NumHistoryValues = 1000;
+        const int NumHistoryValues = 5000;
         static std::array<PlotData<float, NumHistoryValues>, 3> channelHistories;
         static std::array<PlotData<float, NumHistoryValues>, 3> toneHistories;
         static std::array<PlotData<float, NumHistoryValues>, 3> noiseHistories;
@@ -230,14 +230,6 @@ void Psg::Clock() {
         m_noiseGenerator.Clock();
         m_envelopeGenerator.Clock();
     }
-}
-
-bool Psg::IsProducingSound() const {
-    for (auto& channel : m_channels) {
-        if (channel.ToneEnabled() || channel.NoiseEnabled())
-            return true;
-    }
-    return false;
 }
 
 float Psg::Sample() const {

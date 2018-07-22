@@ -364,7 +364,6 @@ public:
     void Reset();
     void Update(cycles_t cycles);
 
-    bool IsProducingSound() const;
     float Sample() const;
 
     void FrameUpdate();
