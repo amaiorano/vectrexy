@@ -61,7 +61,7 @@ public:
     bool IsEnabled() const { return m_period > 0; }
 
     void Clock() {
-        if (IsEnabled() && m_timer.Clock()) {
+        if (m_timer.Clock()) {
             m_value = (m_value == 0 ? 1 : 0);
         }
     }
@@ -70,9 +70,9 @@ public:
 
 private:
     void OnPeriodUpdated() {
+        // Note: changing period does not reset value
         auto duty = std::max<uint32_t>(1, m_period / 2);
         m_timer.SetPeriod(duty);
-        m_value = 0;
     }
 
     Timer m_timer;
@@ -94,7 +94,7 @@ public:
     bool IsEnabled() const { return true; }
 
     void Clock() {
-        if (IsEnabled() && m_timer.Clock()) {
+        if (m_timer.Clock()) {
             ClockShiftRegister();
         }
     }
@@ -115,10 +115,7 @@ private:
         ASSERT(m_shiftRegister < BITS(18));
     }
 
-    void OnPeriodUpdated() {
-        m_timer.SetPeriod(std::max<uint8_t>(1, m_period & 0b0001'1111));
-        m_value = 0;
-    }
+    void OnPeriodUpdated() { m_timer.SetPeriod(std::max<uint8_t>(1, m_period & 0b0001'1111)); }
 
     Timer m_timer;
     uint32_t m_period{};          // 5 bit value [0,32]
