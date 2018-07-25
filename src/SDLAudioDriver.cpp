@@ -6,13 +6,13 @@
 #include <SDL_audio.h>
 #include <array>
 
-constexpr struct {
-    static const bool Enabled = true;
+namespace OutputRawAudioFileStream {
+    constexpr bool Enabled = true;
 
     // Whether to output the source samples or the target samples
-    static const bool SourceSamples = false;
+    constexpr bool SourceSamples = false;
 
-} OutputRawAudioFileStream;
+}; // namespace OutputRawAudioFileStream
 
 namespace {
     template <SDL_AudioFormat Format>
@@ -87,7 +87,7 @@ public:
             desiredLatencySamples * 2); // We wait until buffer is 50% full to start playing
         m_samples.Init(bufferSize);
 
-        if constexpr (OutputRawAudioFileStream.Enabled) {
+        if constexpr (OutputRawAudioFileStream::Enabled) {
             m_rawAudioOutputFS.Open("RawAudio.raw", "wb");
         }
 
@@ -169,7 +169,8 @@ public:
 
         // AdjustBufferFlow();
 
-        if constexpr (OutputRawAudioFileStream.Enabled && OutputRawAudioFileStream.SourceSamples) {
+        if constexpr (OutputRawAudioFileStream::Enabled &&
+                      OutputRawAudioFileStream::SourceSamples) {
             m_rawAudioOutputFS.WriteValue(sample);
         }
     }
@@ -196,7 +197,8 @@ private:
             std::fill_n(stream + numSamplesRead, numSamplesToRead - numSamplesRead, lastSample);
         }
 
-        if constexpr (OutputRawAudioFileStream.Enabled && !OutputRawAudioFileStream.SourceSamples) {
+        if constexpr (OutputRawAudioFileStream::Enabled &&
+                      !OutputRawAudioFileStream::SourceSamples) {
             for (size_t i = 0; i < numSamplesToRead; ++i) {
                 audioDriver->m_rawAudioOutputFS.WriteValue(stream[i]);
             }
