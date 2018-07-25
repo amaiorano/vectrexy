@@ -11,7 +11,7 @@ class Screen {
 public:
     void Init();
     void Update(cycles_t cycles, RenderContext& renderContext);
-    void FrameUpdate();
+    void FrameUpdate(double frameTime);
 
     void ZeroBeam();
     void SetBlankEnabled(bool enabled) { m_blank = enabled; }

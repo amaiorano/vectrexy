@@ -1,14 +1,17 @@
 #pragma once
 
 #include "Line.h"
+#include "MathUtil.h"
 #include "MemoryBus.h"
 #include "MemoryMap.h"
+#include "Psg.h"
 #include "Screen.h"
 #include "ShiftRegister.h"
 #include "Timers.h"
 
 class Input;
 struct RenderContext;
+struct AudioContext;
 
 // Implementation of the 6522 Versatile Interface Adapter (VIA)
 // Used to control all of the Vectrex peripherals, such as keypads, vector generator, DAC, sound
@@ -18,8 +21,9 @@ class Via : public IMemoryBusDevice {
 public:
     void Init(MemoryBus& memoryBus);
     void Reset();
-    void Update(cycles_t cycles, const Input& input, RenderContext& renderContext);
-    void FrameUpdate();
+    void Update(cycles_t cycles, const Input& input, RenderContext& renderContext,
+                AudioContext& audioContext);
+    void FrameUpdate(double frameTime);
 
     bool IrqEnabled() const;
     bool FirqEnabled() const;
@@ -38,6 +42,7 @@ private:
     uint8_t m_interruptEnable;
 
     Screen m_screen;
+    Psg m_psg;
     Timer1 m_timer1;
     Timer2 m_timer2;
     ShiftRegister m_shiftRegister;
@@ -46,4 +51,7 @@ private:
     bool m_ca1Enabled{};
     mutable bool m_ca1InterruptFlag{};
     bool m_firqEnabled{};
+    float m_elapsedAudioCycles{};
+    MathUtil::AverageValue m_directAudioSamples;
+    MathUtil::AverageValue m_psgAudioSamples;
 };

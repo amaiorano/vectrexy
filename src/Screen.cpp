@@ -90,11 +90,15 @@ void Screen::Update(cycles_t cycles, RenderContext& renderContext) {
     m_lastDir = currDir;
 }
 
-void Screen::FrameUpdate() {
-    IMGUI_CALL(Debug, ImGui::SliderInt("RampUpDelay", &RampUpDelay, 0, 20));
-    IMGUI_CALL(Debug, ImGui::SliderInt("RampDownDelay", &RampDownDelay, 0, 20));
-    IMGUI_CALL(Debug, ImGui::SliderInt("VelocityXDelay", &VelocityXDelay, 0, 30));
-    IMGUI_CALL(Debug, ImGui::SliderFloat("LineDrawScale", &LineDrawScale, 0.1f, 1.f));
+void Screen::FrameUpdate(double /*frameTime*/) {
+    static bool ScreenImGui = false;
+    IMGUI_CALL(Debug, ImGui::Checkbox("<<< Screen >>>", &ScreenImGui));
+
+    IMGUI_CALL_IF(ScreenImGui, Debug, ImGui::SliderInt("RampUpDelay", &RampUpDelay, 0, 20));
+    IMGUI_CALL_IF(ScreenImGui, Debug, ImGui::SliderInt("RampDownDelay", &RampDownDelay, 0, 20));
+    IMGUI_CALL_IF(ScreenImGui, Debug, ImGui::SliderInt("VelocityXDelay", &VelocityXDelay, 0, 30));
+    IMGUI_CALL_IF(ScreenImGui, Debug,
+                  ImGui::SliderFloat("LineDrawScale", &LineDrawScale, 0.1f, 1.f));
     m_velocityX.CyclesToUpdateValue = VelocityXDelay;
 }
 

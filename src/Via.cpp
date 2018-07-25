@@ -34,8 +34,8 @@ namespace {
         const uint8_t MuxDisabled = BITS(0);
         const uint8_t MuxSelMask = BITS(1, 2);
         const uint8_t MuxSelShift = 1;
-        const uint8_t SoundBC1 = BITS(3);
-        const uint8_t SoundBDir = BITS(4);
+        const uint8_t SoundBC1 = BITS(3);  // Bus Control 1
+        const uint8_t SoundBDir = BITS(4); // Bus Direction
         const uint8_t Comparator = BITS(5);
         const uint8_t RampDisabled = BITS(7);
     } // namespace PortB
@@ -137,6 +137,7 @@ void Via::Reset() {
     m_interruptEnable = 0;
 
     m_screen = Screen{};
+    m_psg.Reset();
     m_timer1 = Timer1{};
     m_timer2 = Timer2{};
     m_shiftRegister = ShiftRegister{};
@@ -144,11 +145,14 @@ void Via::Reset() {
     m_ca1Enabled = {};
     m_ca1InterruptFlag = {};
     m_firqEnabled = {};
+    m_elapsedAudioCycles = {};
+    m_directAudioSamples.Reset();
 
     SetBits(m_portB, PortB::RampDisabled, true);
 }
 
-void Via::Update(cycles_t cycles, const Input& input, RenderContext& renderContext) {
+void Via::Update(cycles_t cycles, const Input& input, RenderContext& renderContext,
+                 AudioContext& audioContext) {
     // Update cached input state
     m_joystickButtonState = input.ButtonStateMask();
 
@@ -169,6 +173,29 @@ void Via::Update(cycles_t cycles, const Input& input, RenderContext& renderConte
 
     m_firqEnabled = input.IsButtonDown(0, 3);
 
+    // Audio update
+    for (cycles_t i = 0; i < cycles; ++i) {
+        m_psg.Update(1);
+        m_psgAudioSamples.Add(m_psg.Sample());
+
+        if (++m_elapsedAudioCycles >= audioContext.CpuCyclesPerAudioSample) {
+            m_elapsedAudioCycles -= audioContext.CpuCyclesPerAudioSample;
+
+            // Need a target sample...
+
+            float psgSample = m_psgAudioSamples.AverageAndReset();
+            float directSample = m_directAudioSamples.AverageAndReset();
+
+            //@TODO: Is this right? Averaging means getting half the volume when only one source is
+            // playing, which is most of the time.
+            float targetSample = directSample != 0 ? directSample : psgSample;
+            // float targetSample = (psgSample + directSample) / 2.f;
+
+            audioContext.samples.push_back(targetSample);
+        }
+    }
+
+    //@TODO: Move this code into a Clock() function and call it cycles number of times
     // For cycle-accurate drawing, we update our timers, shift register, and beam movement 1 cycle
     // at a time
     cycles_t cyclesLeft = cycles;
@@ -201,8 +228,9 @@ void Via::Update(cycles_t cycles, const Input& input, RenderContext& renderConte
     }
 }
 
-void Via::FrameUpdate() {
-    m_screen.FrameUpdate();
+void Via::FrameUpdate(double frameTime) {
+    m_screen.FrameUpdate(frameTime);
+    m_psg.FrameUpdate(frameTime);
 }
 
 uint8_t Via::Read(uint16_t address) const {
@@ -215,12 +243,19 @@ uint8_t Via::Read(uint16_t address) const {
         int8_t portASigned = static_cast<int8_t>(m_portA);
         SetBits(result, PortB::Comparator, portASigned < m_joystickPot);
 
+        SetBits(result, PortB::SoundBC1, m_psg.BC1());
+        SetBits(result, PortB::SoundBDir, m_psg.BDIR());
+
         return result;
     }
     case Register::PortA: {
         m_ca1InterruptFlag = false; // Cleared by read/write of Port A
 
         uint8_t result = m_portA;
+
+        // @TODO: Vectrex probably only ever reads from PSG to read joystick state. Right now we're
+        // reading joystick inputs directly here in the Via, so we'll skip reading DA value from PSG
+        // here. Eventually, we should move the joystick reading logic into PSG and clean this up.
 
         // Digital input
         if (!TestBits(m_portB, PortB::SoundBDir) && TestBits(m_portB, PortB::SoundBC1)) {
@@ -291,9 +326,9 @@ uint8_t Via::Read(uint16_t address) const {
 }
 
 void Via::Write(uint16_t address, uint8_t value) {
-
     auto UpdateIntegrators = [&] {
         const bool muxEnabled = !TestBits(m_portB, PortB::MuxDisabled);
+
         if (muxEnabled) {
             switch (ReadBitsWithShift(m_portB, PortB::MuxSelMask, PortB::MuxSelShift)) {
             case 0: // Y-axis integrator
@@ -306,15 +341,28 @@ void Via::Write(uint16_t address, uint8_t value) {
                 m_screen.SetBrightness(m_portA);
                 break;
             case 3: // Connected to sound output line via divider network
-                //@TODO
+                m_directAudioSamples.Add(static_cast<int8_t>(m_portA) / 128.f); // [-1,1]
                 break;
             default:
                 FAIL();
                 break;
             }
         }
+
         // Always output to X-axis integrator
         m_screen.SetIntegratorX(static_cast<int8_t>(m_portA));
+    };
+
+    auto UpdatePsg = [&] {
+        const bool muxEnabled = !TestBits(m_portB, PortB::MuxDisabled);
+
+        if (!muxEnabled) {
+            m_psg.SetBC1(TestBits(m_portB, PortB::SoundBC1));
+            m_psg.SetBDIR(TestBits(m_portB, PortB::SoundBDir));
+            // @TODO: not sure if we should always send port A value to PSG's DA bus, or just when
+            // MUX disabled
+            m_psg.WriteDA(m_portA);
+        }
     };
 
     const uint16_t index = MemoryMap::Via.MapAddress(address);
@@ -322,6 +370,7 @@ void Via::Write(uint16_t address, uint8_t value) {
     case Register::PortB:
         m_portB = value;
         UpdateIntegrators();
+        UpdatePsg();
         break;
 
     case Register::PortA:
