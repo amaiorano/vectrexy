@@ -139,7 +139,7 @@ private:
         bool keepGoing = m_debugger.FrameUpdate(frameTime, input, emuEvents, renderContext,
                                                 audioContext, m_syncProtocol);
 
-        m_via.FrameUpdate();
+        m_via.FrameUpdate(frameTime);
 
         if (m_syncProtocol.IsServer()) {
             m_syncProtocol.Server_RecvFrameEnd();

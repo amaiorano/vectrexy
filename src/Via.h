@@ -23,7 +23,7 @@ public:
     void Reset();
     void Update(cycles_t cycles, const Input& input, RenderContext& renderContext,
                 AudioContext& audioContext);
-    void FrameUpdate();
+    void FrameUpdate(double frameTime);
 
     bool IrqEnabled() const;
     bool FirqEnabled() const;

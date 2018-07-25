@@ -442,7 +442,7 @@ public:
 
     float Sample() const;
 
-    void FrameUpdate();
+    void FrameUpdate(double frameTime);
 
 private:
     void Clock();
@@ -505,7 +505,7 @@ void PsgImpl::Update(cycles_t cycles) {
     }
 }
 
-void PsgImpl::FrameUpdate() {
+void PsgImpl::FrameUpdate(double frameTime) {
     // Debug output
     static bool PsgImGui = false;
     IMGUI_CALL(Debug, ImGui::Checkbox("<<< Psg >>>", &PsgImGui));
@@ -544,28 +544,32 @@ void PsgImpl::FrameUpdate() {
                        ImGui::Checkbox(ImGuiLoopLabel("Noise", i), &channel.OverrideNoiseEnabled));
 
             auto& channelHistory = channelHistories[i];
-            channelHistory.AddValue(channel.Sample());
+            auto& toneHistory = toneHistories[i];
+            auto& noiseHistory = noiseHistories[i];
+            auto& volumeHistory = volumeHistories[i];
+
+            if (frameTime > 0.f) {
+                channelHistory.AddValue(channel.Sample());
+                toneHistory.AddValue((float)channel.GetToneGenerator().Value());
+                noiseHistory.AddValue((float)channel.GetNoiseGenerator().Value());
+                volumeHistory.AddValue((float)channel.GetAmplitudeControl().Volume());
+            }
+
             IMGUI_CALL(Debug, ImGui::PlotLines(ImGuiLoopLabel("Channel History", i),
                                                channelHistory.Values().data(),
                                                (int)channelHistory.Values().size(), 0, 0, -1.f, 1.f,
                                                ImVec2(0, 100.f)));
 
-            auto& toneHistory = toneHistories[i];
-            toneHistory.AddValue((float)channel.GetToneGenerator().Value());
             IMGUI_CALL(Debug, ImGui::PlotLines(ImGuiLoopLabel("Tone History", i),
                                                toneHistory.Values().data(),
                                                (int)toneHistory.Values().size(), 0, 0, 0.f, 1.f,
                                                ImVec2(0, 100.f)));
 
-            auto& noiseHistory = noiseHistories[i];
-            noiseHistory.AddValue((float)channel.GetNoiseGenerator().Value());
             IMGUI_CALL(Debug, ImGui::PlotLines(ImGuiLoopLabel("Noise History", i),
                                                noiseHistory.Values().data(),
                                                (int)toneHistory.Values().size(), 0, 0, 0.f, 1.f,
                                                ImVec2(0, 100.f)));
 
-            auto& volumeHistory = volumeHistories[i];
-            volumeHistory.AddValue((float)channel.GetAmplitudeControl().Volume());
             IMGUI_CALL(Debug, ImGui::PlotLines(ImGuiLoopLabel("Volume History", i),
                                                volumeHistory.Values().data(),
                                                (int)volumeHistory.Values().size(), 0, 0, 0.f, 1.f,
@@ -574,7 +578,10 @@ void PsgImpl::FrameUpdate() {
 
         IMGUI_CALL(Debug, ImGui::Text("General"));
 
-        envelopeHistory.AddValue(static_cast<float>(m_envelopeGenerator.Value()));
+        if (frameTime > 0.f) {
+            envelopeHistory.AddValue(static_cast<float>(m_envelopeGenerator.Value()));
+        }
+
         IMGUI_CALL(Debug, ImGui::PlotLines("Envelope", envelopeHistory.Values().data(),
                                            (int)envelopeHistory.Values().size(), 0, 0, 0.f, 15.f,
                                            ImVec2(0, 100.f)));
@@ -770,6 +777,6 @@ float Psg::Sample() const {
     return m_impl->Sample();
 }
 
-void Psg::FrameUpdate() {
-    return m_impl->FrameUpdate();
+void Psg::FrameUpdate(double frameTime) {
+    return m_impl->FrameUpdate(frameTime);
 }

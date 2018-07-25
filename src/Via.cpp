@@ -228,9 +228,9 @@ void Via::Update(cycles_t cycles, const Input& input, RenderContext& renderConte
     }
 }
 
-void Via::FrameUpdate() {
-    m_screen.FrameUpdate();
-    m_psg.FrameUpdate();
+void Via::FrameUpdate(double frameTime) {
+    m_screen.FrameUpdate(frameTime);
+    m_psg.FrameUpdate(frameTime);
 }
 
 uint8_t Via::Read(uint16_t address) const {

@@ -90,7 +90,7 @@ void Screen::Update(cycles_t cycles, RenderContext& renderContext) {
     m_lastDir = currDir;
 }
 
-void Screen::FrameUpdate() {
+void Screen::FrameUpdate(double /*frameTime*/) {
     static bool ScreenImGui = false;
     IMGUI_CALL(Debug, ImGui::Checkbox("<<< Screen >>>", &ScreenImGui));
 

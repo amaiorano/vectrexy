@@ -25,7 +25,7 @@ public:
 
     float Sample() const;
 
-    void FrameUpdate();
+    void FrameUpdate(double frameTime);
 
 private:
     pimpl::Pimpl<class PsgImpl, 256> m_impl;
