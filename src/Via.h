@@ -11,6 +11,7 @@
 
 class Input;
 struct RenderContext;
+struct AudioContext;
 
 // Implementation of the 6522 Versatile Interface Adapter (VIA)
 // Used to control all of the Vectrex peripherals, such as keypads, vector generator, DAC, sound
