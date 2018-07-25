@@ -298,7 +298,7 @@ void Psg::Write(uint16_t address, uint8_t value) {
         return m_noiseGenerator.SetPeriod(value);
     case Register::MixerControl:
         if (ReadBits(value, 0b1100'0000) != 0)
-            ErrorHandler::Undefined("Not supporting I/O ports on PSG");
+            ErrorHandler::Unsupported("Not supporting I/O ports on PSG");
 
         m_channels[0].SetToneEnabled(
             MixerControlRegister::IsEnabled(value, MixerControlRegister::ToneA));
