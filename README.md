@@ -80,8 +80,12 @@ Install:
 * [vcpkg](https://github.com/Microsoft/vcpkg)
 
 Install some Linux-specific libs we depend on:
-```bah
-sudo apt-get install libgtk2.0-dev libsndio-dev
+```bash
+sudo apt-get install g++-8 libgtk2.0-dev
+
+# SDL static lib dependencies (see https://hg.libsdl.org/SDL/file/default/docs/README-linux.md)
+# Alternatively, you can just 'apt-get libsdl2-dev' to build against the dynamic library
+sudo apt-get install build-essential mercurial make cmake autoconf automake libtool libasound2-dev libpulse-dev libaudio-dev libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxinerama-dev libxxf86vm-dev libxss-dev libgl1-mesa-dev libesd0-dev libdbus-1-dev libudev-dev libgles1-mesa-dev libgles2-mesa-dev libegl1-mesa-dev libibus-1.0-dev fcitx-libs-dev libsamplerate0-dev libsndio-dev
 ```
 
 Install the rest of the dependencies through vcpkg:

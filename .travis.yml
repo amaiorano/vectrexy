@@ -31,9 +31,33 @@ matrix:
             - ubuntu-toolchain-r-test
           packages:
             - g++-8
-            - libsndio-dev
             - libgtk2.0-dev
             - lftp
+            # SDL build dependencies
+            # See: https://hg.libsdl.org/SDL/file/default/docs/README-linux.md
+            - libtool
+            - libasound2-dev
+            - libpulse-dev
+            - libaudio-dev
+            - libx11-dev
+            - libxext-dev
+            - libxrandr-dev
+            - libxcursor-dev
+            - libxi-dev
+            - libxinerama-dev
+            - libxxf86vm-dev
+            - libxss-dev
+            - libgl1-mesa-dev
+            - libesd0-dev
+            - libdbus-1-dev
+            - libudev-dev
+            - libgles1-mesa-dev
+            - libgles2-mesa-dev
+            - libegl1-mesa-dev
+            - libibus-1.0-dev
+            - fcitx-libs-dev
+            - libsamplerate0-dev
+            - libsndio-dev
 
 before_install:
   - export CXX_FLAGS=${CXX_FLAGS}" "${ENV_CXX_FLAGS}
@@ -57,7 +81,7 @@ script:
  - |
    if [ "$TRAVIS_BRANCH" == "master" ]; then
      mkdir -p build && cd build
-     cmake -DCMAKE_CXX_FLAGS=${CXX_FLAGS} -DCMAKE_TOOLCHAIN_FILE=${DEPS_DIR}/vcpkg/scripts/buildsystems/vcpkg.cmake ..
+     cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS=${CXX_FLAGS} -DCMAKE_TOOLCHAIN_FILE=${DEPS_DIR}/vcpkg/scripts/buildsystems/vcpkg.cmake ..
      make -j
      cd ..
      bash ./package/package_linux.sh vectrexy_linux64 https://daroou.000webhostapp.com/vectrexy/package/
