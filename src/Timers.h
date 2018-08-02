@@ -30,7 +30,7 @@ public:
 
     uint8_t ReadCounterLow() const {
         m_interruptFlag = false;
-        return static_cast<uint8_t>(m_counter & 0x0F);
+        return static_cast<uint8_t>(m_counter & 0xFF);
     }
 
     uint8_t ReadCounterHigh() const { return static_cast<uint8_t>(m_counter >> 8); }
@@ -88,7 +88,7 @@ public:
 
     uint8_t ReadCounterLow() const {
         m_interruptFlag = false;
-        return static_cast<uint8_t>(m_counter & 0x0F);
+        return static_cast<uint8_t>(m_counter & 0xFF);
     }
 
     uint8_t ReadCounterHigh() const { return static_cast<uint8_t>(m_counter >> 8); }
