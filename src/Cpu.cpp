@@ -920,8 +920,8 @@ public:
         }
 
         if (irqEnabled && (CC.InterruptMask == 0)) {
-            CC.InterruptMask = 1;
             PushCCState(true);
+            CC.InterruptMask = 1;
             PC = Read16(InterruptVector::Irq);
             m_cycles += 19;
             return m_cycles;
