@@ -311,7 +311,6 @@ uint8_t Via::Read(uint16_t address) const {
         return GetInterruptFlagValue();
 
     case Register::InterruptEnable:
-        // FAIL_MSG("Read InterruptEnable not implemented");
         return m_interruptEnable;
 
     case Register::PortANoHandshake:
@@ -517,12 +516,7 @@ uint8_t Via::GetInterruptFlagValue() const {
     SetBits(result, InterruptFlag::Timer2, m_timer2.InterruptFlag());
     SetBits(result, InterruptFlag::Timer1, m_timer1.InterruptFlag());
 
-    // Set IRQ enable (bit 7) if any bits are on in both result and interruptEnable
-    //@TODO: Shouldn't we only enable IRQ if any of the bits in IFR is also enabled in IER?
-    // SetBits(result, InterruptFlag::IrqEnabled,
-    //        TestBits(result, 0x7F) && TestBits(m_interruptEnable, 0x7F));
-
-    // Enable IRQ if any IFR bits are also enabled in IER
+    // Enable IRQ  bit if any IFR bits (set above) are also enabled in IER
     SetBits(result, InterruptFlag::IrqEnabled, ((result & m_interruptEnable) & 0x7F) != 0);
 
     return result;
