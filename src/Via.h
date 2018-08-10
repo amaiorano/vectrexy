@@ -21,8 +21,12 @@ class Via : public IMemoryBusDevice {
 public:
     void Init(MemoryBus& memoryBus);
     void Reset();
-    void Update(cycles_t cycles, const Input& input, RenderContext& renderContext,
-                AudioContext& audioContext);
+
+    void SetSyncContext(const Input& input, RenderContext& renderContext,
+                        AudioContext& audioContext) {
+        m_syncContext = {&input, &renderContext, &audioContext};
+    }
+
     void FrameUpdate(double frameTime);
 
     bool IrqEnabled() const;
@@ -31,7 +35,16 @@ public:
 private:
     uint8_t Read(uint16_t address) const override;
     void Write(uint16_t address, uint8_t value) override;
+    void Sync(cycles_t cycles) override;
+    void DoSync(cycles_t cycles, const Input& input, RenderContext& renderContext,
+                AudioContext& audioContext);
     uint8_t GetInterruptFlagValue() const;
+
+    struct SyncContext {
+        const Input* input{};
+        RenderContext* renderContext{};
+        AudioContext* audioContext{};
+    } m_syncContext;
 
     // Registers
     uint8_t m_portB;

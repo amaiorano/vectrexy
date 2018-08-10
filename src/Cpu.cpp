@@ -71,6 +71,11 @@ public:
 
     void Init(MemoryBus& memoryBus) { m_memoryBus = &memoryBus; }
 
+    void AddCycles(cycles_t cycles) {
+        m_cycles += cycles;
+        m_memoryBus->AddSyncCycles(cycles);
+    }
+
     void Reset() {
         X = 0;
         Y = 0;
@@ -149,7 +154,6 @@ public:
         uint16_t EA = 0;
         uint8_t postbyte = ReadPC8();
         bool supportsIndirect = true;
-        int extraCycles = 0;
 
         if ((postbyte & BITS(7)) == 0) // (+/- 4 bit offset),R
         {
@@ -160,7 +164,7 @@ public:
                 offset |= 0b1110'0000;
             EA = RegisterSelect(postbyte) + offset;
             supportsIndirect = false;
-            extraCycles = 1;
+            AddCycles(1);
         } else {
             switch (postbyte & 0b1111) {
             case 0b0000: { // ,R+
@@ -168,37 +172,37 @@ public:
                 EA = reg;
                 reg += 1;
                 supportsIndirect = false;
-                extraCycles = 2;
+                AddCycles(2);
             } break;
             case 0b0001: { // ,R++
                 auto& reg = RegisterSelect(postbyte);
                 EA = reg;
                 reg += 2;
-                extraCycles = 3;
+                AddCycles(3);
             } break;
             case 0b0010: { // ,-R
                 auto& reg = RegisterSelect(postbyte);
                 reg -= 1;
                 EA = reg;
                 supportsIndirect = false;
-                extraCycles = 2;
+                AddCycles(2);
             } break;
             case 0b0011: { // ,--R
                 auto& reg = RegisterSelect(postbyte);
                 reg -= 2;
                 EA = reg;
-                extraCycles = 3;
+                AddCycles(3);
             } break;
             case 0b0100: // ,R
                 EA = RegisterSelect(postbyte);
                 break;
             case 0b0101: // (+/- B),R
                 EA = RegisterSelect(postbyte) + S16(B);
-                extraCycles = 1;
+                AddCycles(1);
                 break;
             case 0b0110: // (+/- A),R
                 EA = RegisterSelect(postbyte) + S16(A);
-                extraCycles = 1;
+                AddCycles(1);
                 break;
             case 0b0111:
                 FAIL_MSG("Illegal");
@@ -206,31 +210,31 @@ public:
             case 0b1000: { // (+/- 7 bit offset),R
                 uint8_t postbyte2 = ReadPC8();
                 EA = RegisterSelect(postbyte) + S16(postbyte2);
-                extraCycles = 1;
+                AddCycles(1);
             } break;
             case 0b1001: { // (+/- 15 bit offset),R
                 uint8_t postbyte2 = ReadPC8();
                 uint8_t postbyte3 = ReadPC8();
                 EA = RegisterSelect(postbyte) + CombineToS16(postbyte2, postbyte3);
-                extraCycles = 4;
+                AddCycles(4);
             } break;
             case 0b1010:
                 FAIL_MSG("Illegal");
                 break;
             case 0b1011: // (+/- D),R
                 EA = RegisterSelect(postbyte) + S16(D);
-                extraCycles = 4;
+                AddCycles(4);
                 break;
             case 0b1100: { // (+/- 7 bit offset),PC
                 uint8_t postbyte2 = ReadPC8();
                 EA = PC + S16(postbyte2);
-                extraCycles = 1;
+                AddCycles(1);
             } break;
             case 0b1101: { // (+/- 15 bit offset),PC
                 uint8_t postbyte2 = ReadPC8();
                 uint8_t postbyte3 = ReadPC8();
                 EA = PC + CombineToS16(postbyte2, postbyte3);
-                extraCycles = 5;
+                AddCycles(5);
             } break;
             case 0b1110:
                 FAIL_MSG("Illegal");
@@ -239,7 +243,7 @@ public:
                 uint8_t postbyte2 = ReadPC8();
                 uint8_t postbyte3 = ReadPC8();
                 EA = CombineToS16(postbyte2, postbyte3);
-                extraCycles = 2;
+                AddCycles(2);
             } break;
             default:
                 FAIL_MSG("Illegal");
@@ -251,10 +255,8 @@ public:
             uint8_t msb = m_memoryBus->Read(EA);
             uint8_t lsb = m_memoryBus->Read(EA + 1);
             EA = CombineToU16(msb, lsb);
-            extraCycles += 3;
+            AddCycles(3);
         }
-
-        m_cycles += extraCycles;
 
         return EA;
     }
@@ -645,8 +647,8 @@ public:
             Push8(stackReg, CC.Value);
 
         // 1 cycle per byte pushed
-        m_cycles += NumBitsSet(ReadBits(value, BITS(0, 1, 2, 3)));
-        m_cycles += NumBitsSet(ReadBits(value, BITS(4, 5, 6, 7))) * 2;
+        AddCycles(NumBitsSet(ReadBits(value, BITS(0, 1, 2, 3))));
+        AddCycles(NumBitsSet(ReadBits(value, BITS(4, 5, 6, 7))) * 2);
     }
 
     template <int page, uint8_t opCode>
@@ -673,8 +675,8 @@ public:
             PC = Pop16(stackReg);
 
         // 1 cycle per byte pulled
-        m_cycles += NumBitsSet(ReadBits(value, BITS(0, 1, 2, 3)));
-        m_cycles += NumBitsSet(ReadBits(value, BITS(4, 5, 6, 7))) * 2;
+        AddCycles(NumBitsSet(ReadBits(value, BITS(0, 1, 2, 3))));
+        AddCycles(NumBitsSet(ReadBits(value, BITS(4, 5, 6, 7))) * 2);
     }
 
     template <int page, uint8_t opCode>
@@ -726,7 +728,7 @@ public:
     void OpRTI() {
         bool poppedEntire{};
         PopCCState(poppedEntire);
-        m_cycles += poppedEntire ? 15 : 6;
+        AddCycles(poppedEntire ? 15 : 6);
     }
 
     template <int page, uint8_t opCode>
@@ -775,7 +777,7 @@ public:
         int16_t offset = ReadRelativeOffset16();
         if (condFunc()) {
             PC += offset;
-            m_cycles += 1; // Extra cycle if branch is taken
+            AddCycles(1); // Extra cycle if branch is taken
         }
     }
 
@@ -893,7 +895,11 @@ public:
 
     cycles_t ExecuteInstruction(bool irqEnabled, bool firqEnabled) {
         m_cycles = 0;
+        DoExecuteInstruction(irqEnabled, firqEnabled);
+        return m_cycles;
+    }
 
+    void DoExecuteInstruction(bool irqEnabled, bool firqEnabled) {
         auto UnhandledOp = [this](const CpuOp& cpuOp) {
             (void)cpuOp;
             FAIL_MSG("Unhandled Op: %s", cpuOp.name);
@@ -908,14 +914,14 @@ public:
                 m_waitingForInterrupts = false;
                 CC.InterruptMask = 1;
                 PC = Read16(InterruptVector::Irq);
-                return 0; // Already returned CWAI's total cycles the first time we executed it
+                return;
 
             } else if (firqEnabled && (CC.FastInterruptMask == 0)) {
                 FAIL_MSG("Implement FIRQ after CWAI");
-                return 0;
+                return;
 
             } else {
-                return 0; // No cycles while we wait for an interrupt
+                return;
             }
         }
 
@@ -923,13 +929,13 @@ public:
             PushCCState(true);
             CC.InterruptMask = 1;
             PC = Read16(InterruptVector::Irq);
-            m_cycles += 19;
-            return m_cycles;
+            AddCycles(19);
+            return;
         }
 
         if (firqEnabled && (CC.FastInterruptMask == 0)) {
             FAIL_MSG("Implement FIRQ");
-            return 0;
+            return;
         }
 
         // Read op code byte and page
@@ -947,12 +953,12 @@ public:
 
         ASSERT_MSG(cpuOp.cycles >= 0, "TODO: look at how to handle cycles for instruction: %s",
                    cpuOp.name);
-        m_cycles += cpuOp.cycles; // Base cycles for this instruction
+        AddCycles(cpuOp.cycles); // Base cycles for this instruction
 
         if (cpuOp.addrMode == AddressingMode::Illegal) {
             ErrorHandler::Undefined("Illegal instruction at $%04x, opcode: %02x, page: %d\n",
                                     currInstructionPC, opCodeByte, cpuOpPage);
-            return m_cycles;
+            return;
         }
 
         ASSERT(cpuOp.addrMode != AddressingMode::Variant &&
@@ -1856,8 +1862,6 @@ public:
             }
             break;
         }
-
-        return m_cycles;
     }
 };
 

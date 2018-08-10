@@ -7,7 +7,9 @@
 
 class IllegalMemoryDevice : public IMemoryBusDevice {
 public:
-    void Init(MemoryBus& memoryBus) { memoryBus.ConnectDevice(*this, MemoryMap::Illegal.range); }
+    void Init(MemoryBus& memoryBus) {
+        memoryBus.ConnectDevice(*this, MemoryMap::Illegal.range, EnableSync::False);
+    }
 
 private:
     uint8_t Read(uint16_t address) const override {

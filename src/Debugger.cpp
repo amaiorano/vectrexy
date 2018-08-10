@@ -866,15 +866,27 @@ bool Debugger::FrameUpdate(double frameTime, const Input& input, const EmuEvents
                 }
             });
 
+            m_via->SetSyncContext(input, renderContext, audioContext);
+
             cpuCycles = m_cpu->ExecuteInstruction(m_via->IrqEnabled(), m_via->FirqEnabled());
 
-            if (cpuCycles > 0)
-                ++m_instructionCount;
+            // @TODO: We only do this because of CWAI. Instead, simplify this code along with the
+            // "if (cpuCycles == 0)" above by having CPU return 10 cycles while waiting for
+            // interrupts from CWAI, and detecting and not re-adding consecutive CWAI instructions
+            // to the trace in onExit.
+            cycles_t effectiveCpuCycles = cpuCycles;
 
-            cycles_t effectiveCycles = cpuCycles == 0 ? 10 : cpuCycles;
+            // If no cycles elapsed, we're waiting for interrupts (CWAI), so add some sync cycles so
+            // that other devices (i.e. VIA) can advance, otherwise we'll block forever.
+            if (cpuCycles == 0) {
+                effectiveCpuCycles = 10;
+                m_memoryBus->AddSyncCycles(effectiveCpuCycles);
+            }
 
-            m_via->Update(effectiveCycles, input, renderContext, audioContext);
-            return effectiveCycles;
+            // Sync all devices to consume any leftover CPU cycles
+            m_memoryBus->Sync();
+
+            return effectiveCpuCycles;
 
         } catch (std::exception& ex) {
             Printf("Exception caught:\n%s\n", ex.what());
@@ -1196,6 +1208,7 @@ bool Debugger::FrameUpdate(double frameTime, const Input& input, const EmuEvents
             }
 
             const cycles_t elapsedCycles = ExecuteInstruction();
+            ASSERT(elapsedCycles > 0); // Infinite loop otherwise
 
             m_cpuCyclesTotal += elapsedCycles;
             m_cpuCyclesLeft -= elapsedCycles;

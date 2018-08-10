@@ -4,7 +4,7 @@
 #include "Stream.h"
 
 void BiosRom::Init(MemoryBus& memoryBus) {
-    memoryBus.ConnectDevice(*this, MemoryMap::Bios.range);
+    memoryBus.ConnectDevice(*this, MemoryMap::Bios.range, EnableSync::False);
 }
 
 void BiosRom::LoadBiosRom(const char* file) {

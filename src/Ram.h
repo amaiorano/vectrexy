@@ -7,7 +7,9 @@
 
 class Ram : public IMemoryBusDevice {
 public:
-    void Init(MemoryBus& memoryBus) { memoryBus.ConnectDevice(*this, MemoryMap::Ram.range); }
+    void Init(MemoryBus& memoryBus) {
+        memoryBus.ConnectDevice(*this, MemoryMap::Ram.range, EnableSync::False);
+    }
 
     void Reset() { std::fill(m_data.begin(), m_data.end(), static_cast<uint8_t>(0)); }
 

@@ -10,12 +10,15 @@ using MemoryRange = std::pair<uint16_t, uint16_t>;
 struct IMemoryBusDevice {
     virtual uint8_t Read(uint16_t address) const = 0;
     virtual void Write(uint16_t address, uint8_t value) = 0;
+    virtual void Sync(cycles_t cycles) { (void)cycles; }
 };
+
+enum class EnableSync { False, True };
 
 class MemoryBus {
 public:
-    void ConnectDevice(IMemoryBusDevice& device, MemoryRange range) {
-        m_devices.push_back(DeviceInfo{&device, range});
+    void ConnectDevice(IMemoryBusDevice& device, MemoryRange range, EnableSync enableSync) {
+        m_devices.push_back(DeviceInfo{&device, range, enableSync == EnableSync::True});
 
         std::sort(m_devices.begin(), m_devices.end(),
                   [](const DeviceInfo& info1, const DeviceInfo& info2) {
@@ -34,7 +37,10 @@ public:
     void SetCallbacksEnabled(bool enabled) { m_callbacksEnabled = enabled; }
 
     uint8_t Read(uint16_t address) const {
-        uint8_t value = FindDeviceInfo(address).device->Read(address);
+        auto& deviceInfo = FindDeviceInfo(address);
+        SyncDevice(deviceInfo);
+
+        uint8_t value = deviceInfo.device->Read(address);
 
         if (m_callbacksEnabled && m_onReadCallback)
             m_onReadCallback(address, value);
@@ -46,13 +52,32 @@ public:
         if (m_callbacksEnabled && m_onWriteCallback)
             m_onWriteCallback(address, value);
 
-        FindDeviceInfo(address).device->Write(address, value);
+        auto& deviceInfo = FindDeviceInfo(address);
+        SyncDevice(deviceInfo);
+
+        deviceInfo.device->Write(address, value);
+    }
+
+    void AddSyncCycles(cycles_t cycles) {
+        //@TODO: optimize this so we don't loop through all devices every time we add cycles
+        for (auto& deviceInfo : m_devices) {
+            if (deviceInfo.syncEnabled)
+                deviceInfo.syncCycles += cycles;
+        }
+    }
+
+    void Sync() {
+        for (auto& deviceInfo : m_devices) {
+            SyncDevice(deviceInfo);
+        }
     }
 
 private:
     struct DeviceInfo {
         IMemoryBusDevice* device = nullptr;
         MemoryRange memoryRange;
+        bool syncEnabled = false;
+        mutable cycles_t syncCycles = 0;
     };
 
     const DeviceInfo& FindDeviceInfo(uint16_t address) const {
@@ -69,6 +94,13 @@ private:
         FAIL_MSG("Unmapped address");
         static DeviceInfo nullDeviceInfo{};
         return nullDeviceInfo;
+    }
+
+    void SyncDevice(const DeviceInfo& deviceInfo) const {
+        if (deviceInfo.syncCycles > 0) {
+            deviceInfo.device->Sync(deviceInfo.syncCycles);
+            deviceInfo.syncCycles = 0;
+        }
     }
 
     // Sorted by first address in range

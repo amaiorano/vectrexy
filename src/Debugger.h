@@ -35,7 +35,6 @@ private:
     bool m_traceEnabled = false;
     bool m_colorEnabled = false;
     std::queue<std::string> m_pendingCommands;
-    uint64_t m_instructionCount = 0;
     std::string m_lastCommand;
     Breakpoints m_breakpoints;
     std::optional<int64_t> m_numInstructionsToExecute = {};

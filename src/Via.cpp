@@ -127,7 +127,7 @@ namespace {
 } // namespace
 
 void Via::Init(MemoryBus& memoryBus) {
-    memoryBus.ConnectDevice(*this, MemoryMap::Via.range);
+    memoryBus.ConnectDevice(*this, MemoryMap::Via.range, EnableSync::True);
 }
 
 void Via::Reset() {
@@ -151,7 +151,7 @@ void Via::Reset() {
     SetBits(m_portB, PortB::RampDisabled, true);
 }
 
-void Via::Update(cycles_t cycles, const Input& input, RenderContext& renderContext,
+void Via::DoSync(cycles_t cycles, const Input& input, RenderContext& renderContext,
                  AudioContext& audioContext) {
     // Update cached input state
     m_joystickButtonState = input.ButtonStateMask();
@@ -499,6 +499,10 @@ void Via::Write(uint16_t address, uint8_t value) {
         FAIL();
         break;
     }
+}
+
+void Via::Sync(cycles_t cycles) {
+    DoSync(cycles, *m_syncContext.input, *m_syncContext.renderContext, *m_syncContext.audioContext);
 }
 
 bool Via::IrqEnabled() const {

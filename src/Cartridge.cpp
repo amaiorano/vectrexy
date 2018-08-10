@@ -72,7 +72,7 @@ namespace {
 } // namespace
 
 void Cartridge::Init(MemoryBus& memoryBus) {
-    memoryBus.ConnectDevice(*this, MemoryMap::Cartridge.range);
+    memoryBus.ConnectDevice(*this, MemoryMap::Cartridge.range, EnableSync::False);
     m_data.resize(MemoryMap::Cartridge.physicalSize, 0);
 }
 
