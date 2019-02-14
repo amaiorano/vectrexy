@@ -160,7 +160,7 @@ public:
     }
 
     void AddSample(float sample) {
-        assert(sample >= 0.0f && sample <= 1.0f);
+        assert(sample >= -1.0f && sample <= 1.0f);
         auto targetSample = CurrAudioFormat::Remap(sample);
 
         SDL_LockAudioDevice(m_audioDeviceID);
