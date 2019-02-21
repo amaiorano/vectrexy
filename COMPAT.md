@@ -83,7 +83,7 @@
 | Star Hawk (1982)                                     |                                                              | Great             |                                                        |
 |                                                      | Star Hawk (1982) [b1]                                        |                   |                                                        |
 | Star Ship (1982)                                     |                                                              | Great             |                                                        |
-| Star Trek - The Motion Picture (1982)                |                                                              | Good              | Font render not perfect, bars crooked at bottom        |
+| Star Trek - The Motion Picture (1982)                |                                                              | Great             |                                                        |
 |                                                      | Star Trek - The Motion Picture (1982) (controller hack) [h1] |                   |                                                        |
 |                                                      | Star Trek - The Motion Picture (1982) [a1]                   |                   |                                                        |
 |                                                      | Star Trek - The Motion Picture (1982) [b1]                   |                   |                                                        |
