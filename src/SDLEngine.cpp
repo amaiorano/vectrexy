@@ -38,6 +38,7 @@ namespace {
     IEngineClient* g_client = nullptr;
     SDL_Window* g_window = NULL;
     SDL_GLContext g_glContext;
+    GLRender g_glRender;
     SDLAudioDriver g_audioDriver;
     Options g_options;
     namespace PauseSource {
@@ -84,7 +85,7 @@ namespace {
     }
 
     SDL_GLContext CreateGLContext(SDL_Window* window, bool enableGLDebugging) {
-        auto [major, minor] = GLRender::GetMajorMinorVersion();
+        auto [major, minor] = g_glRender.GetMajorMinorVersion();
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, major);
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, minor);
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
@@ -364,7 +365,7 @@ void SetFocusConsole() {
 }
 
 void ResetOverlay(const char* file) {
-    GLRender::ResetOverlay(file);
+    g_glRender.ResetOverlay(file);
 }
 
 void SDLEngine::RegisterClient(IEngineClient& client) {
@@ -457,8 +458,8 @@ bool SDLEngine::Run(int argc, char** argv) {
     ImGui_ImplSdlGL3_Init(g_window);
     ImGui::GetIO().FontGlobalScale = g_options.Get<float>("imguiFontScale");
 
-    GLRender::Initialize(enableGLDebugging);
-    GLRender::OnWindowResized(windowWidth, windowHeight);
+    g_glRender.Initialize(enableGLDebugging);
+    g_glRender.OnWindowResized(windowWidth, windowHeight);
 
     g_audioDriver.Initialize();
 
@@ -519,7 +520,7 @@ bool SDLEngine::Run(int argc, char** argv) {
         audioContext.samples.clear();
         g_audioDriver.Update(frameTime);
 
-        GLRender::RenderScene(frameTime, renderContext);
+        g_glRender.RenderScene(frameTime, renderContext);
         ImGui_Render();
         SDL_GL_SwapWindow(g_window);
 
@@ -537,7 +538,7 @@ bool SDLEngine::Run(int argc, char** argv) {
     g_client->Shutdown();
 
     g_audioDriver.Shutdown();
-    GLRender::Shutdown();
+    g_glRender.Shutdown();
     ImGui_ImplSdlGL3_Shutdown();
 
     SDL_DestroyWindow(g_window);
@@ -568,7 +569,7 @@ void SDLEngine::PollEvents(bool& quit) {
                 }
                 g_options.Set("windowMaximized", IsWindowMaximized());
                 g_options.Save();
-                GLRender::OnWindowResized(width, height);
+                g_glRender.OnWindowResized(width, height);
             } break;
 
             case SDL_WINDOWEVENT_MOVED: {
