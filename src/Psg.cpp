@@ -120,7 +120,7 @@ namespace {
     class ToneGenerator {
     public:
         void SetPeriodHigh(uint8_t high) {
-            assert(high <= 0xf); // Only 4 bits should be set
+            assert(high <= 0xff); // Only 8 bits should be set
             m_period = (high << 8) | (m_period & 0x00ff);
             OnPeriodUpdated();
         }
