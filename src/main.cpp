@@ -13,7 +13,6 @@
 #include "Platform.h"
 #include "Ram.h"
 #include "SDLEngine.h"
-#include "SyncProtocol.h"
 #include "Via.h"
 #include <memory>
 #include <random>
@@ -23,20 +22,13 @@ private:
     bool Init(int argc, char** argv) override {
         m_overlays.LoadOverlays();
 
+        //@TODO: Clean this up
         std::string rom = "";
-
         for (int i = 1; i < argc; ++i) {
             std::string arg = argv[i];
-            if (arg == "-server") {
-                m_syncProtocol.InitServer();
-            } else if (arg == "-client") {
-                m_syncProtocol.InitClient();
-            } else {
+            if (arg[0] != '-')
                 rom = arg;
-            }
         }
-
-        // std::string rom = argc == 2 ? argv[1] : "";
 
         m_cpu.Init(m_memoryBus);
         m_via.Init(m_memoryBus);
@@ -44,7 +36,7 @@ private:
         m_biosRom.Init(m_memoryBus);
         m_illegal.Init(m_memoryBus);
         m_cartridge.Init(m_memoryBus);
-        m_debugger.Init(m_memoryBus, m_cpu, m_via);
+        m_debugger.Init(argc, argv, m_memoryBus, m_cpu, m_via, m_ram);
 
         m_biosRom.LoadBiosRom("bios_rom.bin");
 
@@ -61,16 +53,13 @@ private:
     }
 
     void Reset() {
+        // Some games rely on initial random state of memory (e.g. Mine Storm)
+        const unsigned int seed = std::random_device{}();
+        m_ram.Randomize(seed);
+
         m_cpu.Reset();
         m_via.Reset();
-        m_ram.Reset();
         m_debugger.Reset();
-
-        // Some games rely on initial random state of memory (e.g. Mine Storm)
-        if (!m_syncProtocol.IsServer() && !m_syncProtocol.IsClient()) {
-            const unsigned int seed = std::random_device{}();
-            m_ram.Randomize(seed);
-        }
     }
 
     bool LoadRom(const char* file) {
@@ -98,17 +87,10 @@ private:
         }
     }
 
-    bool FrameUpdate(double frameTime, const Input& inputArg, const EmuContext& emuContext,
+    bool FrameUpdate(double frameTime, const Input& input, const EmuContext& emuContext,
                      RenderContext& renderContext, AudioContext& audioContext) override {
-        Input input = inputArg;
         EmuEvents& emuEvents = emuContext.emuEvents;
         Options& options = emuContext.options;
-
-        if (m_syncProtocol.IsServer()) {
-            m_syncProtocol.Server_SendFrameStart(frameTime, input);
-        } else if (m_syncProtocol.IsClient()) {
-            m_syncProtocol.Client_RecvFrameStart(frameTime, input);
-        }
 
         for (auto& event : emuEvents) {
             if (auto reset = std::get_if<EmuEvent::Reset>(&event.type)) {
@@ -136,16 +118,10 @@ private:
             }
         }
 
-        bool keepGoing = m_debugger.FrameUpdate(frameTime, input, emuEvents, renderContext,
-                                                audioContext, m_syncProtocol);
+        bool keepGoing =
+            m_debugger.FrameUpdate(frameTime, input, emuEvents, renderContext, audioContext);
 
         m_via.FrameUpdate(frameTime);
-
-        if (m_syncProtocol.IsServer()) {
-            m_syncProtocol.Server_RecvFrameEnd();
-        } else if (m_syncProtocol.IsClient()) {
-            m_syncProtocol.Client_SendFrameEnd();
-        }
 
         return keepGoing;
     }
@@ -161,7 +137,6 @@ private:
     Cartridge m_cartridge;
     Debugger m_debugger;
     Overlays m_overlays;
-    SyncProtocol m_syncProtocol;
 };
 
 int main(int argc, char** argv) {

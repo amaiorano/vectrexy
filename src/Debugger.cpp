@@ -7,10 +7,10 @@
 #include "ErrorHandler.h"
 #include "MemoryBus.h"
 #include "Platform.h"
+#include "Ram.h"
 #include "RegexHelpers.h"
 #include "Stream.h"
 #include "StringHelpers.h"
-#include "SyncProtocol.h"
 #include "Via.h"
 #include <array>
 #include <cstdio>
@@ -687,10 +687,20 @@ namespace {
 
 } // namespace
 
-void Debugger::Init(MemoryBus& memoryBus, Cpu& cpu, Via& via) {
+void Debugger::Init(int argc, char** argv, MemoryBus& memoryBus, Cpu& cpu, Via& via, Ram& ram) {
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg == "-server") {
+            m_syncProtocol.InitServer();
+        } else if (arg == "-client") {
+            m_syncProtocol.InitClient();
+        }
+    }
+
     m_memoryBus = &memoryBus;
     m_cpu = &cpu;
     m_via = &via;
+    m_ram = &ram;
 
     Platform::SetConsoleCtrlHandler([this] {
         BreakIntoDebugger();
@@ -756,6 +766,11 @@ void Debugger::Reset() {
     m_cpuCyclesLeft = 0;
     g_instructionTraceBuffer.Clear();
     g_currTraceInfo = nullptr;
+
+    // Force ram to zero when running sync protocol for determinism
+    if (!m_syncProtocol.IsStandalone()) {
+        m_ram->Zero();
+    }
 }
 
 void Debugger::BreakIntoDebugger() {
@@ -768,28 +783,27 @@ void Debugger::ResumeFromDebugger() {
     SetFocusMainWindow();
 }
 
-void Debugger::SyncInstructionHash(SyncProtocol& syncProtocol,
-                                   int numInstructionsExecutedThisFrame) {
-    if (syncProtocol.IsStandalone())
+void Debugger::SyncInstructionHash(int numInstructionsExecutedThisFrame) {
+    if (m_syncProtocol.IsStandalone())
         return;
 
     bool hashMismatch = false;
 
     // Sync hashes and compare
-    if (syncProtocol.IsServer()) {
-        syncProtocol.SendValue(ConnectionType::Server, m_instructionHash);
+    if (m_syncProtocol.IsServer()) {
+        m_syncProtocol.SendValue(ConnectionType::Server, m_instructionHash);
 
-    } else if (syncProtocol.IsClient()) {
+    } else if (m_syncProtocol.IsClient()) {
         uint32_t serverInstructionHash{};
-        syncProtocol.RecvValue(ConnectionType::Client, serverInstructionHash);
+        m_syncProtocol.RecvValue(ConnectionType::Client, serverInstructionHash);
         hashMismatch = m_instructionHash != serverInstructionHash;
     }
 
     // Sync whether to continue or stop
-    if (syncProtocol.IsClient()) {
-        syncProtocol.SendValue(ConnectionType::Client, hashMismatch);
-    } else if (syncProtocol.IsServer()) {
-        syncProtocol.RecvValue(ConnectionType::Server, hashMismatch);
+    if (m_syncProtocol.IsClient()) {
+        m_syncProtocol.SendValue(ConnectionType::Client, hashMismatch);
+    } else if (m_syncProtocol.IsServer()) {
+        m_syncProtocol.RecvValue(ConnectionType::Server, hashMismatch);
     }
 
     if (hashMismatch) {
@@ -801,16 +815,22 @@ void Debugger::SyncInstructionHash(SyncProtocol& syncProtocol,
         // BreakIntoDebugger();
         m_breakIntoDebugger = true;
 
-        if (syncProtocol.IsServer())
-            syncProtocol.ShutdownServer();
+        if (m_syncProtocol.IsServer())
+            m_syncProtocol.ShutdownServer();
         else
-            syncProtocol.ShutdownClient();
+            m_syncProtocol.ShutdownClient();
     }
 }
 
-bool Debugger::FrameUpdate(double frameTime, const Input& input, const EmuEvents& emuEvents,
-                           RenderContext& renderContext, AudioContext& audioContext,
-                           SyncProtocol& syncProtocol) {
+bool Debugger::FrameUpdate(double frameTime, const Input& inputArg, const EmuEvents& emuEvents,
+                           RenderContext& renderContext, AudioContext& audioContext) {
+
+    auto input = inputArg; // Copy input arg so we can modify it for sync protocol
+    if (m_syncProtocol.IsServer()) {
+        m_syncProtocol.Server_SendFrameStart(frameTime, input);
+    } else if (m_syncProtocol.IsClient()) {
+        m_syncProtocol.Client_RecvFrameStart(frameTime, input);
+    }
 
     int numInstructionsExecutedThisFrame = 0;
 
@@ -859,7 +879,7 @@ bool Debugger::FrameUpdate(double frameTime, const Input& input, const EmuEvents
                     g_currTraceInfo = nullptr;
 
                     // Compute running hash of instruction trace
-                    if (!syncProtocol.IsStandalone())
+                    if (!m_syncProtocol.IsStandalone())
                         m_instructionHash = HashInstructionTraceInfo(m_instructionHash, traceInfo);
 
                     ++numInstructionsExecutedThisFrame;
@@ -1225,7 +1245,13 @@ bool Debugger::FrameUpdate(double frameTime, const Input& input, const EmuEvents
         }
     }
 
-    SyncInstructionHash(syncProtocol, numInstructionsExecutedThisFrame);
+    SyncInstructionHash(numInstructionsExecutedThisFrame);
+
+    if (m_syncProtocol.IsServer()) {
+        m_syncProtocol.Server_RecvFrameEnd();
+    } else if (m_syncProtocol.IsClient()) {
+        m_syncProtocol.Client_SendFrameEnd();
+    }
 
     return true;
 }
