@@ -9,6 +9,7 @@
 #include <queue>
 #include <string>
 
+class Emulator;
 class MemoryBus;
 class Cpu;
 class Via;
@@ -17,7 +18,7 @@ class SyncProtocol;
 
 class Debugger {
 public:
-    void Init(int argc, char** argv, MemoryBus& memoryBus, Cpu& cpu, Via& via, Ram& ram);
+    void Init(int argc, char** argv, Emulator& emulator);
     void Reset();
     bool FrameUpdate(double frameTime, const Input& input, const EmuEvents& emuEvents,
                      RenderContext& renderContext, AudioContext& audioContext);
@@ -29,10 +30,9 @@ private:
     void ResumeFromDebugger();
     void SyncInstructionHash(int numInstructionsExecutedThisFrame);
 
+    Emulator* m_emulator = nullptr;
     MemoryBus* m_memoryBus = nullptr;
     Cpu* m_cpu = nullptr;
-    Via* m_via = nullptr;
-    Ram* m_ram = nullptr;
     bool m_breakIntoDebugger = false;
     bool m_traceEnabled = false;
     bool m_colorEnabled = false;

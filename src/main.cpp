@@ -1,19 +1,12 @@
 #include "Base.h"
-#include "BiosRom.h"
-#include "Cartridge.h"
 #include "ConsoleOutput.h"
-#include "Cpu.h"
 #include "Debugger.h"
+#include "Emulator.h"
 #include "EngineClient.h"
 #include "FileSystemUtil.h"
-#include "IllegalMemoryDevice.h"
-#include "MemoryBus.h"
-#include "MemoryMap.h"
 #include "Overlays.h"
 #include "Platform.h"
-#include "Ram.h"
 #include "SDLEngine.h"
-#include "Via.h"
 #include <memory>
 #include <random>
 
@@ -30,15 +23,8 @@ private:
                 rom = arg;
         }
 
-        m_cpu.Init(m_memoryBus);
-        m_via.Init(m_memoryBus);
-        m_ram.Init(m_memoryBus);
-        m_biosRom.Init(m_memoryBus);
-        m_illegal.Init(m_memoryBus);
-        m_cartridge.Init(m_memoryBus);
-        m_debugger.Init(argc, argv, m_memoryBus, m_cpu, m_via, m_ram);
-
-        m_biosRom.LoadBiosRom("bios_rom.bin");
+        m_emulator.Init();
+        m_debugger.Init(argc, argv, m_emulator);
 
         if (!rom.empty()) {
             LoadRom(rom.c_str());
@@ -53,17 +39,12 @@ private:
     }
 
     void Reset() {
-        // Some games rely on initial random state of memory (e.g. Mine Storm)
-        const unsigned int seed = std::random_device{}();
-        m_ram.Randomize(seed);
-
-        m_cpu.Reset();
-        m_via.Reset();
+        m_emulator.Reset();
         m_debugger.Reset();
     }
 
     bool LoadRom(const char* file) {
-        if (!m_cartridge.LoadRom(file)) {
+        if (!m_emulator.LoadRom(file)) {
             Errorf("Failed to load rom file: %s\n", file);
             return false;
         }
@@ -121,20 +102,14 @@ private:
         bool keepGoing =
             m_debugger.FrameUpdate(frameTime, input, emuEvents, renderContext, audioContext);
 
-        m_via.FrameUpdate(frameTime);
+        m_emulator.FrameUpdate(frameTime);
 
         return keepGoing;
     }
 
     void Shutdown() override {}
 
-    MemoryBus m_memoryBus;
-    Cpu m_cpu;
-    Via m_via;
-    Ram m_ram;
-    BiosRom m_biosRom;
-    IllegalMemoryDevice m_illegal;
-    Cartridge m_cartridge;
+    Emulator m_emulator;
     Debugger m_debugger;
     Overlays m_overlays;
 };

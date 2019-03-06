@@ -4,6 +4,7 @@
 #include "Cpu.h"
 #include "CpuHelpers.h"
 #include "CpuOpCodes.h"
+#include "Emulator.h"
 #include "ErrorHandler.h"
 #include "MemoryBus.h"
 #include "Platform.h"
@@ -687,7 +688,7 @@ namespace {
 
 } // namespace
 
-void Debugger::Init(int argc, char** argv, MemoryBus& memoryBus, Cpu& cpu, Via& via, Ram& ram) {
+void Debugger::Init(int argc, char** argv, Emulator& emulator) {
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
         if (arg == "-server") {
@@ -697,10 +698,9 @@ void Debugger::Init(int argc, char** argv, MemoryBus& memoryBus, Cpu& cpu, Via& 
         }
     }
 
-    m_memoryBus = &memoryBus;
-    m_cpu = &cpu;
-    m_via = &via;
-    m_ram = &ram;
+    m_emulator = &emulator;
+    m_memoryBus = &emulator.GetMemoryBus();
+    m_cpu = &emulator.GetCpu();
 
     Platform::SetConsoleCtrlHandler([this] {
         BreakIntoDebugger();
@@ -769,7 +769,7 @@ void Debugger::Reset() {
 
     // Force ram to zero when running sync protocol for determinism
     if (!m_syncProtocol.IsStandalone()) {
-        m_ram->Zero();
+        m_emulator->GetRam().Zero();
     }
 }
 
@@ -886,9 +886,10 @@ bool Debugger::FrameUpdate(double frameTime, const Input& inputArg, const EmuEve
                 }
             });
 
-            m_via->SetSyncContext(input, renderContext, audioContext);
+            auto& via = m_emulator->GetVia();
+            via.SetSyncContext(input, renderContext, audioContext);
 
-            cpuCycles = m_cpu->ExecuteInstruction(m_via->IrqEnabled(), m_via->FirqEnabled());
+            cpuCycles = m_cpu->ExecuteInstruction(via.IrqEnabled(), via.FirqEnabled());
 
             // @TODO: We only do this because of CWAI. Instead, simplify this code along with the
             // "if (cpuCycles == 0)" above by having CPU return 10 cycles while waiting for
