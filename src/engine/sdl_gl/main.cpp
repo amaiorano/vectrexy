@@ -1,5 +1,3 @@
-#include "EngineClient.h"
-#include "Overlays.h"
 #include "SDLEngine.h"
 #include "core/Base.h"
 #include "core/ConsoleOutput.h"
@@ -7,6 +5,8 @@
 #include "core/Platform.h"
 #include "debugger/Debugger.h"
 #include "emulator/Emulator.h"
+#include "engine/EngineClient.h"
+#include "engine/Overlays.h"
 #include <memory>
 #include <random>
 

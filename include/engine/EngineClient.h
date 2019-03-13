@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Options.h"
 #include "emulator/EngineTypes.h"
+#include "engine/Options.h"
 
 struct EmuContext {
     std::reference_wrapper<EmuEvents> emuEvents;
