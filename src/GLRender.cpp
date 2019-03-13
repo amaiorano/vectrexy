@@ -1,6 +1,6 @@
 #include "GLRender.h"
 #include "ConsoleOutput.h"
-#include "EngineClient.h"
+#include "EngineTypes.h"
 #include "GLUtil.h"
 #include "Gui.h"
 

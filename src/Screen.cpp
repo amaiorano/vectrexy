@@ -1,5 +1,5 @@
 #include "Screen.h"
-#include "EngineClient.h"
+#include "EngineTypes.h"
 #include "Gui.h"
 
 namespace {

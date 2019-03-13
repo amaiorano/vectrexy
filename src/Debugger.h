@@ -2,7 +2,7 @@
 
 #include "Base.h"
 #include "Breakpoints.h"
-#include "EngineClient.h"
+#include "EngineTypes.h"
 #include "SyncProtocol.h"
 #include <map>
 #include <optional>

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "ConsoleOutput.h"
-#include "EngineClient.h"
+#include "EngineTypes.h"
 #include "Tcp.h"
 #include <chrono>
 #include <memory>

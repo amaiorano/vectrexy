@@ -1,6 +1,6 @@
 #include "Via.h"
 #include "BitOps.h"
-#include "EngineClient.h"
+#include "EngineTypes.h"
 #include "MemoryMap.h"
 
 namespace {

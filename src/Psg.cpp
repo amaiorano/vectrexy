@@ -1,6 +1,6 @@
 #include "Psg.h"
 #include "BitOps.h"
-#include "EngineClient.h"
+#include "EngineTypes.h"
 #include "ErrorHandler.h"
 #include "Gui.h"
 #include <array>
