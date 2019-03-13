@@ -3,7 +3,7 @@
 #include <memory>
 #include <optional>
 
-namespace ImageFileUtils {
+namespace ImageUtil {
     struct PngImageData {
         int width, height;
         bool hasAlpha;
@@ -11,4 +11,4 @@ namespace ImageFileUtils {
     };
     std::optional<PngImageData> loadPngImage(const char* name);
 
-} // namespace ImageFileUtils
+} // namespace ImageUtil

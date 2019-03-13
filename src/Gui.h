@@ -9,7 +9,6 @@ namespace Gui {
     }
 
     inline std::array<bool, Window::Size> EnabledWindows = {};
-    // inline bool EnabledWindows[Window::Size] = {};
 
     namespace Internal {
         template <typename Func>

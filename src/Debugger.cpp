@@ -9,9 +9,9 @@
 #include "MemoryBus.h"
 #include "Platform.h"
 #include "Ram.h"
-#include "RegexHelpers.h"
+#include "RegexUtil.h"
 #include "Stream.h"
-#include "StringHelpers.h"
+#include "StringUtil.h"
 #include "Via.h"
 #include <array>
 #include <cstdio>
@@ -67,7 +67,7 @@ namespace {
         }
     }
 
-    std::vector<std::string> Tokenize(const std::string& s) { return Split(s, " \t"); }
+    std::vector<std::string> Tokenize(const std::string& s) { return StringUtil::Split(s, " \t"); }
 
     std::string TryMemoryBusRead(const MemoryBus& memoryBus, uint16_t address) {
         try {
@@ -234,7 +234,8 @@ namespace {
         if (value & BITS(7))
             registers.push_back("PC");
 
-        disasmInstruction = FormattedString<>("%s %s", cpuOp->name, Join(registers, ",").c_str());
+        disasmInstruction =
+            FormattedString<>("%s %s", cpuOp->name, StringUtil::Join(registers, ",").c_str());
         comment = FormattedString<>("#$%02x (%d)", value, value);
     }
 
@@ -517,13 +518,13 @@ namespace {
                         std::transform(range.first, range.second, std::back_inserter(symbols),
                                        [](auto& kvp) { return kvp.second; });
 
-                        result += "{" + Join(symbols, "|") + "}";
+                        result += "{" + StringUtil::Join(symbols, "|") + "}";
                     }
                     return result;
                 };
 
                 std::regex re("\\$[A-Fa-f0-9][A-Fa-f0-9][A-Fa-f0-9][A-Fa-f0-9]");
-                return RegexReplace(s, re, AppendSymbol);
+                return RegexUtil::RegexReplace(s, re, AppendSymbol);
             }
             return s;
         };
@@ -1096,7 +1097,7 @@ bool Debugger::FrameUpdate(double frameTime, const Input& inputArg, const EmuEve
                 // have to do this because the user may have put whitespace around '='.
                 auto assignment =
                     std::accumulate(tokens.begin() + 1, tokens.end(), std::string(""));
-                auto args = Split(assignment, "=");
+                auto args = StringUtil::Split(assignment, "=");
                 if (args.size() == 2) {
                     auto address = StringToIntegral<uint16_t>(args[0]);
                     auto value = StringToIntegral<uint8_t>(args[1]);

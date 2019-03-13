@@ -1,5 +1,5 @@
 #include "Options.h"
-#include "StringHelpers.h"
+#include "StringUtil.h"
 #include <fstream>
 #include <iostream>
 #include <string>
@@ -55,9 +55,9 @@ void Options::Load() {
     } else {
         std::string line;
         while (std::getline(fin, line)) {
-            line = Trim(line);
+            line = StringUtil::Trim(line);
 
-            auto tokens = Trim(Split(line, "="));
+            auto tokens = StringUtil::Trim(StringUtil::Split(line, "="));
             if (tokens.size() < 2)
                 continue;
 
@@ -77,7 +77,7 @@ void Options::Load() {
 void Options::Save() {
     assert(!m_filePath.empty());
     std::ofstream fout(m_filePath);
-    for (auto & [ name, option ] : m_options) {
+    for (auto& [name, option] : m_options) {
         auto s = ToString(option);
         fout << name << " = " << s << std::endl;
     }

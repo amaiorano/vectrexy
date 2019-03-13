@@ -9,7 +9,7 @@
 #include "Options.h"
 #include "Platform.h"
 #include "SDLAudioDriver.h"
-#include "StringHelpers.h"
+#include "StringUtil.h"
 #include "imgui_impl/imgui_impl_sdl_gl3.h"
 #include <SDL.h>
 #include <SDL_net.h>

@@ -1,7 +1,7 @@
 #include "Overlays.h"
 #include "Base.h"
 #include "ConsoleOutput.h"
-#include "StringHelpers.h"
+#include "StringUtil.h"
 #include <string_view>
 #include <unordered_map>
 
@@ -50,8 +50,8 @@ namespace {
     float OverlayFileFuzzyMatch(const fs::path& p1, const fs::path& p2) {
         auto TrimFileName = [](std::string s) {
             // Replace separators with space
-            s = Replace(s, "-", " ");
-            s = Replace(s, "_", " ");
+            s = StringUtil::Replace(s, "-", " ");
+            s = StringUtil::Replace(s, "_", " ");
 
             std::string_view sub = s;
 
@@ -75,6 +75,7 @@ namespace {
             return std::string{sub};
         };
 
+        using namespace StringUtil;
         auto t1 = Remove(ToLower(TrimFileName(p1.filename().string())), " ");
         auto t2 = Remove(ToLower(TrimFileName(p2.filename().string())), " ");
         auto dist = LevenshteinDistance(t1, t2);

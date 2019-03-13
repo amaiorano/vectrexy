@@ -1,6 +1,6 @@
 #include "GLUtil.h"
 #include "ConsoleOutput.h"
-#include "ImageFileUtils.h"
+#include "ImageUtil.h"
 #include <fstream>
 #include <sstream>
 #include <vector>
@@ -98,7 +98,7 @@ void GLUtil::AllocateTexture(GLuint textureId, GLsizei width, GLsizei height, GL
 }
 
 bool GLUtil::LoadPngTexture(GLuint textureId, const char* file, std::optional<GLint> filtering) {
-    auto imgData = ImageFileUtils::loadPngImage(file);
+    auto imgData = ImageUtil::loadPngImage(file);
 
     if (!imgData) {
         return false;

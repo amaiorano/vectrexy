@@ -1,4 +1,4 @@
-#include "ImageFileUtils.h"
+#include "ImageUtil.h"
 #include "Base.h"
 #include <stdlib.h>
 #include <string.h>
@@ -11,7 +11,7 @@ MSC_PUSH_WARNING_DISABLE(4505) // unreferenced local function has been removed
 MSC_POP_WARNING_DISABLE()
 MSC_POP_WARNING_DISABLE()
 
-namespace ImageFileUtils {
+namespace ImageUtil {
 
     std::optional<PngImageData> loadPngImage(const char* name) {
         stbi_set_flip_vertically_on_load(1);
@@ -27,4 +27,4 @@ namespace ImageFileUtils {
         return PngImageData{width, height, numChannels == 4, std::move(data)};
     }
 
-} // namespace ImageFileUtils
+} // namespace ImageUtil
