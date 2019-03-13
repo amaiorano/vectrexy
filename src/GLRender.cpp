@@ -1,8 +1,8 @@
 #include "GLRender.h"
-#include "EngineTypes.h"
 #include "GLUtil.h"
 #include "core/ConsoleOutput.h"
 #include "core/Gui.h"
+#include "emulator/EngineTypes.h"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>

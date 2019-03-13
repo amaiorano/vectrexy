@@ -1,12 +1,12 @@
 #pragma once
 
-#include "BiosRom.h"
-#include "Cartridge.h"
-#include "Cpu.h"
-#include "IllegalMemoryDevice.h"
-#include "Ram.h"
-#include "Via.h"
 #include "core/Base.h"
+#include "emulator/BiosRom.h"
+#include "emulator/Cartridge.h"
+#include "emulator/Cpu.h"
+#include "emulator/IllegalMemoryDevice.h"
+#include "emulator/Ram.h"
+#include "emulator/Via.h"
 
 class Emulator {
 public:

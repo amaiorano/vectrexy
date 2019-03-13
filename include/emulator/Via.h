@@ -5,9 +5,9 @@
 #include "Psg.h"
 #include "Screen.h"
 #include "ShiftRegister.h"
-#include "Timers.h"
 #include "core/Line.h"
 #include "core/MathUtil.h"
+#include "emulator/Timers.h"
 
 class Input;
 struct RenderContext;

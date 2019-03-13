@@ -1,6 +1,5 @@
 #include "SDLEngine.h"
 
-#include "EngineClient.h"
 #include "GLRender.h"
 #include "GLUtil.h"
 #include "Options.h"
@@ -10,6 +9,7 @@
 #include "core/FileSystem.h"
 #include "core/Gui.h"
 #include "core/Platform.h"
+#include "emulator/EngineClient.h"
 #include "imgui_impl/imgui_impl_sdl_gl3.h"
 #include <SDL.h>
 #include <SDL_net.h>

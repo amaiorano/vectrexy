@@ -1,4 +1,4 @@
-#include "ShiftRegister.h"
+#include "emulator/ShiftRegister.h"
 #include "core/BitOps.h"
 
 void ShiftRegister::SetValue(uint8_t value) {

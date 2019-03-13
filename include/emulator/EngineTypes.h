@@ -1,10 +1,10 @@
 #pragma once
 
-#include "Options.h"
 #include "core/Base.h"
 #include "core/BitOps.h"
 #include "core/Line.h"
 #include <array>
+#include <vector>
 
 class Input {
 public:
@@ -39,24 +39,6 @@ private:
     uint8_t m_joystickButtonState = 0xFF; // Bits on if not pressed
     // X1, Y1, X2, Y2
     std::array<int8_t, 4> m_joystickAnalogState = {0};
-};
-
-class EmuEvent {
-public:
-    struct BreakIntoDebugger {};
-    struct Reset {};
-    struct OpenRomFile {
-        fs::path path{}; // If not set, use open file dialog
-    };
-
-    using Type = std::variant<BreakIntoDebugger, Reset, OpenRomFile>;
-    Type type;
-};
-using EmuEvents = std::vector<EmuEvent>;
-
-struct EmuContext {
-    std::reference_wrapper<EmuEvents> emuEvents;
-    std::reference_wrapper<Options> options;
 };
 
 struct RenderContext {

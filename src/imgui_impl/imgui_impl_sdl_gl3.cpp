@@ -12,7 +12,7 @@
 // https://github.com/ocornut/imgui
 
 //@amaiorano-begin
-#include "../Base.h"
+#include "core/Base.h"
 // alignment of a member was sensitive to packing
 MSC_PUSH_WARNING_DISABLE(4121)
 //@amaiorano-end

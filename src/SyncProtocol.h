@@ -1,8 +1,8 @@
 #pragma once
 
-#include "EngineTypes.h"
 #include "core/ConsoleOutput.h"
 #include "core/Tcp.h"
+#include "emulator/EngineTypes.h"
 #include <chrono>
 #include <memory>
 #include <thread>

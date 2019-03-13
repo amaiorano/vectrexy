@@ -1,8 +1,8 @@
-#include "Cartridge.h"
-#include "MemoryMap.h"
+#include "emulator/Cartridge.h"
 #include "core/ConsoleOutput.h"
 #include "core/ErrorHandler.h"
 #include "core/Stream.h"
+#include "emulator/MemoryMap.h"
 #include <cstring>
 #include <vector>
 

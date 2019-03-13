@@ -1,6 +1,6 @@
-#include "Screen.h"
-#include "EngineTypes.h"
+#include "emulator/Screen.h"
 #include "core/Gui.h"
+#include "emulator/EngineTypes.h"
 
 namespace {
     //@TODO: make these conditionally const for "shipping" build

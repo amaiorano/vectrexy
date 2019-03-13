@@ -1,7 +1,7 @@
-#include "Via.h"
-#include "EngineTypes.h"
-#include "MemoryMap.h"
+#include "emulator/Via.h"
 #include "core/BitOps.h"
+#include "emulator/EngineTypes.h"
+#include "emulator/MemoryMap.h"
 
 namespace {
     enum class ShiftRegisterMode {
