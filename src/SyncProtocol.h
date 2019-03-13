@@ -1,8 +1,8 @@
 #pragma once
 
-#include "ConsoleOutput.h"
 #include "EngineTypes.h"
-#include "Tcp.h"
+#include "core/ConsoleOutput.h"
+#include "core/Tcp.h"
 #include <chrono>
 #include <memory>
 #include <thread>

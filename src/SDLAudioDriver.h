@@ -1,6 +1,6 @@
 #pragma once
-#include "Base.h"
-#include "Pimpl.h"
+#include "core/Base.h"
+#include "core/Pimpl.h"
 
 class SDLAudioDriver {
 public:

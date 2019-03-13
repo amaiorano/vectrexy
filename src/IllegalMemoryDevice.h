@@ -1,9 +1,9 @@
 #pragma once
 
-#include "ConsoleOutput.h"
-#include "ErrorHandler.h"
 #include "MemoryBus.h"
 #include "MemoryMap.h"
+#include "core/ConsoleOutput.h"
+#include "core/ErrorHandler.h"
 
 class IllegalMemoryDevice : public IMemoryBusDevice {
 public:

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Base.h"
+#include "core/Base.h"
 
 //@TODO: get rid of this public dependency on SDL (pimpl or polymorphic type)
 #include <SDL_net.h>

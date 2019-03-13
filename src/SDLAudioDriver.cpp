@@ -1,7 +1,7 @@
 #include "SDLAudioDriver.h"
-#include "CircularBuffer.h"
-#include "Gui.h"
-#include "Stream.h"
+#include "core/CircularBuffer.h"
+#include "core/Gui.h"
+#include "core/Stream.h"
 #include <SDL.h>
 #include <SDL_audio.h>
 #include <array>

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Base.h"
-#include "ConsoleOutput.h"
+#include "core/Base.h"
+#include "core/ConsoleOutput.h"
 
 namespace ErrorHandler {
     enum class Policy { Ignore, Log, Fail };

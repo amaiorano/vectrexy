@@ -34,21 +34,21 @@ if (MSVC)
 	set(MANIFEST_FILE cmake/dpiawarescaleing.manifest)
 endif()
 
-# TODO: auto-gen source folder groups
-file(GLOB SRC_ROOT "src/*.*")
-source_group("src" FILES ${SRC_ROOT})
-file(GLOB IMGUI_IMPL_SRC "src/imgui_impl/*.*")
-source_group("src\\imgui_impl" FILES ${IMGUI_IMPL_SRC})
-file(GLOB SHADER_SRC "src/shaders/*.*")
-source_group("src\\shaders" FILES ${SHADER_SRC})
+file(GLOB_RECURSE SRC_FILES "src/*.*")
+source_group(TREE ".." FILES ${SRC_FILES})
+
+file(GLOB_RECURSE INCLUDE_FILES "include/*.*")
+source_group(TREE ".." FILES ${INCLUDE_FILES})
+
 file(GLOB THIRD_PARTY_NOC "thirdparty/noc/noc_file_dialog.h")
 source_group("thirdparty\\noc" FILES ${THIRD_PARTY_NOC})
-set(SRC ${SRC_ROOT} ${IMGUI_IMPL_SRC} ${SHADER_SRC} ${THIRD_PARTY_NOC})
+
 if (LINUX)
 	file(GLOB THIRD_PARTY_NOC "thirdparty/linenoise/linenoise.*")
 	source_group("thirdparty\\linenoise" FILES ${THIRD_PARTY_LINENOISE})
 endif()
-set(SRC ${SRC_ROOT} ${IMGUI_IMPL_SRC} ${SHADER_SRC} ${THIRD_PARTY_NOC} ${THIRD_PARTY_LINENOISE})
+
+set(SRC ${SRC_FILES} ${INCLUDE_FILES} ${THIRD_PARTY_NOC} ${THIRD_PARTY_LINENOISE})
 
 # Add other include directories
 set(EXTRA_INCLUDE_DIRS ${EXTRA_INCLUDE_DIRS} "thirdparty")
@@ -72,6 +72,6 @@ elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 	set(EXTRA_LIBS ${EXTRA_LIBS} stdc++fs) # required for filesystem
 endif()
 
-include_directories(${SDL2_INCLUDE_DIR} ${SDL2_NET_INCLUDE_DIRS} ${GLEW_INCLUDE_DIRS} ${GLM_INCLUDE_DIRS} ${STB_INCLUDE_PATH} ${IMGUI_INCLUDE_PATH} ${EXTRA_INCLUDE_DIRS})
+include_directories("include" ${SDL2_INCLUDE_DIR} ${SDL2_NET_INCLUDE_DIRS} ${GLEW_INCLUDE_DIRS} ${GLM_INCLUDE_DIRS} ${STB_INCLUDE_PATH} ${IMGUI_INCLUDE_PATH} ${EXTRA_INCLUDE_DIRS})
 target_link_libraries(vectrexy ${SDL2_LIBRARY} ${SDL2_NET_LIBRARIES} ${OPENGL_gl_LIBRARY} ${OPENGL_glu_LIBRARY} ${GLEW_LIBRARIES} ${SDL2_REQUIRED_LIBS} ${IMGUI_LIBRARY} ${EXTRA_LIBS})
 target_compile_definitions(vectrexy PRIVATE ${GLEW_DEFINITIONS})

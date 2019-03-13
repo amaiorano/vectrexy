@@ -1,8 +1,8 @@
 #include "Psg.h"
-#include "BitOps.h"
 #include "EngineTypes.h"
-#include "ErrorHandler.h"
-#include "Gui.h"
+#include "core/BitOps.h"
+#include "core/ErrorHandler.h"
+#include "core/Gui.h"
 #include <array>
 #include <cmath>
 #include <memory>

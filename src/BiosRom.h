@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Base.h"
 #include "MemoryBus.h"
+#include "core/Base.h"
 #include <array>
 
 // 8K ROM chip that holds the BIOS (Mine Storm + BIOS code)

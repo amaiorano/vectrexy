@@ -1,5 +1,5 @@
 #include "ShiftRegister.h"
-#include "BitOps.h"
+#include "core/BitOps.h"
 
 void ShiftRegister::SetValue(uint8_t value) {
     m_value = value;

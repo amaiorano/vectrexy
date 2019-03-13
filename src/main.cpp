@@ -1,12 +1,12 @@
-#include "Base.h"
-#include "ConsoleOutput.h"
 #include "Debugger.h"
 #include "Emulator.h"
 #include "EngineClient.h"
-#include "FileSystemUtil.h"
 #include "Overlays.h"
-#include "Platform.h"
 #include "SDLEngine.h"
+#include "core/Base.h"
+#include "core/ConsoleOutput.h"
+#include "core/FileSystemUtil.h"
+#include "core/Platform.h"
 #include <memory>
 #include <random>
 

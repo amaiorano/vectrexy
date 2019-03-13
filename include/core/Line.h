@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Vector2.h"
+#include "core/Vector2.h"
 
 struct Line {
     Vector2 p0;

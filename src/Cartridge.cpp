@@ -1,8 +1,8 @@
 #include "Cartridge.h"
-#include "ConsoleOutput.h"
-#include "ErrorHandler.h"
 #include "MemoryMap.h"
-#include "Stream.h"
+#include "core/ConsoleOutput.h"
+#include "core/ErrorHandler.h"
+#include "core/Stream.h"
 #include <cstring>
 #include <vector>
 

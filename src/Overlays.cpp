@@ -1,7 +1,7 @@
 #include "Overlays.h"
-#include "Base.h"
-#include "ConsoleOutput.h"
 #include "StringUtil.h"
+#include "core/Base.h"
+#include "core/ConsoleOutput.h"
 #include <string_view>
 #include <unordered_map>
 

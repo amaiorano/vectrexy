@@ -1,15 +1,15 @@
 #include "SDLEngine.h"
 
-#include "ConsoleOutput.h"
 #include "EngineClient.h"
-#include "FileSystem.h"
 #include "GLRender.h"
 #include "GLUtil.h"
-#include "Gui.h"
 #include "Options.h"
-#include "Platform.h"
 #include "SDLAudioDriver.h"
 #include "StringUtil.h"
+#include "core/ConsoleOutput.h"
+#include "core/FileSystem.h"
+#include "core/Gui.h"
+#include "core/Platform.h"
 #include "imgui_impl/imgui_impl_sdl_gl3.h"
 #include <SDL.h>
 #include <SDL_net.h>

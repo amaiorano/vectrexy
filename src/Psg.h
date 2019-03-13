@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Base.h"
-#include "Pimpl.h"
+#include "core/Base.h"
+#include "core/Pimpl.h"
 
 // Implementation of the AY-3-8912 Programmable Sound Generator (PSG)
 

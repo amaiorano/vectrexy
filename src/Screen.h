@@ -1,7 +1,7 @@
 #pragma once
 
 #include "DelayedValueStore.h"
-#include "Vector2.h"
+#include "core/Vector2.h"
 
 struct RenderContext;
 

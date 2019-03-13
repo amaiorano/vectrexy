@@ -1,4 +1,4 @@
-#include "Stream.h"
+#include "core/Stream.h"
 
 void IStream::Printf(const char* format, ...) {
     static char buffer[2048];

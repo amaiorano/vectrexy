@@ -1,13 +1,13 @@
 #pragma once
 
-#include "Line.h"
-#include "MathUtil.h"
 #include "MemoryBus.h"
 #include "MemoryMap.h"
 #include "Psg.h"
 #include "Screen.h"
 #include "ShiftRegister.h"
 #include "Timers.h"
+#include "core/Line.h"
+#include "core/MathUtil.h"
 
 class Input;
 struct RenderContext;

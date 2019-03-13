@@ -1,5 +1,5 @@
-#include "ImageUtil.h"
-#include "Base.h"
+#include "core/ImageUtil.h"
+#include "core/Base.h"
 #include <stdlib.h>
 #include <string.h>
 

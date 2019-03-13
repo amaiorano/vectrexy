@@ -1,6 +1,6 @@
 #pragma once
-#include "BitOps.h"
 #include "EngineClient.h"
+#include "core/BitOps.h"
 
 class SDLEngine {
 public:

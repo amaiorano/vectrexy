@@ -1,9 +1,9 @@
 #pragma once
 
-#include "Base.h"
-#include "BitOps.h"
-#include "Line.h"
 #include "Options.h"
+#include "core/Base.h"
+#include "core/BitOps.h"
+#include "core/Line.h"
 #include <array>
 
 class Input {

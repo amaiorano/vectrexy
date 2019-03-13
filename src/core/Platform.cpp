@@ -1,7 +1,7 @@
-#include "Platform.h"
-#include "Base.h"
-#include "FileSystem.h"
-#include "FileSystemUtil.h"
+#include "core/Platform.h"
+#include "core/Base.h"
+#include "core/FileSystem.h"
+#include "core/FileSystemUtil.h"
 
 #include <iostream>
 

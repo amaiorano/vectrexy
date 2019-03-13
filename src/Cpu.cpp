@@ -1,9 +1,9 @@
 #include "Cpu.h"
-#include "BitOps.h"
 #include "CpuHelpers.h"
 #include "CpuOpCodes.h"
-#include "ErrorHandler.h"
 #include "MemoryBus.h"
+#include "core/BitOps.h"
+#include "core/ErrorHandler.h"
 #include <array>
 #include <type_traits>
 

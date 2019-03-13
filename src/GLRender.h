@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Pimpl.h"
+#include "core/Pimpl.h"
 #include <tuple>
 
 struct RenderContext;

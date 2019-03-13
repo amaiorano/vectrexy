@@ -1,7 +1,7 @@
 #include "BiosRom.h"
-#include "ErrorHandler.h"
 #include "MemoryMap.h"
-#include "Stream.h"
+#include "core/ErrorHandler.h"
+#include "core/Stream.h"
 
 void BiosRom::Init(MemoryBus& memoryBus) {
     memoryBus.ConnectDevice(*this, MemoryMap::Bios.range, EnableSync::False);

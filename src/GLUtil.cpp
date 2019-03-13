@@ -1,6 +1,6 @@
 #include "GLUtil.h"
-#include "ConsoleOutput.h"
-#include "ImageUtil.h"
+#include "core/ConsoleOutput.h"
+#include "core/ImageUtil.h"
 #include <fstream>
 #include <sstream>
 #include <vector>
