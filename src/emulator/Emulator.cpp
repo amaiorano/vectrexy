@@ -1,4 +1,4 @@
-#include "Emulator.h"
+#include "emulator/Emulator.h"
 
 void Emulator::Init() {
     m_cpu.Init(m_memoryBus);

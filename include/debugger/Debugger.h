@@ -1,9 +1,9 @@
 #pragma once
 
-#include "Breakpoints.h"
-#include "SyncProtocol.h"
 #include "core/Base.h"
-#include "emulator/EngineClient.h"
+#include "debugger/Breakpoints.h"
+#include "debugger/SyncProtocol.h"
+#include "emulator/EngineTypes.h"
 #include <map>
 #include <optional>
 #include <queue>

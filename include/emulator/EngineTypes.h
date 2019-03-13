@@ -2,8 +2,10 @@
 
 #include "core/Base.h"
 #include "core/BitOps.h"
+#include "core/FileSystem.h"
 #include "core/Line.h"
 #include <array>
+#include <variant>
 #include <vector>
 
 class Input {
@@ -52,6 +54,19 @@ struct AudioContext {
     const float CpuCyclesPerAudioSample;
     std::vector<float> samples; // Samples produced this frame
 };
+
+class EmuEvent {
+public:
+    struct BreakIntoDebugger {};
+    struct Reset {};
+    struct OpenRomFile {
+        fs::path path{}; // If not set, use open file dialog
+    };
+
+    using Type = std::variant<BreakIntoDebugger, Reset, OpenRomFile>;
+    Type type;
+};
+using EmuEvents = std::vector<EmuEvent>;
 
 //@TODO: Add these to some type of EngineService class implemented by engine, callable within
 // emulator
