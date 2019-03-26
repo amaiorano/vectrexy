@@ -8,8 +8,8 @@ This project is open source and available on GitHub: https://github.com/amaioran
 
 Windows [![Build status](https://ci.appveyor.com/api/projects/status/0adcwixak7ul9oet?svg=true)](https://ci.appveyor.com/project/amaiorano/vectrexy)
 
-* [Vectrexy for Windows 64-bit](https://daroou.000webhostapp.com/vectrexy/build/vectrexy_win64.zip) 
-* [Vectrexy for Windows 32-bit](https://daroou.000webhostapp.com/vectrexy/build/vectrexy_win32.zip)
+* [Vectrexy for Windows 64-bit](https://dl.bintray.com/amaiorano/vectrexy/vectrexy_win64.zip)
+* [Vectrexy for Windows 32-bit](https://dl.bintray.com/amaiorano/vectrexy/vectrexy_win32.zip)
 
 Linux [![Build Status](https://travis-ci.org/amaiorano/vectrexy.svg?branch=master)](https://travis-ci.org/amaiorano/vectrexy)
 
