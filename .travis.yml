@@ -85,7 +85,7 @@ script:
      cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS=${CXX_FLAGS} -DCMAKE_TOOLCHAIN_FILE=${DEPS_DIR}/vcpkg/scripts/buildsystems/vcpkg.cmake ..
      make -j
      cd ..
-     bash ./package/package_linux.sh vectrexy_linux64 https://daroou.000webhostapp.com/vectrexy/package/
+     bash ./tools/package/package_linux.sh vectrexy_linux64 https://daroou.000webhostapp.com/vectrexy/package/
      
      # Force lftp to use IPv4, otherwise it fails to connect
      echo set dns:order inet > ~/.lftprc

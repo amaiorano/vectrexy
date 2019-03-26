@@ -63,7 +63,7 @@ build:
 
 after_build:
 - cmd: >-
-    .\package\package_windows.bat vectrexy_%PACKAGE_SUFFIX% https://daroou.000webhostapp.com/vectrexy/package/
+    .\tools\package\package_windows.bat vectrexy_%PACKAGE_SUFFIX% https://daroou.000webhostapp.com/vectrexy/package/
 
 artifacts:
 - path: vectrexy_$(PACKAGE_SUFFIX)/
