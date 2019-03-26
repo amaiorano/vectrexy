@@ -40,11 +40,11 @@ source_group(TREE ".." FILES ${SRC_FILES})
 file(GLOB_RECURSE INCLUDE_FILES "include/*.*")
 source_group(TREE ".." FILES ${INCLUDE_FILES})
 
-file(GLOB THIRD_PARTY_NOC "thirdparty/noc/noc_file_dialog.h")
+file(GLOB THIRD_PARTY_NOC "external/noc/noc_file_dialog.h")
 source_group(TREE ".." FILES ${THIRD_PARTY_NOC})
 
 if (LINUX)
-	file(GLOB THIRD_PARTY_LINENOISE "thirdparty/linenoise/linenoise.*")
+	file(GLOB THIRD_PARTY_LINENOISE "external/linenoise/linenoise.*")
 	source_group(TREE ".." FILES ${THIRD_PARTY_LINENOISE})
 endif()
 
@@ -69,6 +69,6 @@ elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 	set(EXTRA_LIBS ${EXTRA_LIBS} stdc++fs) # required for filesystem
 endif()
 
-include_directories("include" "thirdparty" ${SDL2_INCLUDE_DIR} ${SDL2_NET_INCLUDE_DIRS} ${GLEW_INCLUDE_DIRS} ${GLM_INCLUDE_DIRS} ${STB_INCLUDE_PATH} ${IMGUI_INCLUDE_PATH} ${EXTRA_INCLUDE_DIRS})
+include_directories("include" "external" ${SDL2_INCLUDE_DIR} ${SDL2_NET_INCLUDE_DIRS} ${GLEW_INCLUDE_DIRS} ${GLM_INCLUDE_DIRS} ${STB_INCLUDE_PATH} ${IMGUI_INCLUDE_PATH} ${EXTRA_INCLUDE_DIRS})
 target_link_libraries(vectrexy ${SDL2_LIBRARY} ${SDL2_NET_LIBRARIES} ${OPENGL_gl_LIBRARY} ${OPENGL_glu_LIBRARY} ${GLEW_LIBRARIES} ${SDL2_REQUIRED_LIBS} ${IMGUI_LIBRARY} ${EXTRA_LIBS})
 target_compile_definitions(vectrexy PRIVATE ${GLEW_DEFINITIONS})
