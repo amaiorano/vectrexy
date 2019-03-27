@@ -1,7 +1,9 @@
 #pragma once
 
 #include <cassert>
+#include <cstddef>
 #include <type_traits>
+#include <utility>
 
 // Define to 0 to remove extra m_value member to Pimpl which is useful for being able to see the T*
 // value at debug-time at the expense of increasing Pimpl's size by an extra pointer + potential
