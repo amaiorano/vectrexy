@@ -2,6 +2,7 @@
 
 #include "GLRender.h"
 #include "GLUtil.h"
+#include "Paths.h"
 #include "SDLAudioDriver.h"
 #include "core/ConsoleOutput.h"
 #include "core/FileSystem.h"
@@ -55,7 +56,7 @@ namespace {
     bool FindAndSetRootPath(fs::path exePath) {
         // Look for bios file in current directory and up parent dirs
         // and set current working directory to the one found.
-        const char* biosRomFile = "bios_rom.bin";
+        fs::path biosRomFile = Paths::biosRomFile;
 
         auto currDir = exePath.remove_filename();
 
@@ -70,7 +71,7 @@ namespace {
             currDir = currDir.parent_path();
         } while (!currDir.empty());
 
-        Errorf("Bios rom file not found: %s", biosRomFile);
+        Errorf("Bios rom file not found: %s", biosRomFile.c_str());
         return false;
     }
 

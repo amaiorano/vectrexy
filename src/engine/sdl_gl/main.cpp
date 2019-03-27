@@ -1,3 +1,4 @@
+#include "Paths.h"
 #include "SDLEngine.h"
 #include "core/Base.h"
 #include "core/ConsoleOutput.h"
@@ -13,7 +14,7 @@
 class Vectrexy final : public IEngineClient {
 private:
     bool Init(int argc, char** argv) override {
-        m_overlays.LoadOverlays();
+        m_overlays.LoadOverlays(Paths::overlays);
 
         //@TODO: Clean this up
         std::string rom = "";
@@ -23,7 +24,7 @@ private:
                 rom = arg;
         }
 
-        m_emulator.Init();
+        m_emulator.Init(Paths::biosRomFile.string().c_str());
         m_debugger.Init(argc, argv, m_emulator);
 
         if (!rom.empty()) {
@@ -81,9 +82,9 @@ private:
                 if (openRomFile->path.empty()) {
                     fs::path lastOpenedFile = options.Get<std::string>("lastOpenedFile");
 
-                    auto result =
-                        Platform::OpenFileDialog("Open Vectrex rom", "Vectrex Rom", "*.vec;*.bin",
-                                                 lastOpenedFile.empty() ? "roms" : lastOpenedFile);
+                    auto result = Platform::OpenFileDialog(
+                        "Open Vectrex rom", "Vectrex Rom", "*.vec;*.bin",
+                        lastOpenedFile.empty() ? Paths::roms : lastOpenedFile);
 
                     if (result)
                         romPath = *result;

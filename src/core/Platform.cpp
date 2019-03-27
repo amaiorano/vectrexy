@@ -218,7 +218,7 @@ namespace Platform {
         FileSystemUtil::ScopedSetCurrentDirectory scopedSetDir;
 
         auto result = noc_file_dialog_open(NOC_FILE_DIALOG_OPEN, filter,
-                                           initialPath->string().c_str(), nullptr);
+                                           initialPath->make_preferred().string().c_str(), nullptr);
         if (result)
             return result;
         return {};

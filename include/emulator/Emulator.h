@@ -10,7 +10,7 @@
 
 class Emulator {
 public:
-    void Init();
+    void Init(const char* biosRomFile);
     void Reset();
     bool LoadRom(const char* file);
 

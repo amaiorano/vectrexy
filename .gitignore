@@ -32,8 +32,8 @@ ipch/
 *.wwdb
 
 # Project-specific
-roms/
-overlays*/
+data/roms/
+data/overlays/
 options.txt
 imgui.ini
 startup.txt

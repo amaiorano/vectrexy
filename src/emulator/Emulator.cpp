@@ -1,6 +1,6 @@
 #include "emulator/Emulator.h"
 
-void Emulator::Init() {
+void Emulator::Init(const char* biosRomFile) {
     m_cpu.Init(m_memoryBus);
     m_via.Init(m_memoryBus);
     m_ram.Init(m_memoryBus);
@@ -8,7 +8,7 @@ void Emulator::Init() {
     m_illegal.Init(m_memoryBus);
     m_cartridge.Init(m_memoryBus);
 
-    m_biosRom.LoadBiosRom("bios_rom.bin");
+    m_biosRom.LoadBiosRom(biosRomFile);
 }
 
 void Emulator::Reset() {
