@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 3.2)
+cmake_minimum_required (VERSION 3.9)
 project (vectrexy)
 
 # Set module path to local cmake folder so find_package looks there first
