@@ -13,7 +13,7 @@ Windows [![Build status](https://ci.appveyor.com/api/projects/status/0adcwixak7u
 
 Linux [![Build Status](https://travis-ci.org/amaiorano/vectrexy.svg?branch=master)](https://travis-ci.org/amaiorano/vectrexy)
 
-* [Vectrexy for Linux 64-bit](https://daroou.000webhostapp.com/vectrexy/build/vectrexy_linux64.zip) 
+* [Vectrexy for Linux 64-bit](https://dl.bintray.com/amaiorano/vectrexy/vectrexy_linux64.zip)
 
 
 ## Twitch Development
