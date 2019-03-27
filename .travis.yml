@@ -24,6 +24,7 @@ matrix:
       group: deprecated-2017Q4
       compiler: gcc-8
       env:
+        - VCPKG_TRIPLET=x64-linux
         - CC_COMPILER=gcc-8
         - CXX_COMPILER=g++-8
       addons:
@@ -62,6 +63,14 @@ matrix:
 
 before_install:
   - export CXX_FLAGS=${CXX_FLAGS}" "${ENV_CXX_FLAGS}
+  - # Get a more recent version of CMake
+  - mkdir $HOME/usr
+  - export PATH="$HOME/usr/bin:$PATH"
+  - export CMAKE_INSTALL_SCRIPT=cmake-3.14.0-Linux-x86_64.sh
+  - wget https://github.com/Kitware/CMake/releases/download/v3.14.0/${CMAKE_INSTALL_SCRIPT}
+  - chmod +x ${CMAKE_INSTALL_SCRIPT}
+  - ./${CMAKE_INSTALL_SCRIPT} --prefix=$HOME/usr --exclude-subdir --skip-license
+
 install:
   # HACK: gcc 8.0.1 is missing movdirintrin.h so just download it. We need this for GLM and Vectrexy to build.
   - sudo wget https://raw.githubusercontent.com/gcc-mirror/gcc/gcc-8-branch/gcc/config/i386/movdirintrin.h -P /usr/lib/gcc/x86_64-linux-gnu/8/include/
@@ -74,22 +83,43 @@ install:
   - export CXX=${CXX_COMPILER}
 
   # Install vcpkg and dependencies
-  - git clone https://github.com/Microsoft/vcpkg.git ${DEPS_DIR}/vcpkg
-  - ${DEPS_DIR}/vcpkg/bootstrap-vcpkg.sh
-  - ${DEPS_DIR}/vcpkg/vcpkg install sdl2 sdl2-net glew glm stb imgui
+  - |
+    set -e
+    mkdir -p ${DEPS_DIR}/vcpkg
+    pushd ${DEPS_DIR}/vcpkg
+    git init
+    git remote add origin https://github.com/Microsoft/vcpkg.git
+    git fetch origin master
+    git checkout -b master origin/master
+    ./bootstrap-vcpkg.sh
+    # Only build release libs to save time. We inject a new line first since some cmake files don't end with one.
+    echo -e '\nset(VCPKG_BUILD_TYPE release)' >> ./triplets/${VCPKG_TRIPLET}.cmake
+    ./vcpkg install sdl2 sdl2-net glew glm stb imgui
+    popd
+
+cache:
+  directories:
+    - ${DEPS_DIR}/vcpkg/installed
 
 script:
- - |
-   if [ "$TRAVIS_BRANCH" == "master" ]; then
-     mkdir -p build && cd build
-     cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS=${CXX_FLAGS} -DCMAKE_TOOLCHAIN_FILE=${DEPS_DIR}/vcpkg/scripts/buildsystems/vcpkg.cmake ..
-     make -j
-     cd ..
-     bash ./tools/package/package_linux.sh vectrexy_linux64 https://daroou.000webhostapp.com/vectrexy/package/
-     
-     # Force lftp to use IPv4, otherwise it fails to connect
-     echo set dns:order inet > ~/.lftprc
-     echo set net:max-retries 10 >> ~/.lftprc
-     echo set net:persist-retries 10 >> ~/.lftprc
-     lftp -c "debug 3; open -u $FTP_USER,$FTP_PASSWORD ftp://files.000webhost.com; put -O public_html/vectrexy/build/ vectrexy_linux64.zip"
-   fi
+  - |
+    set -e
+    # Package and deploy only on master branch
+    if [ "$TRAVIS_BRANCH" == "master" ]; then
+      mkdir -p build && cd build
+      cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS=${CXX_FLAGS} -DCMAKE_TOOLCHAIN_FILE=${DEPS_DIR}/vcpkg/scripts/buildsystems/vcpkg.cmake ..
+      make -j
+      cd ..
+      bash ./tools/package/package_linux.sh vectrexy_linux64 https://dl.bintray.com/amaiorano/vectrexy/
+    fi
+
+deploy:
+  on: master
+  #on:
+  #  all_branches: true
+  provider: bintray
+  file: ./tools/package/travis_bintray_descriptor.json
+  user: amaiorano
+  key:
+    secure: tHxPYNa/mqXd47nK0FEnx7s9O1mQYRUohjSyTn3WmfsThpxAx8NmNGCj26vs9noLXnPeXEWtDg2vEc28OH37dKLAdGEmEWX7XRgrSOhmbh1kIYjPSNO82SPGgk7yk2L6kv38RD/pvA/mF8piWmRTLgkxYPaoQGmxVPtO/h2krRxebipu+A0XhAbwIgS9Zwd4kpXHAsSaduQuKZLTCqGZnSmfMyjzG6cn6rDZTDOggotmxZQBd0bBemDB5ZXqKFI9AP1WxvTulAS7JMtsJvZIRK00vZGQyA9aUErliD4EXbZYzeY+fVToHe2nBvH1EimYEzsySPuwGQTg6jL+wrHqym2gCyHMtjXPjGZwAvm0zbtqahb40f+g2p1PCg80q5YwdpYclMdmrO3c9wjcU+/D9KZoLo4+g00QhzF5/xOme45uuLgApndbj0tZCosGYCBMAPWo56WwIi4W1iXik9B0wnCHgoLDGXc5rtHy4VZmgKnr/YBkZ3d9gPm1CWCWVBriacq8p0EdAYoQZIEN8JXrB+SUuVm1eQyresG8xj/DLMT13APYJWyykq/kGeksDg1vrE+2YLYN0o5DeF7btv7WPRk2jTGyeqMDWkBDU7pjg+lbbhfv25Ra8diSUbDXLuPhNuMWU/exOeHXvlntN0Wk2GCWa9TojfFKZMNbcTyJeCQ=
+  skip_cleanup: true

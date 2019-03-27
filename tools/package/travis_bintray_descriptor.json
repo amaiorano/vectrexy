@@ -1,0 +1,23 @@
+{
+    "package": {
+        "repo": "vectrexy",
+        "name": "dev_builds",
+        "subject": "amaiorano",
+        "vcs_url": "https://github.com/bintray/bintray-client-java.git",
+        "licenses": ["MIT"]
+    },
+
+    "version": {
+        "name": "latest"
+    },
+
+    "files":
+        [
+            {
+                "includePattern": "vectrexy_linux64.zip",
+                "uploadPattern": "vectrexy_linux64.zip",
+                "matrixParams": { "override": 1 }
+            }
+        ],
+    "publish": true
+}

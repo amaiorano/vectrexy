@@ -18,6 +18,6 @@ copy /y %root_dir%\LICENSE.txt %output_dir%
 
 git describe > %output_dir%\version.txt
 
-powershell -Command (new-object System.Net.WebClient).DownloadFile('%data_zip_url%', 'data.zip')
+curl -L "%data_zip_url%" -o data.zip
 powershell -Command "& { Add-Type -A 'System.IO.Compression.FileSystem'; [IO.Compression.ZipFile]::ExtractToDirectory('data.zip', '%output_dir%'); }"
 del /f /q data.zip
