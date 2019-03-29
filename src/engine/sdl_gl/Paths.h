@@ -3,8 +3,13 @@
 #include "core/FileSystem.h"
 
 namespace Paths {
-    inline fs::path biosRomFile = "data/bios/bios_rom.bin";
-    inline fs::path overlays = "data/overlays";
-    inline fs::path roms = "data/roms";
-    inline fs::path optionsFile = "data/user/options.txt";
+    inline fs::path dataDir = "data";
+
+    inline fs::path overlaysDir = dataDir / "overlays";
+    inline fs::path romsDir = dataDir / "roms";
+    inline fs::path userDir = dataDir / "user";
+    inline fs::path biosDir = dataDir / "bios";
+
+    inline fs::path biosRomFile = biosDir / "bios_rom.bin";
+    inline fs::path optionsFile = userDir / "options.txt";
 } // namespace Paths
