@@ -11,11 +11,13 @@ output_dir=$root_dir/$package_name
 data_zip_url=$package_base_url/data.zip
 
 mkdir -p $output_dir
+mkdir -p $output_dir/docs
 mkdir -p $output_dir/data/bios
+
 cp $root_dir/build/vectrexy $output_dir
-cp $root_dir/data/bios/*.* $output_dir/data/bios
+cp -r $root_dir/docs $output_dir
+cp -r $root_dir/data/bios $output_dir/data
 cp $root_dir/README.md $output_dir
-cp $root_dir/COMPAT.md $output_dir
 cp $root_dir/LICENSE.txt $output_dir
 
 git describe > $output_dir/version.txt

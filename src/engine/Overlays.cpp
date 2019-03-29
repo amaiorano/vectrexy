@@ -85,11 +85,11 @@ namespace {
     }
 } // namespace
 
-void Overlays::LoadOverlays(fs::path overlaysPath) {
-    if (!fs::exists(overlaysPath))
+void Overlays::LoadOverlays(const fs::path& overlaysDir) {
+    if (!fs::exists(overlaysDir))
         return;
 
-    for (auto& dir : fs::recursive_directory_iterator(overlaysPath)) {
+    for (auto& dir : fs::recursive_directory_iterator(overlaysDir)) {
         if (dir.path().extension() == ".png") {
             m_overlayFiles.push_back({fs::absolute(dir.path())});
         }

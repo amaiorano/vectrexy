@@ -689,7 +689,7 @@ namespace {
 
 } // namespace
 
-void Debugger::Init(int argc, char** argv, Emulator& emulator) {
+void Debugger::Init(int argc, char** argv, fs::path devDir, Emulator& emulator) {
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
         if (arg == "-server") {
@@ -699,6 +699,7 @@ void Debugger::Init(int argc, char** argv, Emulator& emulator) {
         }
     }
 
+    m_devDir = std::move(devDir);
     m_emulator = &emulator;
     m_memoryBus = &emulator.GetMemoryBus();
     m_cpu = &emulator.GetCpu();
@@ -749,7 +750,7 @@ void Debugger::Init(int argc, char** argv, Emulator& emulator) {
         });
 
     // Load up commands for debugger to execute on startup
-    std::ifstream fin("startup.txt");
+    std::ifstream fin(m_devDir / "debugger_startup.txt");
     if (fin) {
         std::string command;
         while (std::getline(fin, command)) {
@@ -1170,10 +1171,14 @@ bool Debugger::FrameUpdate(double frameTime, const Input& inputArg, const EmuEve
                 ScopedOverridePrintStream ScopedOverridePrintStream;
 
                 if (outFileName) {
-                    if (!fileStream.Open(outFileName, "w+"))
+                    fs::path outFilePath = m_devDir / outFileName;
+                    if (!outFilePath.has_extension()) {
+                        outFilePath.replace_extension(".txt");
+                    }
+                    if (!fileStream.Open(outFilePath, "w+"))
                         Printf("Failed to create trace file\n");
                     else {
-                        Printf("Writing trace to %s\n", outFileName);
+                        Printf("Writing trace to \"%ws\"\n", fs::absolute(outFilePath).c_str());
                         ScopedOverridePrintStream.SetPrintStream(fileStream.Get());
                     }
                 }

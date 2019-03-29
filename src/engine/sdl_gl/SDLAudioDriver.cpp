@@ -1,4 +1,5 @@
 #include "SDLAudioDriver.h"
+#include "Paths.h"
 #include "core/CircularBuffer.h"
 #include "core/Gui.h"
 #include "core/Stream.h"
@@ -88,7 +89,7 @@ public:
         m_samples.Init(bufferSize);
 
         if constexpr (OutputRawAudioFileStream::Enabled) {
-            m_rawAudioOutputFS.Open("RawAudio.raw", "wb");
+            m_rawAudioOutputFS.Open(Paths::devDir / "RawAudio.raw", "wb");
         }
 
         m_paused = false;

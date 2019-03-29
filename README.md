@@ -15,10 +15,13 @@ Linux [![Build Status](https://travis-ci.org/amaiorano/vectrexy.svg?branch=maste
 
 * [Vectrexy for Linux 64-bit](https://dl.bintray.com/amaiorano/vectrexy/vectrexy_linux64.zip)
 
-
 ## Twitch Development
 
 I regularly stream part of the development on Twitch [right here](https://www.twitch.tv/daroou2). Follow me to know when I'm streaming!
+
+## Compatibility
+
+See the [Vectrexy Compatibility List](docs/vectrexy-compatilibity-list.md) for the list of games that Vectrexy can run.
 
 ## Controls
 
@@ -32,15 +35,15 @@ Keyboard key bindings: ASDF + Arrow keys
 
 ## Overlays
 
-The Vectrex display is black & white, so to add color, each game cartridge came with a transparent colored overlay that would be slotted in front of the screen. For emulation purposes, you should be able to find png files for these overlays. If you place these png file in a folder named "overlays", Vectrexy will attempt to match the rom's file name to the overlay name using "fuzzy" string matching (in other words, the file names do not need to match exactly).
+The Vectrex display is black & white, so to add color, each game cartridge came with a transparent colored overlay that would be slotted in front of the screen. For emulation purposes, you should be able to find png files for these overlays. If you place these png file in the `data/overlays` folder, Vectrexy will attempt to match the rom's file name to the overlay name using "fuzzy" string matching (in other words, the file names do not need to match exactly).
 
 ## What's a Vectrex and why did you write this emulator?
 
-The Vectrex is a really cool and unique video game console that was released in 1982. What made it unique was that it came with its own screen and displayed vector-based graphics, rather than the typical sprite/raster based graphics of most game consoles. My uncle had gotten me a Vectrex when I was only 8 or so years old, and I still have it, and it's still awesome :)
+The Vectrex is a really cool and unique video game console that was released in 1982. What made it unique was that it came with its own screen and displayed vector-based graphics, rather than the typical sprite/raster based graphics of most game consoles. My uncle had gotten me a Vectrex when I was only 8 years old, and I still have it, and it's still awesome.
 
 ## Credits
 
-Altough the emulator core is written by me, Antonio Maiorano (daroou2), it makes use of third party libraries, and is packaged with overlays created by other people. I hope I've got everyone covered here; if not, please let me know and I'll be happy to correct this list.
+Although the emulator core is written by me, Antonio Maiorano (Daroou2), it makes use of third party libraries, and is packaged with overlays created by other people. I hope I've got everyone covered here; if not, please let me know and I'll be happy to correct this list.
 
 - Overlays: THK-Hyperspin, Gigapig-Hyperspin, Nosh01-GitHub, and other unknown authors.
 - SDL2: [SDL2 Credits](https://www.libsdl.org/credits.php)

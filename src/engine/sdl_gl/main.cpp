@@ -14,7 +14,7 @@
 class Vectrexy final : public IEngineClient {
 private:
     bool Init(int argc, char** argv) override {
-        m_overlays.LoadOverlays(Paths::overlays);
+        m_overlays.LoadOverlays(Paths::overlaysDir);
 
         //@TODO: Clean this up
         std::string rom = "";
@@ -25,7 +25,7 @@ private:
         }
 
         m_emulator.Init(Paths::biosRomFile.string().c_str());
-        m_debugger.Init(argc, argv, m_emulator);
+        m_debugger.Init(argc, argv, Paths::devDir, m_emulator);
 
         if (!rom.empty()) {
             LoadRom(rom.c_str());
@@ -84,7 +84,7 @@ private:
 
                     auto result = Platform::OpenFileDialog(
                         "Open Vectrex rom", "Vectrex Rom", "*.vec;*.bin",
-                        lastOpenedFile.empty() ? Paths::roms : lastOpenedFile);
+                        lastOpenedFile.empty() ? Paths::romsDir : lastOpenedFile);
 
                     if (result)
                         romPath = *result;

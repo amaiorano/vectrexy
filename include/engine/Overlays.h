@@ -6,7 +6,7 @@
 
 class Overlays {
 public:
-    void LoadOverlays(fs::path overlaysPath);
+    void LoadOverlays(const fs::path& overlaysDir);
     std::optional<fs::path> FindOverlay(const char* romFile);
 
 private:
