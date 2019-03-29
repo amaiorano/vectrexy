@@ -25,7 +25,7 @@ private:
         }
 
         m_emulator.Init(Paths::biosRomFile.string().c_str());
-        m_debugger.Init(argc, argv, m_emulator);
+        m_debugger.Init(argc, argv, Paths::devDir, m_emulator);
 
         if (!rom.empty()) {
             LoadRom(rom.c_str());

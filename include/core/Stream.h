@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/Base.h"
+#include "core/FileSystem.h"
 #include <algorithm>
 #include <cstdio>
 
@@ -66,6 +67,8 @@ public:
         m_file = fopen(name, mode);
         return m_file != nullptr;
     }
+
+    bool Open(const fs::path& path, const char* mode) { return Open(path.string().c_str(), mode); }
 
     FILE* Get() { return m_file; }
     const FILE* Get() const { return m_file; }

@@ -377,6 +377,12 @@ bool SDLEngine::Run(int argc, char** argv) {
     if (!FindAndSetRootPath(fs::path(fs::absolute(argv[0]))))
         return false;
 
+    // Create standard directories
+    fs::create_directories(Paths::overlaysDir);
+    fs::create_directories(Paths::romsDir);
+    fs::create_directories(Paths::userDir);
+    fs::create_directories(Paths::devDir);
+
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER) < 0) {
         std::cout << "SDL cannot init with error " << SDL_GetError() << std::endl;
         return false;
@@ -458,6 +464,8 @@ bool SDLEngine::Run(int argc, char** argv) {
     Gui::EnabledWindows[Gui::Window::Debug] = g_options.Get<bool>("imguiDebugWindow");
     ImGui_ImplSdlGL3_Init(g_window);
     ImGui::GetIO().FontGlobalScale = g_options.Get<float>("imguiFontScale");
+    static const auto imguiIniFilePath = Paths::imguiIniFile.string();
+    ImGui::GetIO().IniFilename = imguiIniFilePath.c_str();
 
     g_glRender.Initialize(enableGLDebugging);
     g_glRender.OnWindowResized(windowWidth, windowHeight);
