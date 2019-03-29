@@ -85,7 +85,7 @@ namespace {
     }
 } // namespace
 
-void Overlays::LoadOverlays(fs::path overlaysPath) {
+void Overlays::LoadOverlays(const fs::path& overlaysPath) {
     if (!fs::exists(overlaysPath))
         return;
 
