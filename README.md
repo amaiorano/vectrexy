@@ -43,7 +43,7 @@ The Vectrex is a really cool and unique video game console that was released in 
 
 ## Credits
 
-Although the emulator core is written by me, Antonio Maiorano (daroou2), it makes use of third party libraries, and is packaged with overlays created by other people. I hope I've got everyone covered here; if not, please let me know and I'll be happy to correct this list.
+Although the emulator core is written by me, Antonio Maiorano (Daroou2), it makes use of third party libraries, and is packaged with overlays created by other people. I hope I've got everyone covered here; if not, please let me know and I'll be happy to correct this list.
 
 - Overlays: THK-Hyperspin, Gigapig-Hyperspin, Nosh01-GitHub, and other unknown authors.
 - SDL2: [SDL2 Credits](https://www.libsdl.org/credits.php)
