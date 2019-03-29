@@ -76,6 +76,7 @@ void Options::Load() {
 
 void Options::Save() {
     assert(!m_filePath.empty());
+    fs::create_directories(m_filePath.parent_path());
     std::ofstream fout(m_filePath);
     for (auto& [name, option] : m_options) {
         auto s = ToString(option);

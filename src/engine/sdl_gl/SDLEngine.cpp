@@ -396,7 +396,7 @@ bool SDLEngine::Run(int argc, char** argv) {
     g_options.Add<bool>("enableGLDebugging", false);
     g_options.Add<float>("imguiFontScale", GetDefaultImguiFontScale());
     g_options.Add<std::string>("lastOpenedFile", {});
-    g_options.SetFilePath(fs::absolute("options.txt"));
+    g_options.SetFilePath(Paths::optionsFile);
     g_options.Load();
 
     int windowX = g_options.Get<int>("windowX");
