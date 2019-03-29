@@ -1172,10 +1172,13 @@ bool Debugger::FrameUpdate(double frameTime, const Input& inputArg, const EmuEve
 
                 if (outFileName) {
                     fs::path outFilePath = m_devDir / outFileName;
+                    if (!outFilePath.has_extension()) {
+                        outFilePath.replace_extension(".txt");
+                    }
                     if (!fileStream.Open(outFilePath, "w+"))
                         Printf("Failed to create trace file\n");
                     else {
-                        Printf("Writing trace to %ws\n", outFilePath.c_str());
+                        Printf("Writing trace to \"%ws\"\n", fs::absolute(outFilePath).c_str());
                         ScopedOverridePrintStream.SetPrintStream(fileStream.Get());
                     }
                 }
