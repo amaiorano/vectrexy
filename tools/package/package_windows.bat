@@ -10,11 +10,13 @@ set output_dir=%root_dir%\%package_name%
 set data_zip_url=%package_base_url%/data.zip
 
 mkdir %output_dir%
+mkdir %output_dir%\docs
 mkdir %output_dir%\data\bios
+
 copy /y %root_dir%\build\RelWithDebInfo\vectrexy.exe %output_dir%
-copy /y %root_dir%\data\bios\*.* %output_dir%\data\bios
+xcopy /y /s %root_dir%\data\bios %output_dir%\data\bios\
+xcopy /y /s %root_dir%\docs %output_dir%\docs\
 copy /y %root_dir%\README.md %output_dir%
-copy /y %root_dir%\COMPAT.md %output_dir%
 copy /y %root_dir%\LICENSE.txt %output_dir%
 
 git describe > %output_dir%\version.txt
