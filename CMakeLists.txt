@@ -4,13 +4,13 @@ project (vectrexy)
 # Set module path to local cmake folder so find_package looks there first
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
-find_package(SDL2 REQUIRED)
-find_package(SDL2_net REQUIRED)
-find_package(OpenGL REQUIRED)
-find_package(GLEW REQUIRED)
-find_package(GLM REQUIRED)
-find_package(STB REQUIRED)
-find_package(Imgui REQUIRED)
+find_package(SDL2 CONFIG REQUIRED)
+find_package(sdl2-net CONFIG REQUIRED)
+find_package(GLEW CONFIG REQUIRED)
+find_package(glm CONFIG REQUIRED)
+find_package(imgui CONFIG REQUIRED)
+find_package(OpenGL MODULE REQUIRED)
+find_package(STB MODULE REQUIRED)
 
 if (UNIX AND NOT APPLE)
 	set(LINUX true)
@@ -20,13 +20,6 @@ if (LINUX)
 	find_package(GTK2 2.4 REQUIRED gtk)
 	set(EXTRA_INCLUDE_DIRS ${EXTRA_INCLUDE_DIRS} ${GTK2_INCLUDE_DIRS})
 	set(EXTRA_LIBS ${EXTRA_LIBS} ${GTK2_LIBRARIES}) # required for filesystem
-endif()
-
-# SDL2 dependent libs, required when linking against SDL2 static lib
-if (MSVC)
-	set(SDL2_REQUIRED_LIBS winmm.lib version.lib imm32.lib Ws2_32.lib Iphlpapi.lib)
-elseif (LINUX)
-	set(SDL2_REQUIRED_LIBS dl sndio)
 endif()
 
 # Enable DPI awareness on Windows 8+
@@ -69,6 +62,21 @@ elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 	set(EXTRA_LIBS ${EXTRA_LIBS} stdc++fs) # required for filesystem
 endif()
 
-include_directories("include" "external" ${SDL2_INCLUDE_DIR} ${SDL2_NET_INCLUDE_DIRS} ${GLEW_INCLUDE_DIRS} ${GLM_INCLUDE_DIRS} ${STB_INCLUDE_PATH} ${IMGUI_INCLUDE_PATH} ${EXTRA_INCLUDE_DIRS})
-target_link_libraries(vectrexy ${SDL2_LIBRARY} ${SDL2_NET_LIBRARIES} ${OPENGL_gl_LIBRARY} ${OPENGL_glu_LIBRARY} ${GLEW_LIBRARIES} ${SDL2_REQUIRED_LIBS} ${IMGUI_LIBRARY} ${EXTRA_LIBS})
-target_compile_definitions(vectrexy PRIVATE ${GLEW_DEFINITIONS})
+include_directories(
+	"include"
+	"external"
+	${STB_INCLUDE_PATH}
+	${EXTRA_INCLUDE_DIRS}
+)
+
+target_link_libraries(vectrexy PRIVATE
+	SDL2::SDL2main
+	SDL2::SDL2-static
+	SDL2::SDL2_net
+	GLEW::GLEW
+	glm
+	imgui::imgui
+	${OPENGL_gl_LIBRARY}
+	${OPENGL_glu_LIBRARY}
+	${EXTRA_LIBS}
+)

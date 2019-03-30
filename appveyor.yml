@@ -7,9 +7,8 @@ init:
 - cmd: 
 
 clone_script:
-- cmd: >-
-    git clone -q --recursive --branch=%APPVEYOR_REPO_BRANCH% https://github.com/%APPVEYOR_REPO_NAME%.git %APPVEYOR_BUILD_FOLDER%
-    
+- cmd: |
+    git clone -q --recursive --branch=%APPVEYOR_REPO_BRANCH% https://github.com/%APPVEYOR_REPO_NAME%.git %APPVEYOR_BUILD_FOLDER%    
     git checkout -qf %APPVEYOR_REPO_COMMIT%
 
 environment:
@@ -26,29 +25,25 @@ environment:
       PACKAGE_SUFFIX: win32
 
 cache:
-- c:\Tools\vcpkg\installed
+- c:\Tools\vcpkg\installed -> appveyor.yml
 
 install:
-- cmd: >-
-    echo Installing dependencies
+- cmd: |
+    echo Update vcpkg until AppVeyor image contains latest sdl2-net fixes
+    pushd C:\Tools\vcpkg && git pull && .\bootstrap-vcpkg.bat && popd
+
+    echo Installing dependencies    
     
     rem Only build release libs to save time. We inject a new line first since some cmake files don't end with one.
-
     echo.>> c:\Tools\vcpkg\triplets\%VCPKG_TRIPLET%.cmake
-
     echo.set(VCPKG_BUILD_TYPE release)>> c:\Tools\vcpkg\triplets\%VCPKG_TRIPLET%.cmake
 
     vcpkg install sdl2:%VCPKG_TRIPLET% sdl2-net:%VCPKG_TRIPLET% glew:%VCPKG_TRIPLET% glm:%VCPKG_TRIPLET% stb:%VCPKG_TRIPLET% imgui:%VCPKG_TRIPLET%
-
     
-    echo Generating vectrexy sln
-    
+    echo Generating vectrexy sln    
     cd /d c:\projects\vectrexy
-    
     mkdir build && cd build
-
     cmake -G "%VS_CONFIG%" -DCMAKE_TOOLCHAIN_FILE=C:/Tools/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=%VCPKG_TRIPLET% ..
-    
     cd ..
 
 build:
