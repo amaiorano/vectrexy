@@ -4,40 +4,41 @@ project (vectrexy)
 # Set module path to local cmake folder so find_package looks there first
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
-find_package(SDL2 CONFIG REQUIRED)
-find_package(sdl2-net CONFIG REQUIRED)
-find_package(GLEW CONFIG REQUIRED)
-find_package(glm CONFIG REQUIRED)
-find_package(imgui CONFIG REQUIRED)
-find_package(OpenGL MODULE REQUIRED)
-find_package(STB MODULE REQUIRED)
-
+# core library
 if (UNIX AND NOT APPLE)
 	set(LINUX true)
 endif()
 
-if (LINUX)
-	find_package(GTK2 2.4 REQUIRED gtk)
-	set(EXTRA_INCLUDE_DIRS ${EXTRA_INCLUDE_DIRS} ${GTK2_INCLUDE_DIRS})
-	set(EXTRA_LIBS ${EXTRA_LIBS} ${GTK2_LIBRARIES})
-endif()
-
-# Enable DPI awareness on Windows 8+
-if (MSVC)
-	set(MANIFEST_FILE cmake/dpiawarescaleing.manifest)
-endif()
-
-# core library
 file (GLOB_RECURSE CORE_SRC_FILES "libs/core/include/*.*" "libs/core/src/*.*")
 source_group(TREE "../libs/core" FILES ${CORE_SRC_FILES})
 
-add_library(core ${CORE_SRC_FILES})
+file(GLOB THIRD_PARTY_NOC "libs/core/external/noc/noc_file_dialog.h")
+source_group(TREE "../libs/core" FILES ${THIRD_PARTY_NOC})
 
-target_include_directories(core PUBLIC "libs/core/include")
+if (LINUX)
+	file(GLOB THIRD_PARTY_LINENOISE "libs/core/external/linenoise/linenoise.*")
+	source_group(TREE "../libs/core" FILES ${THIRD_PARTY_LINENOISE})
+endif()
+
+add_library(core ${CORE_SRC_FILES} ${THIRD_PARTY_NOC} ${THIRD_PARTY_LINENOISE})
+
+find_package(SDL2 CONFIG REQUIRED)
+find_package(sdl2-net CONFIG REQUIRED)
+find_package(imgui CONFIG REQUIRED)
+find_package(STB MODULE REQUIRED)
+if (LINUX)
+	find_package(GTK2 2.4 REQUIRED gtk)
+	target_include_directories(core PRIVATE ${GTK2_INCLUDE_DIRS})
+	target_link_libraries(core PRIVATE ${GTK2_LIBRARIES})
+endif()
+
+target_include_directories(core
+	PUBLIC "libs/core/include"
+	PRIVATE ${STB_INCLUDE_PATH} "libs/core/external"
+)
 target_compile_features(core PUBLIC cxx_std_17)
 set_target_properties(core PROPERTIES CXX_EXTENSIONS OFF)
-# TODO: Remove core dependency on SDL2
-target_link_libraries(core PUBLIC SDL2::SDL2_net SDL2::SDL2main SDL2::SDL2-static)
+target_link_libraries(core PUBLIC SDL2::SDL2_net SDL2::SDL2main SDL2::SDL2-static imgui::imgui)
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 	target_compile_definitions(core PUBLIC _CRT_SECURE_NO_WARNINGS _SCL_SECURE_NO_WARNINGS)
@@ -64,43 +65,31 @@ target_include_directories(debugger PUBLIC "libs/debugger/include")
 target_link_libraries(debugger PUBLIC core emulator)
 
 # engine library
+find_package(GLEW CONFIG REQUIRED)
+find_package(glm CONFIG REQUIRED)
+find_package(OpenGL MODULE REQUIRED)
+
 file (GLOB_RECURSE ENGINE_SRC_FILES "libs/engine/include/*.*" "libs/engine/src/*.*")
 source_group(TREE "../libs/engine" FILES ${ENGINE_SRC_FILES})
 add_library(engine ${ENGINE_SRC_FILES})
 target_include_directories(engine PUBLIC "libs/engine/include")
-target_link_libraries(engine PUBLIC core emulator debugger)
+target_link_libraries(engine
+	PUBLIC core emulator debugger
+	PRIVATE GLEW::GLEW glm ${OPENGL_gl_LIBRARY}	${OPENGL_glu_LIBRARY}
+)
 
 # vectrexy exe
-# TODO: third parties as separate targets
-file(GLOB THIRD_PARTY_NOC "external/noc/noc_file_dialog.h")
-source_group(TREE ".." FILES ${THIRD_PARTY_NOC})
 
-if (LINUX)
-	file(GLOB THIRD_PARTY_LINENOISE "external/linenoise/linenoise.*")
-	source_group(TREE ".." FILES ${THIRD_PARTY_LINENOISE})
+# Enable DPI awareness on Windows 8+
+if (MSVC)
+	set(MANIFEST_FILE cmake/dpiawarescaleing.manifest)
 endif()
 
-set(SRC ${THIRD_PARTY_NOC} ${THIRD_PARTY_LINENOISE})
-add_executable(vectrexy ${SRC} ${MANIFEST_FILE})
-
-#TODO: make target-based, rather than global
-include_directories(
-	"external"
-	${STB_INCLUDE_PATH}
-	${EXTRA_INCLUDE_DIRS}
-)
+add_executable(vectrexy ${MANIFEST_FILE})
 
 target_link_libraries(vectrexy PRIVATE
 	core
 	emulator
 	debugger
 	engine
-	# SDL2::SDL2main
-	# SDL2::SDL2-static
-	GLEW::GLEW
-	glm
-	imgui::imgui
-	${OPENGL_gl_LIBRARY}
-	${OPENGL_glu_LIBRARY}
-	${EXTRA_LIBS}
 )
