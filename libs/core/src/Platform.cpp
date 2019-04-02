@@ -210,7 +210,7 @@ namespace Platform {
         auto filter =
             FormattedString<>("%s (%s)%c%s%c", filterName, filterTypes, '\0', filterTypes, '\0');
 
-        if (not(initialPath.has_value() && fs::exists(*initialPath))) {
+        if ( !(initialPath.has_value() && fs::exists(*initialPath)) ) {
             initialPath = fs::current_path();
         }
 
