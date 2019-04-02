@@ -63,13 +63,15 @@ add_library(debugger ${DEBUGGER_SRC_FILES})
 target_include_directories(debugger PUBLIC "libs/debugger/include")
 target_link_libraries(debugger PUBLIC core emulator)
 
+# engine library
+file (GLOB_RECURSE ENGINE_SRC_FILES "libs/engine/include/*.*" "libs/engine/src/*.*")
+source_group(TREE "../libs/engine" FILES ${ENGINE_SRC_FILES})
+add_library(engine ${ENGINE_SRC_FILES})
+target_include_directories(engine PUBLIC "libs/engine/include")
+target_link_libraries(engine PUBLIC core emulator debugger)
+
 # vectrexy exe
-file(GLOB_RECURSE SRC_FILES "src/*.*")
-source_group(TREE ".." FILES ${SRC_FILES})
-
-file(GLOB_RECURSE INCLUDE_FILES "include/*.*")
-source_group(TREE ".." FILES ${INCLUDE_FILES})
-
+# TODO: third parties as separate targets
 file(GLOB THIRD_PARTY_NOC "external/noc/noc_file_dialog.h")
 source_group(TREE ".." FILES ${THIRD_PARTY_NOC})
 
@@ -78,8 +80,7 @@ if (LINUX)
 	source_group(TREE ".." FILES ${THIRD_PARTY_LINENOISE})
 endif()
 
-set(SRC ${SRC_FILES} ${INCLUDE_FILES} ${THIRD_PARTY_NOC} ${THIRD_PARTY_LINENOISE})
-
+set(SRC ${THIRD_PARTY_NOC} ${THIRD_PARTY_LINENOISE})
 add_executable(vectrexy ${SRC} ${MANIFEST_FILE})
 
 # if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
@@ -99,8 +100,8 @@ add_executable(vectrexy ${SRC} ${MANIFEST_FILE})
 # 	set(EXTRA_LIBS ${EXTRA_LIBS} stdc++fs) # required for filesystem
 # endif()
 
+#TODO: make target-based, rather than global
 include_directories(
-	"include"
 	"external"
 	${STB_INCLUDE_PATH}
 	${EXTRA_INCLUDE_DIRS}
@@ -110,6 +111,7 @@ target_link_libraries(vectrexy PRIVATE
 	core
 	emulator
 	debugger
+	engine
 	# SDL2::SDL2main
 	# SDL2::SDL2-static
 	GLEW::GLEW
