@@ -27,7 +27,7 @@ if (MSVC)
 	set(MANIFEST_FILE cmake/dpiawarescaleing.manifest)
 endif()
 
-# Core library
+# core library
 file (GLOB_RECURSE CORE_SRC_FILES "libs/core/include/*.*" "libs/core/src/*.*")
 source_group(TREE "../libs/core" FILES ${CORE_SRC_FILES})
 
@@ -47,7 +47,16 @@ elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 	target_link_libraries(core PUBLIC stdc++fs) # required for filesystem
 	endif()
 
-# Vectrexy exe
+# emulator library
+file (GLOB_RECURSE EMULATOR_SRC_FILES "libs/emulator/include/*.*" "libs/emulator/src/*.*")
+source_group(TREE "../libs/emulator" FILES ${EMULATOR_SRC_FILES})
+
+add_library(emulator ${EMULATOR_SRC_FILES})
+
+target_include_directories(emulator PUBLIC "libs/emulator/include")
+target_link_libraries(emulator PUBLIC core)
+
+# vectrexy exe
 file(GLOB_RECURSE SRC_FILES "src/*.*")
 source_group(TREE ".." FILES ${SRC_FILES})
 
@@ -92,6 +101,7 @@ include_directories(
 
 target_link_libraries(vectrexy PRIVATE
 	core
+	emulator
 	SDL2::SDL2main
 	SDL2::SDL2-static
 	SDL2::SDL2_net
