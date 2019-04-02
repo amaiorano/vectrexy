@@ -36,6 +36,8 @@ add_library(core ${CORE_SRC_FILES})
 target_include_directories(core PUBLIC "libs/core/include")
 target_compile_features(core PUBLIC cxx_std_17)
 set_target_properties(core PROPERTIES CXX_EXTENSIONS OFF)
+# TODO: Remove core dependency on SDL2
+target_link_libraries(core PUBLIC SDL2::SDL2_net SDL2::SDL2main SDL2::SDL2-static)
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 	target_compile_definitions(core PUBLIC _CRT_SECURE_NO_WARNINGS _SCL_SECURE_NO_WARNINGS)
@@ -50,11 +52,16 @@ elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 # emulator library
 file (GLOB_RECURSE EMULATOR_SRC_FILES "libs/emulator/include/*.*" "libs/emulator/src/*.*")
 source_group(TREE "../libs/emulator" FILES ${EMULATOR_SRC_FILES})
-
 add_library(emulator ${EMULATOR_SRC_FILES})
-
 target_include_directories(emulator PUBLIC "libs/emulator/include")
 target_link_libraries(emulator PUBLIC core)
+
+# debugger library
+file (GLOB_RECURSE DEBUGGER_SRC_FILES "libs/debugger/include/*.*" "libs/debugger/src/*.*")
+source_group(TREE "../libs/debugger" FILES ${DEBUGGER_SRC_FILES})
+add_library(debugger ${DEBUGGER_SRC_FILES})
+target_include_directories(debugger PUBLIC "libs/debugger/include")
+target_link_libraries(debugger PUBLIC core emulator)
 
 # vectrexy exe
 file(GLOB_RECURSE SRC_FILES "src/*.*")
@@ -102,9 +109,9 @@ include_directories(
 target_link_libraries(vectrexy PRIVATE
 	core
 	emulator
-	SDL2::SDL2main
-	SDL2::SDL2-static
-	SDL2::SDL2_net
+	debugger
+	# SDL2::SDL2main
+	# SDL2::SDL2-static
 	GLEW::GLEW
 	glm
 	imgui::imgui
