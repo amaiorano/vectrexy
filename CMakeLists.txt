@@ -31,7 +31,7 @@ find_package(sdl2-net CONFIG REQUIRED)
 find_package(imgui CONFIG REQUIRED)
 find_package(STB MODULE REQUIRED)
 if (LINUX)
-	find_package(GTK2 2.4 REQUIRED gtk)
+	find_package(GTK2 2.4 REQUIRED)
 	target_include_directories(core PRIVATE ${GTK2_INCLUDE_DIRS})
 	target_link_libraries(core PRIVATE ${GTK2_LIBRARIES})
 endif()
@@ -42,7 +42,7 @@ target_include_directories(core
 )
 target_compile_features(core PUBLIC cxx_std_17)
 set_target_properties(core PROPERTIES CXX_EXTENSIONS OFF)
-target_link_libraries(core PUBLIC SDL2::SDL2_net SDL2::SDL2main SDL2::SDL2-static imgui::imgui)
+target_link_libraries(core PUBLIC SDL2::SDL2_net SDL2::SDL2-static imgui::imgui)
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 	target_compile_definitions(core PUBLIC _CRT_SECURE_NO_WARNINGS _SCL_SECURE_NO_WARNINGS)
@@ -93,7 +93,8 @@ target_link_libraries(sdl_gl_engine
 
 	PRIVATE
 		SDL2::SDL2main
-		SDL2::SDL2-static imgui::imgui
+		SDL2::SDL2-static
+		imgui::imgui
 		GLEW::GLEW
 		glm		
 		${OPENGL_gl_LIBRARY}
