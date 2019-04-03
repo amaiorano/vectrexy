@@ -1,17 +1,16 @@
-#include "Paths.h"
-#include "SDLEngine.h"
 #include "core/Base.h"
-#include "core/ConsoleOutput.h"
-#include "core/FileSystemUtil.h"
 #include "core/Platform.h"
 #include "debugger/Debugger.h"
 #include "emulator/Emulator.h"
 #include "engine/EngineClient.h"
 #include "engine/Overlays.h"
+#include "engine/Paths.h"
 #include <memory>
-#include <random>
 
-class Vectrexy final : public IEngineClient {
+#include "engine/sdl_gl/SDLEngine.h"
+using Engine = SDLEngine;
+
+class EngineClient final : public IEngineClient {
 private:
     bool Init(int argc, char** argv) override {
         m_overlays.LoadOverlays(Paths::overlaysDir);
@@ -116,8 +115,8 @@ private:
 };
 
 int main(int argc, char** argv) {
-    auto client = std::make_unique<Vectrexy>();
-    auto engine = std::make_unique<SDLEngine>();
+    auto client = std::make_unique<EngineClient>();
+    auto engine = std::make_unique<Engine>();
     engine->RegisterClient(*client);
     bool result = engine->Run(argc, argv);
     return result ? 0 : -1;

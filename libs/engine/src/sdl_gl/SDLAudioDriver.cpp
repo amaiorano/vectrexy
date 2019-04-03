@@ -1,8 +1,8 @@
 #include "SDLAudioDriver.h"
-#include "Paths.h"
 #include "core/CircularBuffer.h"
 #include "core/Gui.h"
 #include "core/Stream.h"
+#include "engine/Paths.h"
 #include <SDL.h>
 #include <SDL_audio.h>
 #include <array>

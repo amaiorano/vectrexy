@@ -1,8 +1,7 @@
-#include "SDLEngine.h"
+#include "engine/sdl_gl/SDLEngine.h"
 
 #include "GLRender.h"
 #include "GLUtil.h"
-#include "Paths.h"
 #include "SDLAudioDriver.h"
 #include "core/ConsoleOutput.h"
 #include "core/FileSystem.h"
@@ -11,6 +10,7 @@
 #include "core/StringUtil.h"
 #include "engine/EngineClient.h"
 #include "engine/Options.h"
+#include "engine/Paths.h"
 #include "imgui_impl/imgui_impl_sdl_gl3.h"
 #include <SDL.h>
 #include <SDL_net.h>

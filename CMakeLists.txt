@@ -79,13 +79,15 @@ target_link_libraries(engine
 )
 
 # vectrexy exe
+file (GLOB_RECURSE VECTREXY_SRC_FILES "libs/vectrexy/include/*.*" "libs/vectrexy/src/*.*")
+source_group(TREE "../libs/vectrexy" FILES ${VECTREXY_SRC_FILES})
 
 # Enable DPI awareness on Windows 8+
 if (MSVC)
 	set(MANIFEST_FILE cmake/dpiawarescaleing.manifest)
 endif()
 
-add_executable(vectrexy ${MANIFEST_FILE})
+add_executable(vectrexy ${VECTREXY_SRC_FILES} ${MANIFEST_FILE})
 
 target_link_libraries(vectrexy PRIVATE
 	core
