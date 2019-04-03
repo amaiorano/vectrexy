@@ -1,5 +1,9 @@
 cmake_minimum_required (VERSION 3.13)
-project (vectrexy)
+
+project (vectrexy
+	DESCRIPTION "A Vectrexy emulator by Antonio Maiorano"
+	HOMEPAGE_URL https://github.com/amaiorano/vectrexy
+)
 
 # Set module path to local cmake folder so find_package looks there first
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
