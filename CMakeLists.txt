@@ -5,6 +5,14 @@ project (vectrexy
 	HOMEPAGE_URL https://github.com/amaiorano/vectrexy
 )
 
+option (BUILD_SHARED_LIBS "Build libs as shared libraries." OFF)
+
+if (NOT BUILD_SHARED_LIBS)
+  set (BUILD_STATIC_LIBS ON)
+else()
+	set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+endif()
+
 # Set module path to local cmake folder so find_package looks there first
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
@@ -76,6 +84,9 @@ target_include_directories(engine PUBLIC "libs/engine/include")
 target_link_libraries(engine PUBLIC core emulator)
 
 # sdl_gl_engine library
+
+# Force linking against GLEW static libs, even when BUILD_SHARED_LIBS is ON
+set(GLEW_USE_STATIC_LIBS ON)
 find_package(GLEW CONFIG REQUIRED)
 find_package(glm CONFIG REQUIRED)
 find_package(OpenGL MODULE REQUIRED)
@@ -90,9 +101,9 @@ target_link_libraries(sdl_gl_engine
 		emulator
 		debugger
 		engine
+		SDL2::SDL2main
 
 	PRIVATE
-		SDL2::SDL2main
 		SDL2::SDL2-static
 		imgui::imgui
 		GLEW::GLEW
