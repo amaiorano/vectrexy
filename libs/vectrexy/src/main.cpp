@@ -7,7 +7,7 @@
 #include "engine/Paths.h"
 #include <memory>
 
-#include "engine/sdl_gl/SDLEngine.h"
+#include "sdl_gl/SDLEngine.h"
 using Engine = SDLEngine;
 
 class EngineClient final : public IEngineClient {

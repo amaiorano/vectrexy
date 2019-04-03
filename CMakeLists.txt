@@ -69,17 +69,35 @@ target_include_directories(debugger PUBLIC "libs/debugger/include")
 target_link_libraries(debugger PUBLIC core emulator)
 
 # engine library
-find_package(GLEW CONFIG REQUIRED)
-find_package(glm CONFIG REQUIRED)
-find_package(OpenGL MODULE REQUIRED)
-
 file (GLOB_RECURSE ENGINE_SRC_FILES "libs/engine/include/*.*" "libs/engine/src/*.*")
 source_group(TREE "../libs/engine" FILES ${ENGINE_SRC_FILES})
 add_library(engine ${ENGINE_SRC_FILES})
 target_include_directories(engine PUBLIC "libs/engine/include")
-target_link_libraries(engine
-	PUBLIC core emulator debugger
-	PRIVATE GLEW::GLEW glm ${OPENGL_gl_LIBRARY}	${OPENGL_glu_LIBRARY}
+target_link_libraries(engine PUBLIC core emulator)
+
+# sdl_gl_engine library
+find_package(GLEW CONFIG REQUIRED)
+find_package(glm CONFIG REQUIRED)
+find_package(OpenGL MODULE REQUIRED)
+
+file (GLOB_RECURSE SDL_GL_ENGINE_SRC_FILES "libs/sdl_gl_engine/include/*.*" "libs/sdl_gl_engine/src/*.*")
+source_group(TREE "../libs/sdl_gl_engine" FILES ${SDL_GL_ENGINE_SRC_FILES})
+add_library(sdl_gl_engine ${SDL_GL_ENGINE_SRC_FILES})
+target_include_directories(sdl_gl_engine PUBLIC "libs/sdl_gl_engine/include")
+target_link_libraries(sdl_gl_engine
+	PUBLIC
+		core
+		emulator
+		debugger
+		engine
+
+	PRIVATE
+		SDL2::SDL2main
+		SDL2::SDL2-static imgui::imgui
+		GLEW::GLEW
+		glm		
+		${OPENGL_gl_LIBRARY}
+		${OPENGL_glu_LIBRARY}
 )
 
 # vectrexy exe
@@ -98,4 +116,5 @@ target_link_libraries(vectrexy PRIVATE
 	emulator
 	debugger
 	engine
+	sdl_gl_engine
 )
