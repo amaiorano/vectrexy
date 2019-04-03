@@ -5,6 +5,7 @@
 #include "core/FileSystem.h"
 #include "core/Line.h"
 #include <array>
+#include <functional>
 #include <variant>
 #include <vector>
 
@@ -68,8 +69,9 @@ public:
 };
 using EmuEvents = std::vector<EmuEvent>;
 
-//@TODO: Add these to some type of EngineService class implemented by engine, callable within
-// emulator
-void SetFocusMainWindow();
-void SetFocusConsole();
-void ResetOverlay(const char* file = nullptr);
+class IEngineService {
+public:
+    const std::function<void()> SetFocusMainWindow;
+    const std::function<void()> SetFocusConsole;
+    const std::function<void(const char*)> ResetOverlay;
+};

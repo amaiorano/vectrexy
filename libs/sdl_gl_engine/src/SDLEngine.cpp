@@ -356,19 +356,6 @@ namespace {
 
 } // namespace
 
-// Implement EngineClient free-standing functions
-void SetFocusMainWindow() {
-    Platform::SetFocus(GetMainWindowHandle());
-}
-
-void SetFocusConsole() {
-    Platform::SetConsoleFocus();
-}
-
-void ResetOverlay(const char* file) {
-    g_glRender.ResetOverlay(file);
-}
-
 void SDLEngine::RegisterClient(IEngineClient& client) {
     g_client = &client;
 }
@@ -382,6 +369,15 @@ bool SDLEngine::Run(int argc, char** argv) {
     fs::create_directories(Paths::romsDir);
     fs::create_directories(Paths::userDir);
     fs::create_directories(Paths::devDir);
+
+    std::shared_ptr<IEngineService> engineService =
+        std::make_shared<aggregate_adapter<IEngineService>>(
+            // SetFocusMainWindow
+            [] { Platform::SetFocus(GetMainWindowHandle()); },
+            // SetFocusConsole
+            [] { Platform::SetConsoleFocus(); },
+            // ResetOverlay
+            [](const char* file) { g_glRender.ResetOverlay(file); });
 
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER) < 0) {
         std::cout << "SDL cannot init with error " << SDL_GetError() << std::endl;
@@ -472,7 +468,7 @@ bool SDLEngine::Run(int argc, char** argv) {
 
     g_audioDriver.Initialize();
 
-    if (!g_client->Init(argc, argv)) {
+    if (!g_client->Init(engineService, argc, argv)) {
         return false;
     }
 

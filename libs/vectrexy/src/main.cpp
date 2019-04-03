@@ -12,7 +12,9 @@ using Engine = SDLEngine;
 
 class EngineClient final : public IEngineClient {
 private:
-    bool Init(int argc, char** argv) override {
+    bool Init(std::shared_ptr<IEngineService>& engineService, int argc, char** argv) override {
+        m_engineService = engineService;
+
         m_overlays.LoadOverlays(Paths::overlaysDir);
 
         //@TODO: Clean this up
@@ -24,13 +26,13 @@ private:
         }
 
         m_emulator.Init(Paths::biosRomFile.string().c_str());
-        m_debugger.Init(argc, argv, Paths::devDir, m_emulator);
+        m_debugger.Init(engineService, argc, argv, Paths::devDir, m_emulator);
 
         if (!rom.empty()) {
             LoadRom(rom.c_str());
         } else {
             // If no rom is loaded, we'll play the built-in Mine Storm
-            LoadOverlay("Minestorm");
+            ResetOverlay("Minestorm");
         }
 
         Reset();
@@ -51,20 +53,20 @@ private:
 
         //@TODO: Show game name in title bar
 
-        LoadOverlay(file);
+        ResetOverlay(file);
 
         return true;
     }
 
-    void LoadOverlay(const char* file) {
+    void ResetOverlay(const char* file) {
         auto overlayPath = m_overlays.FindOverlay(file);
         if (overlayPath) {
             auto path = overlayPath->string();
             Errorf("Found overlay for %s: %s\n", file, path.c_str());
-            ResetOverlay(path.c_str());
+            m_engineService->ResetOverlay(path.c_str());
         } else {
             Errorf("No overlay found for %s\n", file);
-            ResetOverlay();
+            m_engineService->ResetOverlay(nullptr);
         }
     }
 
@@ -109,6 +111,7 @@ private:
 
     void Shutdown() override {}
 
+    std::shared_ptr<IEngineService> m_engineService;
     Emulator m_emulator;
     Debugger m_debugger;
     Overlays m_overlays;

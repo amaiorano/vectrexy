@@ -159,3 +159,13 @@ template <typename Container, typename Pred>
 bool find_if(Container container, Pred pred) {
     return std::find_if(std::begin(container), std::end(container), pred) != std::end(container);
 }
+
+// Adapter with a variadic constructor template to forward the arguments, useful for aggregate
+// initialization of types via forwarding functions like make_shared.
+// From: https://stackoverflow.com/a/35300172/4039972
+template <class T>
+struct aggregate_adapter : public T {
+    template <class... Args>
+    aggregate_adapter(Args&&... args)
+        : T{std::forward<Args>(args)...} {}
+};

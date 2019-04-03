@@ -689,7 +689,10 @@ namespace {
 
 } // namespace
 
-void Debugger::Init(int argc, char** argv, fs::path devDir, Emulator& emulator) {
+void Debugger::Init(std::shared_ptr<IEngineService>& engineService, int argc, char** argv,
+                    fs::path devDir, Emulator& emulator) {
+    m_engineService = engineService;
+
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
         if (arg == "-server") {
@@ -777,12 +780,12 @@ void Debugger::Reset() {
 
 void Debugger::BreakIntoDebugger() {
     m_breakIntoDebugger = true;
-    SetFocusConsole();
+    m_engineService->SetFocusConsole();
 }
 
 void Debugger::ResumeFromDebugger() {
     m_breakIntoDebugger = false;
-    SetFocusMainWindow();
+    m_engineService->SetFocusMainWindow();
 }
 
 void Debugger::SyncInstructionHash(int numInstructionsExecutedThisFrame) {

@@ -18,7 +18,8 @@ class SyncProtocol;
 
 class Debugger {
 public:
-    void Init(int argc, char** argv, fs::path devDir, Emulator& emulator);
+    void Init(std::shared_ptr<IEngineService>& engineService, int argc, char** argv,
+              fs::path devDir, Emulator& emulator);
     void Reset();
     bool FrameUpdate(double frameTime, const Input& input, const EmuEvents& emuEvents,
                      RenderContext& renderContext, AudioContext& audioContext);
@@ -30,6 +31,7 @@ private:
     void ResumeFromDebugger();
     void SyncInstructionHash(int numInstructionsExecutedThisFrame);
 
+    std::shared_ptr<IEngineService> m_engineService;
     fs::path m_devDir;
     Emulator* m_emulator = nullptr;
     MemoryBus* m_memoryBus = nullptr;
