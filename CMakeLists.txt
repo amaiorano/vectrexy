@@ -13,6 +13,10 @@ else()
 	set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 endif()
 
+# Make sure MinSizeRel and RelWithDebInfo use Release libs instead of Debug libs from vcpkg
+set(CMAKE_MAP_IMPORTED_CONFIG_MINSIZEREL Release)
+set(CMAKE_MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
+
 # Set module path to local cmake folder so find_package looks there first
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
@@ -55,6 +59,11 @@ target_link_libraries(core PUBLIC SDL2::SDL2_net SDL2::SDL2-static imgui::imgui)
 if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 	target_compile_definitions(core PUBLIC _CRT_SECURE_NO_WARNINGS _SCL_SECURE_NO_WARNINGS)
 	target_compile_options(core PUBLIC /MP /W4 /WX)
+	# Force all configs to use static runtime library like vcpkg
+    target_compile_options(core PUBLIC "$<$<CONFIG:Debug>:/MTd>")
+    target_compile_options(core PUBLIC "$<$<CONFIG:Release>:/MT>")
+    target_compile_options(core PUBLIC "$<$<CONFIG:MinSizeRel>:/MT>")
+    target_compile_options(core PUBLIC "$<$<CONFIG:RelWithDebInfo>:/MT>")
 elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 	# ...
 elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
