@@ -54,16 +54,26 @@ target_include_directories(core
 )
 target_compile_features(core PUBLIC cxx_std_17)
 set_target_properties(core PROPERTIES CXX_EXTENSIONS OFF)
-target_link_libraries(core PUBLIC SDL2::SDL2_net SDL2::SDL2-static imgui::imgui)
+target_link_libraries(core PUBLIC
+	SDL2::SDL2_net
+	SDL2::SDL2-static
+	imgui::imgui
+)
 
+# TODO: Move this out of Core and make it something each module can include
 if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 	target_compile_definitions(core PUBLIC _CRT_SECURE_NO_WARNINGS _SCL_SECURE_NO_WARNINGS)
 	target_compile_options(core PUBLIC /MP /W4 /WX)
-	# Force all configs to use static runtime library like vcpkg
-    target_compile_options(core PUBLIC "$<$<CONFIG:Debug>:/MTd>")
-    target_compile_options(core PUBLIC "$<$<CONFIG:Release>:/MT>")
-    target_compile_options(core PUBLIC "$<$<CONFIG:MinSizeRel>:/MT>")
-    target_compile_options(core PUBLIC "$<$<CONFIG:RelWithDebInfo>:/MT>")
+		# By default, CMake uses dynamic CRT, which is good if we're building DLLs to avoid
+		# issues with allocations in one DLL trying to be freed in another. But when building
+		# statically, force using the static CRT so we don't have to worry about user having
+		# the right CRT installed.
+		if (NOT BUILD_SHARED_LIBS)
+			target_compile_options(core PUBLIC "$<$<CONFIG:Debug>:/MTd>")
+			target_compile_options(core PUBLIC "$<$<CONFIG:Release>:/MT>")
+			target_compile_options(core PUBLIC "$<$<CONFIG:MinSizeRel>:/MT>")
+			target_compile_options(core PUBLIC "$<$<CONFIG:RelWithDebInfo>:/MT>")
+		endif()
 elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 	# ...
 elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
