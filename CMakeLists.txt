@@ -13,6 +13,14 @@ else()
 	set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 endif()
 
+# Force exes/libs to output in the build/ folder, rather than have each output
+# in its own build/[module]/ folder. This is especially useful for shared lib
+# builds so that DLLs end up in the same directory as the EXE. Note that for
+# multi-config generators (VS, Xcode), sub-directories for each config will
+# still be created (e.g. build/Release/, build/Debug/, etc.).
+set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+set (CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+
 # Make sure MinSizeRel and RelWithDebInfo use Release libs instead of Debug libs from vcpkg
 set(CMAKE_MAP_IMPORTED_CONFIG_MINSIZEREL Release)
 set(CMAKE_MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
