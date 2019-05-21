@@ -71,7 +71,7 @@ Clone and build vectrexy using CMake:
 git clone --recursive https://github.com/amaiorano/vectrexy.git
 cd vectrexy
 mkdir build && cd build
-cmake -G "Visual Studio 15 2017 Win64" -DCMAKE_TOOLCHAIN_FILE=C:/code/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-static ..
+cmake -G "Visual Studio 15 2017 Win64" -DCMAKE_TOOLCHAIN_FILE=../../vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-static ..
 vectrexy.sln ..
 ```
 
@@ -93,7 +93,7 @@ sudo apt-get install build-essential mercurial make cmake autoconf automake libt
 
 Install the rest of the dependencies through vcpkg:
 ```bash
-cd ~/vcpkg
+cd vcpkg
 ./vcpkg install sdl2 sdl2-net glew glm stb imgui
 ```
 
@@ -102,9 +102,15 @@ Clone and build vectrexy using CMake:
 git clone --recursive https://github.com/amaiorano/vectrexy.git
 cd vectrexy
 mkdir build && cd build
-cmake -DCMAKE_TOOLCHAIN_FILE=~/vcpkg/scripts/buildsystems/vcpkg.cmake ..
+cmake -DCMAKE_TOOLCHAIN_FILE=../../vcpkg/scripts/buildsystems/vcpkg.cmake ..
 make
 ```
+
+### Extra Build Args
+
+To build a DLL version, add CMake arg: `-DBUILD_SHARED_LIBS=On`
+
+**NOTE**: On Windows, vcpkg's "static" triplets (e.g. x64-windows-static) create static libs that link against the static CRT (/MT), while CMake generates shared library builds that link against the dynamic CRT (/MD). Thus, when building, the linker will emit: `LINK : warning LNK4098: defaultlib 'LIBCMT' conflicts with use of other libs; use /NODEFAULTLIB:library`. You can ignore this for the most part; however, you can fix this problem by creating a custom vcpkg triplet, e.g. x64-windows-static-md.cmake, that is a copy of x64-windows-static.cmake, except with `set(VCPKG_CRT_LINKAGE dynamic)`. If you use this triplet to build dependencies with vcpkg, and specify it as CMake's `VCPKG_TARGET_TRIPLET`, all libraries will use the dynamic CRT, and no warning will be emitted by the linker.
 
 ## Contributing
 

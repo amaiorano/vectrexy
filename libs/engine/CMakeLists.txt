@@ -1,0 +1,5 @@
+file (GLOB_RECURSE ENGINE_SRC_FILES "include/*.*" "src/*.*")
+source_group(TREE "${PROJECT_SOURCE_DIR}/libs/engine" FILES ${ENGINE_SRC_FILES})
+add_library(engine ${ENGINE_SRC_FILES})
+target_include_directories(engine PUBLIC "include")
+target_link_libraries(engine PUBLIC core emulator)
