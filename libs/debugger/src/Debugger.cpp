@@ -1,5 +1,4 @@
 #include "debugger/Debugger.h"
-#include "core/CircularBuffer.h"
 #include "core/ConsoleOutput.h"
 #include "core/ErrorHandler.h"
 #include "core/Platform.h"
@@ -118,77 +117,9 @@ namespace {
         }
     };
 
-    struct Instruction {
-        const CpuOp* cpuOp;
-        int page;
-        std::array<uint8_t, 5> opBytes; // Max 2 byte opcode + 3 byte operands
-        size_t firstOperandIndex = 0;
-
-        uint8_t GetOperand(size_t index) const { return opBytes[firstOperandIndex + index]; }
-    };
-
-    struct InstructionTraceInfo {
-        Instruction instruction{};
-        CpuRegisters preOpCpuRegisters;
-        CpuRegisters postOpCpuRegisters{};
-        cycles_t elapsedCycles{};
-
-        static const size_t MaxMemoryAccesses = 16;
-        struct MemoryAccess {
-            uint16_t address{};
-            uint16_t value{};
-            bool read{};
-        };
-        std::array<MemoryAccess, MaxMemoryAccesses> memoryAccesses;
-        size_t numMemoryAccesses = 0;
-
-        void AddMemoryAccess(uint16_t address, uint16_t value, bool read) {
-            assert(numMemoryAccesses < memoryAccesses.size());
-            memoryAccesses[numMemoryAccesses++] = {address, value, read};
-        }
-    };
-
-    Instruction ReadInstruction(uint16_t opAddr, const MemoryBus& memoryBus) {
-        Instruction instruction{};
-
-        // Always read max opBytes size even if not all the bytes are for this instruction. We can't
-        // really know up front how many bytes an op will take because indexed instructions
-        // sometimes read an extra operand byte (determined dynamically).
-        for (auto& byte : instruction.opBytes)
-            byte = memoryBus.Read(opAddr++);
-
-        int cpuOpPage = 0;
-        size_t opCodeIndex = 0;
-        if (IsOpCodePage1(instruction.opBytes[opCodeIndex])) {
-            cpuOpPage = 1;
-            ++opCodeIndex;
-        } else if (IsOpCodePage2(instruction.opBytes[opCodeIndex])) {
-            cpuOpPage = 2;
-            ++opCodeIndex;
-        }
-
-        instruction.cpuOp = &LookupCpuOpRuntime(cpuOpPage, instruction.opBytes[opCodeIndex]);
-        instruction.page = cpuOpPage;
-        instruction.firstOperandIndex = opCodeIndex + 1;
-        return instruction;
-    }
-
-    void PreOpWriteTraceInfo(InstructionTraceInfo& traceInfo, const CpuRegisters& cpuRegisters,
-                             /*const*/ MemoryBus& memoryBus) {
-        memoryBus.SetCallbacksEnabled(false);
-        traceInfo.instruction = ReadInstruction(cpuRegisters.PC, memoryBus);
-        traceInfo.preOpCpuRegisters = cpuRegisters;
-        memoryBus.SetCallbacksEnabled(true);
-    }
-
-    void PostOpWriteTraceInfo(InstructionTraceInfo& traceInfo, const CpuRegisters& cpuRegisters,
-                              cycles_t elapsedCycles) {
-        traceInfo.postOpCpuRegisters = cpuRegisters;
-        traceInfo.elapsedCycles = elapsedCycles;
-    }
-
-    void DisassembleOp_EXG_TFR(const Instruction& instruction, const CpuRegisters& cpuRegisters,
-                               std::string& disasmInstruction, std::string& comment) {
+    void DisassembleOp_EXG_TFR(const Trace::Instruction& instruction,
+                               const CpuRegisters& cpuRegisters, std::string& disasmInstruction,
+                               std::string& comment) {
         (void)cpuRegisters;
         (void)comment;
 
@@ -208,8 +139,9 @@ namespace {
         }
     }
 
-    void DisassembleOp_PSH_PUL(const Instruction& instruction, const CpuRegisters& cpuRegisters,
-                               std::string& disasmInstruction, std::string& comment) {
+    void DisassembleOp_PSH_PUL(const Trace::Instruction& instruction,
+                               const CpuRegisters& cpuRegisters, std::string& disasmInstruction,
+                               std::string& comment) {
         (void)cpuRegisters;
 
         const auto& cpuOp = instruction.cpuOp;
@@ -239,7 +171,7 @@ namespace {
         comment = FormattedString<>("#$%02x (%d)", value, value);
     }
 
-    void DisassembleIndexedInstruction(const Instruction& instruction,
+    void DisassembleIndexedInstruction(const Trace::Instruction& instruction,
                                        const CpuRegisters& cpuRegisters,
                                        std::string& disasmInstruction, std::string& comment) {
         auto RegisterSelect = [&cpuRegisters](uint8_t postbyte) -> const uint16_t& {
@@ -406,7 +338,7 @@ namespace {
         std::string description;
     };
 
-    DisassembledOp DisassembleOp(const InstructionTraceInfo& traceInfo,
+    DisassembledOp DisassembleOp(const Trace::InstructionTraceInfo& traceInfo,
                                  const Debugger::SymbolTable& symbolTable) {
         const auto& instruction = traceInfo.instruction;
         const auto& cpuRegisters = traceInfo.preOpCpuRegisters;
@@ -572,7 +504,8 @@ namespace {
                r.DP, GetCCString(cpuRegisters).c_str());
     }
 
-    void PrintOp(const InstructionTraceInfo& traceInfo, const Debugger::SymbolTable& symbolTable) {
+    void PrintOp(const Trace::InstructionTraceInfo& traceInfo,
+                 const Debugger::SymbolTable& symbolTable) {
         auto op = DisassembleOp(traceInfo, symbolTable);
 
         using namespace Platform;
@@ -643,50 +576,6 @@ namespace {
             setvbuf(stdout, NULL, _IOFBF, 100 * 1024);
         }
     }
-
-    inline uint32_t Crc32(uint32_t crc, const void* buffer, size_t len) {
-        // CRC-32C (iSCSI) polynomial in reversed bit order.
-        const auto POLY = 0x82f63b78;
-        // CRC-32 (Ethernet, ZIP, etc.) polynomial in reversed bit order.
-        // const auto POLY = 0xedb88320;
-
-        auto buf = reinterpret_cast<const uint8_t*>(buffer);
-
-        crc = ~crc;
-        while (len--) {
-            crc ^= *buf++;
-            for (int k = 0; k < 8; k++)
-                crc = crc & 1 ? (crc >> 1) ^ POLY : crc >> 1;
-        }
-        return ~crc;
-    }
-
-    template <typename T>
-    uint32_t Crc32(uint32_t crc, const T& value) {
-        return Crc32(crc, &value, sizeof(value));
-    }
-
-    uint32_t HashInstructionTraceInfo(uint32_t currInstructionHash,
-                                      const InstructionTraceInfo& traceInfo) {
-        currInstructionHash += Crc32(currInstructionHash, traceInfo.instruction.cpuOp->opCode);
-        currInstructionHash += Crc32(currInstructionHash, traceInfo.instruction.cpuOp->addrMode);
-        currInstructionHash += Crc32(currInstructionHash, traceInfo.instruction.page);
-        currInstructionHash += Crc32(currInstructionHash, traceInfo.elapsedCycles);
-        for (size_t i = 0; i < traceInfo.numMemoryAccesses; ++i) {
-            currInstructionHash += Crc32(currInstructionHash, traceInfo.memoryAccesses[i].address);
-            currInstructionHash += Crc32(currInstructionHash, traceInfo.memoryAccesses[i].read);
-            currInstructionHash += Crc32(currInstructionHash, traceInfo.memoryAccesses[i].value);
-        }
-        currInstructionHash += Crc32(currInstructionHash, traceInfo.preOpCpuRegisters);
-        currInstructionHash += Crc32(currInstructionHash, traceInfo.postOpCpuRegisters);
-        return currInstructionHash;
-    }
-
-    // Global variables
-    const size_t MaxTraceInstructions = 1000'000;
-    CircularBuffer<InstructionTraceInfo> g_instructionTraceBuffer(MaxTraceInstructions);
-    InstructionTraceInfo* g_currTraceInfo = nullptr;
-
 } // namespace
 
 void Debugger::Init(std::shared_ptr<IEngineService>& engineService, int argc, char** argv,
@@ -725,8 +614,8 @@ void Debugger::Init(std::shared_ptr<IEngineService>& engineService, int argc, ch
     m_memoryBus->RegisterCallbacks(
         // OnRead
         [&](uint16_t address, uint8_t value) {
-            if (m_traceEnabled && g_currTraceInfo) {
-                g_currTraceInfo->AddMemoryAccess(address, value, true);
+            if (m_traceEnabled && m_currTraceInfo) {
+                m_currTraceInfo->AddMemoryAccess(address, value, true);
             }
 
             if (auto bp = m_breakpoints.Get(address)) {
@@ -739,8 +628,8 @@ void Debugger::Init(std::shared_ptr<IEngineService>& engineService, int argc, ch
         },
         // OnWrite
         [&](uint16_t address, uint8_t value) {
-            if (m_traceEnabled && g_currTraceInfo) {
-                g_currTraceInfo->AddMemoryAccess(address, value, false);
+            if (m_traceEnabled && m_currTraceInfo) {
+                m_currTraceInfo->AddMemoryAccess(address, value, false);
             }
 
             if (auto bp = m_breakpoints.Get(address)) {
@@ -769,8 +658,8 @@ void Debugger::Reset() {
     // m_breakpoints.Reset();
     m_cpuCyclesTotal = 0;
     m_cpuCyclesLeft = 0;
-    g_instructionTraceBuffer.Clear();
-    g_currTraceInfo = nullptr;
+    m_instructionTraceBuffer.Clear();
+    m_currTraceInfo = nullptr;
 
     // Force ram to zero when running sync protocol for determinism
     if (!m_syncProtocol.IsStandalone()) {
@@ -839,7 +728,7 @@ bool Debugger::FrameUpdate(double frameTime, const Input& inputArg, const EmuEve
 
     int numInstructionsExecutedThisFrame = 0;
 
-    auto PrintOp = [&](const InstructionTraceInfo& traceInfo) {
+    auto PrintOp = [&](const Trace::InstructionTraceInfo& traceInfo) {
         if (m_traceEnabled) {
             ::PrintOp(traceInfo, m_symbolTable);
         }
@@ -847,8 +736,8 @@ bool Debugger::FrameUpdate(double frameTime, const Input& inputArg, const EmuEve
 
     auto PrintLastOp = [&] {
         if (m_traceEnabled) {
-            InstructionTraceInfo traceInfo;
-            if (g_instructionTraceBuffer.PeekBack(traceInfo)) {
+            Trace::InstructionTraceInfo traceInfo;
+            if (m_instructionTraceBuffer.PeekBack(traceInfo)) {
                 PrintOp(traceInfo);
             }
         }
@@ -856,9 +745,9 @@ bool Debugger::FrameUpdate(double frameTime, const Input& inputArg, const EmuEve
 
     auto ExecuteInstruction = [&] {
         try {
-            InstructionTraceInfo traceInfo;
+            Trace::InstructionTraceInfo traceInfo;
             if (m_traceEnabled) {
-                g_currTraceInfo = &traceInfo;
+                m_currTraceInfo = &traceInfo;
                 PreOpWriteTraceInfo(traceInfo, m_cpu->Registers(), *m_memoryBus);
             }
 
@@ -871,21 +760,21 @@ bool Debugger::FrameUpdate(double frameTime, const Input& inputArg, const EmuEve
 
                     // If the CPU didn't do anything (e.g. waiting for interrupts), we have nothing
                     // to log or hash
-                    InstructionTraceInfo lastTraceInfo;
-                    if (g_instructionTraceBuffer.PeekBack(lastTraceInfo)) {
+                    Trace::InstructionTraceInfo lastTraceInfo;
+                    if (m_instructionTraceBuffer.PeekBack(lastTraceInfo)) {
                         if (lastTraceInfo.postOpCpuRegisters.PC == m_cpu->Registers().PC) {
-                            g_currTraceInfo = nullptr;
+                            m_currTraceInfo = nullptr;
                             return;
                         }
                     }
 
                     PostOpWriteTraceInfo(traceInfo, m_cpu->Registers(), cpuCycles);
-                    g_instructionTraceBuffer.PushBackMoveFront(traceInfo);
-                    g_currTraceInfo = nullptr;
+                    m_instructionTraceBuffer.PushBackMoveFront(traceInfo);
+                    m_currTraceInfo = nullptr;
 
                     // Compute running hash of instruction trace
                     if (!m_syncProtocol.IsStandalone())
-                        m_instructionHash = HashInstructionTraceInfo(m_instructionHash, traceInfo);
+                        m_instructionHash = HashTraceInfo(traceInfo, m_instructionHash);
 
                     ++numInstructionsExecutedThisFrame;
                 }
@@ -1180,8 +1069,8 @@ bool Debugger::FrameUpdate(double frameTime, const Input& inputArg, const EmuEve
                     return true;
                 });
 
-                std::vector<InstructionTraceInfo> buffer(numLines);
-                auto numInstructions = g_instructionTraceBuffer.PeekBack(buffer.data(), numLines);
+                std::vector<Trace::InstructionTraceInfo> buffer(numLines);
+                auto numInstructions = m_instructionTraceBuffer.PeekBack(buffer.data(), numLines);
                 buffer.resize(numInstructions);
                 for (auto& traceInfo : buffer) {
                     PrintOp(traceInfo);

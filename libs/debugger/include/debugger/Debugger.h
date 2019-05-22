@@ -1,8 +1,10 @@
 #pragma once
 
 #include "core/Base.h"
+#include "core/CircularBuffer.h"
 #include "debugger/Breakpoints.h"
 #include "debugger/SyncProtocol.h"
+#include "debugger/Trace.h"
 #include "emulator/EngineTypes.h"
 #include <map>
 #include <optional>
@@ -48,4 +50,8 @@ private:
     double m_cpuCyclesLeft = 0;
     uint32_t m_instructionHash = 0;
     SyncProtocol m_syncProtocol;
+
+    const size_t MaxTraceInstructions = 1000'000;
+    CircularBuffer<Trace::InstructionTraceInfo> m_instructionTraceBuffer{MaxTraceInstructions};
+    Trace::InstructionTraceInfo* m_currTraceInfo = nullptr;
 };
