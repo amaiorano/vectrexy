@@ -14,12 +14,13 @@ public:
     void Reset();
     bool LoadRom(const char* file);
 
-    //@TODO: Move execute instruction and updating Via out of debugger to here
+    cycles_t ExecuteInstruction(const Input& input, RenderContext& renderContext,
+                                AudioContext& audioContext);
+
     void FrameUpdate(double frameTime);
 
     MemoryBus& GetMemoryBus() { return m_memoryBus; }
     Cpu& GetCpu() { return m_cpu; }
-    Via& GetVia() { return m_via; }
     Ram& GetRam() { return m_ram; }
 
 private:

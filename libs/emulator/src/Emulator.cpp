@@ -24,6 +24,18 @@ bool Emulator::LoadRom(const char* file) {
     return m_cartridge.LoadRom(file);
 }
 
+cycles_t Emulator::ExecuteInstruction(const Input& input, RenderContext& renderContext,
+                                      AudioContext& audioContext) {
+    m_via.SetSyncContext(input, renderContext, audioContext);
+
+    cycles_t cpuCycles = m_cpu.ExecuteInstruction(m_via.IrqEnabled(), m_via.FirqEnabled());
+
+    // Sync all devices to consume any leftover CPU cycles
+    m_memoryBus.Sync();
+
+    return cpuCycles;
+}
+
 void Emulator::FrameUpdate(double frameTime) {
     m_via.FrameUpdate(frameTime);
 }

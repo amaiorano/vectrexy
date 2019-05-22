@@ -780,14 +780,7 @@ bool Debugger::FrameUpdate(double frameTime, const Input& inputArg, const EmuEve
                 }
             });
 
-            auto& via = m_emulator->GetVia();
-            via.SetSyncContext(input, renderContext, audioContext);
-
-            cpuCycles = m_cpu->ExecuteInstruction(via.IrqEnabled(), via.FirqEnabled());
-
-            // Sync all devices to consume any leftover CPU cycles
-            m_memoryBus->Sync();
-
+            cpuCycles = m_emulator->ExecuteInstruction(input, renderContext, audioContext);
             return cpuCycles;
 
         } catch (std::exception& ex) {
