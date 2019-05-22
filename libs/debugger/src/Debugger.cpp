@@ -862,10 +862,7 @@ bool Debugger::FrameUpdate(double frameTime, const Input& inputArg, const EmuEve
                 PreOpWriteTraceInfo(traceInfo, m_cpu->Registers(), *m_memoryBus);
             }
 
-            // HACK: init to non-zero so that if an exception is thrown when executing instruction,
-            // we end up collecting the last instruction in our trace - see "if (cpuCycles == 0)"
-            // check in onExit lambda below. @TODO: fix this!
-            cycles_t cpuCycles = 99999;
+            cycles_t cpuCycles = 0;
 
             // In case exception is thrown below, we still want to add the current instruction trace
             // info, so wrap the call in a ScopedExit
@@ -874,9 +871,12 @@ bool Debugger::FrameUpdate(double frameTime, const Input& inputArg, const EmuEve
 
                     // If the CPU didn't do anything (e.g. waiting for interrupts), we have nothing
                     // to log or hash
-                    if (cpuCycles == 0) {
-                        g_currTraceInfo = nullptr;
-                        return;
+                    InstructionTraceInfo lastTraceInfo;
+                    if (g_instructionTraceBuffer.PeekBack(lastTraceInfo)) {
+                        if (lastTraceInfo.postOpCpuRegisters.PC == m_cpu->Registers().PC) {
+                            g_currTraceInfo = nullptr;
+                            return;
+                        }
                     }
 
                     PostOpWriteTraceInfo(traceInfo, m_cpu->Registers(), cpuCycles);
@@ -896,23 +896,10 @@ bool Debugger::FrameUpdate(double frameTime, const Input& inputArg, const EmuEve
 
             cpuCycles = m_cpu->ExecuteInstruction(via.IrqEnabled(), via.FirqEnabled());
 
-            // @TODO: We only do this because of CWAI. Instead, simplify this code along with the
-            // "if (cpuCycles == 0)" above by having CPU return 10 cycles while waiting for
-            // interrupts from CWAI, and detecting and not re-adding consecutive CWAI instructions
-            // to the trace in onExit.
-            cycles_t effectiveCpuCycles = cpuCycles;
-
-            // If no cycles elapsed, we're waiting for interrupts (CWAI), so add some sync cycles so
-            // that other devices (i.e. VIA) can advance, otherwise we'll block forever.
-            if (cpuCycles == 0) {
-                effectiveCpuCycles = 10;
-                m_memoryBus->AddSyncCycles(effectiveCpuCycles);
-            }
-
             // Sync all devices to consume any leftover CPU cycles
             m_memoryBus->Sync();
 
-            return effectiveCpuCycles;
+            return cpuCycles;
 
         } catch (std::exception& ex) {
             Printf("Exception caught:\n%s\n", ex.what());
@@ -1238,7 +1225,7 @@ bool Debugger::FrameUpdate(double frameTime, const Input& inputArg, const EmuEve
             }
 
             const cycles_t elapsedCycles = ExecuteInstruction();
-            ASSERT(elapsedCycles > 0); // Infinite loop otherwise
+            // ASSERT(elapsedCycles > 0); // Infinite loop otherwise
 
             m_cpuCyclesTotal += elapsedCycles;
             m_cpuCyclesLeft -= elapsedCycles;

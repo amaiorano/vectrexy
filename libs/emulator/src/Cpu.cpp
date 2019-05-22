@@ -921,6 +921,10 @@ public:
                 return;
 
             } else {
+                // Technically, no cycles are consumed while waiting for interrupts; but we add a
+                // nominal amount of cycles to make sure the emulator updates other components with
+                // non-zero cycles while in this state.
+                AddCycles(10);
                 return;
             }
         }
