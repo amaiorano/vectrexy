@@ -62,6 +62,8 @@ public:
 
 class Cpu {
 public:
+    static constexpr double Hz = 6'000'000.0 / 4.0; // Frequency of the CPU (cycles/second)
+
     Cpu();
     ~Cpu();
 

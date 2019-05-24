@@ -1083,11 +1083,10 @@ bool Debugger::FrameUpdate(double frameTime, const Input& inputArg, const EmuEve
         }
     } else { // Not broken into debugger (running)
 
-        const double cpuHz = 6'000'000.0 / 4.0; // Frequency of the CPU (cycles/second)
-        const double cpuCyclesThisFrame = cpuHz * frameTime;
-
         // Execute as many instructions that can fit in this time slice (plus one more at most)
+        const double cpuCyclesThisFrame = Cpu::Hz * frameTime;
         m_cpuCyclesLeft += cpuCyclesThisFrame;
+
         while (m_cpuCyclesLeft > 0) {
             if (auto bp = m_breakpoints.Get(m_cpu->Registers().PC)) {
                 if (bp->type == Breakpoint::Type::Instruction) {
@@ -1107,7 +1106,6 @@ bool Debugger::FrameUpdate(double frameTime, const Input& inputArg, const EmuEve
             }
 
             const cycles_t elapsedCycles = ExecuteInstruction();
-            // ASSERT(elapsedCycles > 0); // Infinite loop otherwise
 
             m_cpuCyclesTotal += elapsedCycles;
             m_cpuCyclesLeft -= elapsedCycles;
