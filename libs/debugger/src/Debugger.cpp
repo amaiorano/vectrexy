@@ -677,44 +677,20 @@ void Debugger::ResumeFromDebugger() {
     m_engineService->SetFocusMainWindow();
 }
 
-void Debugger::SyncInstructionHash(int numInstructionsExecutedThisFrame) {
-    if (m_syncProtocol.IsStandalone())
-        return;
-
-    bool hashMismatch = false;
-
-    // Sync hashes and compare
-    if (m_syncProtocol.IsServer()) {
-        m_syncProtocol.SendValue(ConnectionType::Server, m_instructionHash);
-
-    } else if (m_syncProtocol.IsClient()) {
-        uint32_t serverInstructionHash{};
-        m_syncProtocol.RecvValue(ConnectionType::Client, serverInstructionHash);
-        hashMismatch = m_instructionHash != serverInstructionHash;
+void Debugger::PrintOp(const Trace::InstructionTraceInfo& traceInfo) {
+    if (m_traceEnabled) {
+        ::PrintOp(traceInfo, m_symbolTable);
     }
+};
 
-    // Sync whether to continue or stop
-    if (m_syncProtocol.IsClient()) {
-        m_syncProtocol.SendValue(ConnectionType::Client, hashMismatch);
-    } else if (m_syncProtocol.IsServer()) {
-        m_syncProtocol.RecvValue(ConnectionType::Server, hashMismatch);
+void Debugger::PrintLastOp() {
+    if (m_traceEnabled) {
+        Trace::InstructionTraceInfo traceInfo;
+        if (m_instructionTraceBuffer.PeekBack(traceInfo)) {
+            PrintOp(traceInfo);
+        }
     }
-
-    if (hashMismatch) {
-        Errorf("Instruction hash mismatch in last %d instructions\n",
-               numInstructionsExecutedThisFrame);
-
-        // @TODO: Unfortunately, we still deadlock when multiple instances call BreakIntoDebugger at
-        // the same time, so for now, just don't do it.
-        // BreakIntoDebugger();
-        m_breakIntoDebugger = true;
-
-        if (m_syncProtocol.IsServer())
-            m_syncProtocol.ShutdownServer();
-        else
-            m_syncProtocol.ShutdownClient();
-    }
-}
+};
 
 bool Debugger::FrameUpdate(double frameTime, const Input& inputArg, const EmuEvents& emuEvents,
                            RenderContext& renderContext, AudioContext& audioContext) {
@@ -726,73 +702,7 @@ bool Debugger::FrameUpdate(double frameTime, const Input& inputArg, const EmuEve
         m_syncProtocol.Client_RecvFrameStart(frameTime, input);
     }
 
-    int numInstructionsExecutedThisFrame = 0;
-
-    auto PrintOp = [&](const Trace::InstructionTraceInfo& traceInfo) {
-        if (m_traceEnabled) {
-            ::PrintOp(traceInfo, m_symbolTable);
-        }
-    };
-
-    auto PrintLastOp = [&] {
-        if (m_traceEnabled) {
-            Trace::InstructionTraceInfo traceInfo;
-            if (m_instructionTraceBuffer.PeekBack(traceInfo)) {
-                PrintOp(traceInfo);
-            }
-        }
-    };
-
-    auto ExecuteInstruction = [&] {
-        try {
-            Trace::InstructionTraceInfo traceInfo;
-            if (m_traceEnabled) {
-                m_currTraceInfo = &traceInfo;
-                PreOpWriteTraceInfo(traceInfo, m_cpu->Registers(), *m_memoryBus);
-            }
-
-            cycles_t cpuCycles = 0;
-
-            // In case exception is thrown below, we still want to add the current instruction trace
-            // info, so wrap the call in a ScopedExit
-            auto onExit = MakeScopedExit([&] {
-                if (m_traceEnabled) {
-
-                    // If the CPU didn't do anything (e.g. waiting for interrupts), we have nothing
-                    // to log or hash
-                    Trace::InstructionTraceInfo lastTraceInfo;
-                    if (m_instructionTraceBuffer.PeekBack(lastTraceInfo)) {
-                        if (lastTraceInfo.postOpCpuRegisters.PC == m_cpu->Registers().PC) {
-                            m_currTraceInfo = nullptr;
-                            return;
-                        }
-                    }
-
-                    PostOpWriteTraceInfo(traceInfo, m_cpu->Registers(), cpuCycles);
-                    m_instructionTraceBuffer.PushBackMoveFront(traceInfo);
-                    m_currTraceInfo = nullptr;
-
-                    // Compute running hash of instruction trace
-                    if (!m_syncProtocol.IsStandalone())
-                        m_instructionHash = HashTraceInfo(traceInfo, m_instructionHash);
-
-                    ++numInstructionsExecutedThisFrame;
-                }
-            });
-
-            cpuCycles = m_emulator->ExecuteInstruction(input, renderContext, audioContext);
-            return cpuCycles;
-
-        } catch (std::exception& ex) {
-            Printf("Exception caught:\n%s\n", ex.what());
-            PrintLastOp();
-        } catch (...) {
-            Printf("Unknown exception caught\n");
-            PrintLastOp();
-        }
-        BreakIntoDebugger();
-        return static_cast<cycles_t>(0);
-    };
+    m_numInstructionsExecutedThisFrame = 0;
 
     for (auto& event : emuEvents) {
         if (std::holds_alternative<EmuEvent::BreakIntoDebugger>(event.type)) {
@@ -845,12 +755,12 @@ bool Debugger::FrameUpdate(double frameTime, const Input& inputArg, const EmuEve
         } else if (tokens[0] == "continue" || tokens[0] == "c") {
             // First 'step' current instruction, otherwise if we have a breakpoint on it we will
             // end up breaking immediately on it again (we won't actually continue)
-            ExecuteInstruction();
+            ExecuteInstruction(input, renderContext, audioContext);
             ResumeFromDebugger();
 
         } else if (tokens[0] == "step" || tokens[0] == "s") {
             // "Step into"
-            ExecuteInstruction();
+            ExecuteInstruction(input, renderContext, audioContext);
 
             // Handle optional number of steps parameter
             if (tokens.size() > 1) {
@@ -1083,46 +993,10 @@ bool Debugger::FrameUpdate(double frameTime, const Input& inputArg, const EmuEve
         }
     } else { // Not broken into debugger (running)
 
-        // Execute as many instructions that can fit in this time slice (plus one more at most)
-        const double cpuCyclesThisFrame = Cpu::Hz * frameTime;
-        m_cpuCyclesLeft += cpuCyclesThisFrame;
-
-        while (m_cpuCyclesLeft > 0) {
-            if (auto bp = m_breakpoints.Get(m_cpu->Registers().PC)) {
-                if (bp->type == Breakpoint::Type::Instruction) {
-                    if (bp->autoDelete) {
-                        m_breakpoints.Remove(m_cpu->Registers().PC);
-                        BreakIntoDebugger();
-                    } else if (bp->enabled) {
-                        Printf("Breakpoint hit at %04x\n", bp->address);
-                        BreakIntoDebugger();
-                    }
-                }
-            }
-
-            if (m_breakIntoDebugger) {
-                m_cpuCyclesLeft = 0;
-                break;
-            }
-
-            const cycles_t elapsedCycles = ExecuteInstruction();
-
-            m_cpuCyclesTotal += elapsedCycles;
-            m_cpuCyclesLeft -= elapsedCycles;
-
-            if (m_numInstructionsToExecute && (--m_numInstructionsToExecute.value() == 0)) {
-                m_numInstructionsToExecute = {};
-                BreakIntoDebugger();
-            }
-
-            if (m_breakIntoDebugger) {
-                m_cpuCyclesLeft = 0;
-                break;
-            }
-        }
+        ExecuteFrameInstructions(frameTime, input, renderContext, audioContext);
     }
 
-    SyncInstructionHash(numInstructionsExecutedThisFrame);
+    SyncInstructionHash(m_numInstructionsExecutedThisFrame);
 
     if (m_syncProtocol.IsServer()) {
         m_syncProtocol.Server_RecvFrameEnd();
@@ -1131,4 +1005,136 @@ bool Debugger::FrameUpdate(double frameTime, const Input& inputArg, const EmuEve
     }
 
     return true;
+}
+
+void Debugger::ExecuteFrameInstructions(double frameTime, const Input& input,
+                                        RenderContext& renderContext, AudioContext& audioContext) {
+    // Execute as many instructions that can fit in this time slice (plus one more at most)
+    const double cpuCyclesThisFrame = Cpu::Hz * frameTime;
+    m_cpuCyclesLeft += cpuCyclesThisFrame;
+
+    while (m_cpuCyclesLeft > 0) {
+        if (auto bp = m_breakpoints.Get(m_cpu->Registers().PC)) {
+            if (bp->type == Breakpoint::Type::Instruction) {
+                if (bp->autoDelete) {
+                    m_breakpoints.Remove(m_cpu->Registers().PC);
+                    BreakIntoDebugger();
+                } else if (bp->enabled) {
+                    Printf("Breakpoint hit at %04x\n", bp->address);
+                    BreakIntoDebugger();
+                }
+            }
+        }
+
+        if (m_breakIntoDebugger) {
+            m_cpuCyclesLeft = 0;
+            break;
+        }
+
+        const cycles_t elapsedCycles = ExecuteInstruction(input, renderContext, audioContext);
+
+        m_cpuCyclesTotal += elapsedCycles;
+        m_cpuCyclesLeft -= elapsedCycles;
+
+        if (m_numInstructionsToExecute && (--m_numInstructionsToExecute.value() == 0)) {
+            m_numInstructionsToExecute = {};
+            BreakIntoDebugger();
+        }
+
+        if (m_breakIntoDebugger) {
+            m_cpuCyclesLeft = 0;
+            break;
+        }
+    }
+}
+
+cycles_t Debugger::ExecuteInstruction(const Input& input, RenderContext& renderContext,
+                                      AudioContext& audioContext) {
+    try {
+        Trace::InstructionTraceInfo traceInfo;
+        if (m_traceEnabled) {
+            m_currTraceInfo = &traceInfo;
+            PreOpWriteTraceInfo(traceInfo, m_cpu->Registers(), *m_memoryBus);
+        }
+
+        cycles_t cpuCycles = 0;
+
+        // In case exception is thrown below, we still want to add the current instruction trace
+        // info, so wrap the call in a ScopedExit
+        auto onExit = MakeScopedExit([&] {
+            if (m_traceEnabled) {
+
+                // If the CPU didn't do anything (e.g. waiting for interrupts), we have nothing
+                // to log or hash
+                Trace::InstructionTraceInfo lastTraceInfo;
+                if (m_instructionTraceBuffer.PeekBack(lastTraceInfo)) {
+                    if (lastTraceInfo.postOpCpuRegisters.PC == m_cpu->Registers().PC) {
+                        m_currTraceInfo = nullptr;
+                        return;
+                    }
+                }
+
+                PostOpWriteTraceInfo(traceInfo, m_cpu->Registers(), cpuCycles);
+                m_instructionTraceBuffer.PushBackMoveFront(traceInfo);
+                m_currTraceInfo = nullptr;
+
+                // Compute running hash of instruction trace
+                if (!m_syncProtocol.IsStandalone())
+                    m_instructionHash = HashTraceInfo(traceInfo, m_instructionHash);
+
+                ++m_numInstructionsExecutedThisFrame;
+            }
+        });
+
+        cpuCycles = m_emulator->ExecuteInstruction(input, renderContext, audioContext);
+        return cpuCycles;
+
+    } catch (std::exception& ex) {
+        Printf("Exception caught:\n%s\n", ex.what());
+        PrintLastOp();
+    } catch (...) {
+        Printf("Unknown exception caught\n");
+        PrintLastOp();
+    }
+    BreakIntoDebugger();
+    return static_cast<cycles_t>(0);
+};
+
+void Debugger::SyncInstructionHash(int numInstructionsExecutedThisFrame) {
+    if (m_syncProtocol.IsStandalone())
+        return;
+
+    bool hashMismatch = false;
+
+    // Sync hashes and compare
+    if (m_syncProtocol.IsServer()) {
+        m_syncProtocol.SendValue(ConnectionType::Server, m_instructionHash);
+
+    } else if (m_syncProtocol.IsClient()) {
+        uint32_t serverInstructionHash{};
+        m_syncProtocol.RecvValue(ConnectionType::Client, serverInstructionHash);
+        hashMismatch = m_instructionHash != serverInstructionHash;
+    }
+
+    // Sync whether to continue or stop
+    if (m_syncProtocol.IsClient()) {
+        m_syncProtocol.SendValue(ConnectionType::Client, hashMismatch);
+    } else if (m_syncProtocol.IsServer()) {
+        m_syncProtocol.RecvValue(ConnectionType::Server, hashMismatch);
+    }
+
+    if (hashMismatch) {
+        Errorf("Instruction hash mismatch in last %d instructions\n",
+               numInstructionsExecutedThisFrame);
+
+        // @TODO: Unfortunately, we still deadlock when multiple instances call BreakIntoDebugger at
+        // the same time, so for now, just don't do it.
+        // BreakIntoDebugger();
+        m_breakIntoDebugger = true;
+
+        if (m_syncProtocol.IsServer())
+            m_syncProtocol.ShutdownServer();
+        else
+            m_syncProtocol.ShutdownClient();
+    }
 }

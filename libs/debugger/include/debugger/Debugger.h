@@ -31,6 +31,12 @@ public:
 private:
     void BreakIntoDebugger();
     void ResumeFromDebugger();
+    void PrintOp(const Trace::InstructionTraceInfo& traceInfo);
+    void PrintLastOp();
+    void ExecuteFrameInstructions(double frameTime, const Input& input,
+                                  RenderContext& renderContext, AudioContext& audioContext);
+    cycles_t ExecuteInstruction(const Input& input, RenderContext& renderContext,
+                                AudioContext& audioContext);
     void SyncInstructionHash(int numInstructionsExecutedThisFrame);
 
     std::shared_ptr<IEngineService> m_engineService;
@@ -48,6 +54,7 @@ private:
     SymbolTable m_symbolTable; // Address to symbol name
     cycles_t m_cpuCyclesTotal = 0;
     double m_cpuCyclesLeft = 0;
+    int m_numInstructionsExecutedThisFrame = 0;
     uint32_t m_instructionHash = 0;
     SyncProtocol m_syncProtocol;
 
