@@ -23,7 +23,7 @@ public:
     void Init(std::shared_ptr<IEngineService>& engineService, int argc, char** argv,
               fs::path devDir, Emulator& emulator);
     void Reset();
-    bool FrameUpdate(double frameTime, const Input& input, const EmuEvents& emuEvents,
+    bool FrameUpdate(double frameTime, const EmuEvents& emuEvents, const Input& input,
                      RenderContext& renderContext, AudioContext& audioContext);
 
     using SymbolTable = std::multimap<uint16_t, std::string>;

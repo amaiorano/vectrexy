@@ -692,7 +692,7 @@ void Debugger::PrintLastOp() {
     }
 };
 
-bool Debugger::FrameUpdate(double frameTime, const Input& inputArg, const EmuEvents& emuEvents,
+bool Debugger::FrameUpdate(double frameTime, const EmuEvents& emuEvents, const Input& inputArg,
                            RenderContext& renderContext, AudioContext& audioContext) {
 
     auto input = inputArg; // Copy input arg so we can modify it for sync protocol

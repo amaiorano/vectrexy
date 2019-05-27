@@ -516,7 +516,7 @@ bool SDLEngine::Run(int argc, char** argv) {
 
         HACK_Simulate3dImager(frameTime, input);
 
-        if (!g_client->FrameUpdate(frameTime, input, {std::ref(emuEvents), std::ref(g_options)},
+        if (!g_client->FrameUpdate(frameTime, {std::ref(emuEvents), std::ref(g_options)}, input,
                                    renderContext, audioContext))
             quit = true;
 
