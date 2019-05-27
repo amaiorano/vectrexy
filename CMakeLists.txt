@@ -1,14 +1,14 @@
 cmake_minimum_required (VERSION 3.13)
 
-project (vectrexy
+project(vectrexy
 	DESCRIPTION "A Vectrexy emulator by Antonio Maiorano"
 	HOMEPAGE_URL https://github.com/amaiorano/vectrexy
 )
 
-option (BUILD_SHARED_LIBS "Build libs as shared libraries." OFF)
+option(BUILD_SHARED_LIBS "Build libs as shared libraries." OFF)
 
-if (NOT BUILD_SHARED_LIBS)
-  set (BUILD_STATIC_LIBS ON)
+if(NOT BUILD_SHARED_LIBS)
+  set(BUILD_STATIC_LIBS ON)
 else()
 	set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 endif()
@@ -18,8 +18,8 @@ endif()
 # builds so that DLLs end up in the same directory as the EXE. Note that for
 # multi-config generators (VS, Xcode), sub-directories for each config will
 # still be created (e.g. build/Release/, build/Debug/, etc.).
-set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
-set (CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 # Make sure MinSizeRel and RelWithDebInfo use Release libs instead of Debug libs from vcpkg
 set(CMAKE_MAP_IMPORTED_CONFIG_MINSIZEREL Release)

@@ -1,5 +1,14 @@
-file (GLOB_RECURSE DEBUGGER_SRC_FILES "include/*.*" "src/*.*")
-source_group(TREE "${PROJECT_SOURCE_DIR}/libs/debugger" FILES ${DEBUGGER_SRC_FILES})
-add_library(debugger ${DEBUGGER_SRC_FILES})
-target_include_directories(debugger PUBLIC "include")
-target_link_libraries(debugger PUBLIC core emulator)
+project(debugger)
+
+file(GLOB_RECURSE SRC_FILES "include/*.*" "src/*.*")
+source_group(TREE ${PROJECT_SOURCE_DIR} FILES ${SRC_FILES})
+
+add_library(${PROJECT_NAME} ${SRC_FILES})
+
+target_include_directories(${PROJECT_NAME} PUBLIC "include")
+
+target_link_libraries(${PROJECT_NAME}
+    PUBLIC
+        core
+        emulator
+)
