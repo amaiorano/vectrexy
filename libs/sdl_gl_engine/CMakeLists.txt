@@ -27,7 +27,7 @@ target_link_libraries(${PROJECT_NAME}
 		SDL2::SDL2-static
 		imgui::imgui
 		GLEW::GLEW
-		glm		
-		${OPENGL_gl_LIBRARY}
-		${OPENGL_glu_LIBRARY}
+		glm
+		OpenGL::GL
+		OpenGL::GLU
 )

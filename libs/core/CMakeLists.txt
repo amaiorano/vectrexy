@@ -7,15 +7,15 @@ endif()
 file(GLOB_RECURSE SRC_FILES "include/*.*" "src/*.*")
 source_group(TREE ${PROJECT_SOURCE_DIR} FILES ${SRC_FILES})
 
-file(GLOB THIRD_PARTY_NOC "external/noc/noc_file_dialog.h")
-source_group(TREE ${PROJECT_SOURCE_DIR} FILES ${THIRD_PARTY_NOC})
+file(GLOB NOC_SRC_FILES "external/noc/noc_file_dialog.h")
+source_group(TREE ${PROJECT_SOURCE_DIR} FILES ${NOC_SRC_FILES})
 
 if (LINUX)
-	file(GLOB THIRD_PARTY_LINENOISE "external/linenoise/linenoise.*")
-	source_group(TREE ${PROJECT_SOURCE_DIR} FILES ${THIRD_PARTY_LINENOISE})
+	file(GLOB LINENOISE_SRC_FILES "external/linenoise/linenoise.*")
+	source_group(TREE ${PROJECT_SOURCE_DIR} FILES ${LINENOISE_SRC_FILES})
 endif()
 
-add_library(${PROJECT_NAME} ${SRC_FILES} ${THIRD_PARTY_NOC} ${THIRD_PARTY_LINENOISE})
+add_library(${PROJECT_NAME} ${SRC_FILES} ${NOC_SRC_FILES} ${LINENOISE_SRC_FILES})
 
 find_package(SDL2 CONFIG REQUIRED)
 find_package(sdl2-net CONFIG REQUIRED)
@@ -27,18 +27,28 @@ if (LINUX)
 	target_link_libraries(${PROJECT_NAME} PRIVATE ${GTK2_LIBRARIES})
 endif()
 
+# Make a wrapper module for STB
+add_library(STB INTERFACE)
+target_include_directories(STB INTERFACE ${STB_INCLUDE_PATH})
+
 target_include_directories(${PROJECT_NAME}
 	PUBLIC "include"
-	PRIVATE ${STB_INCLUDE_PATH} "external"
+	PRIVATE "external"
 )
-target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_17)
-set_target_properties(${PROJECT_NAME} PROPERTIES CXX_EXTENSIONS OFF)
-target_link_libraries(${PROJECT_NAME} PUBLIC
-	SDL2::SDL2_net
-	imgui::imgui
+
+target_link_libraries(${PROJECT_NAME}
+	PUBLIC
+		SDL2::SDL2-static
+		SDL2::SDL2_net
+		imgui::imgui
+	PRIVATE
+		STB
 )
 
 # TODO: Move this out of Core and make it something each module can include
+target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_17)
+set_target_properties(${PROJECT_NAME} PROPERTIES CXX_EXTENSIONS OFF)
+
 if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 	target_compile_definitions(${PROJECT_NAME} PUBLIC _CRT_SECURE_NO_WARNINGS _SCL_SECURE_NO_WARNINGS)
 	target_compile_options(${PROJECT_NAME} PUBLIC /MP /W4 /WX)

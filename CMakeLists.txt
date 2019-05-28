@@ -1,8 +1,9 @@
-cmake_minimum_required (VERSION 3.13)
+cmake_minimum_required (VERSION 3.10)
 
 project(vectrexy
 	DESCRIPTION "A Vectrexy emulator by Antonio Maiorano"
-	HOMEPAGE_URL https://github.com/amaiorano/vectrexy
+	# Requires CMake 3.13
+	# HOMEPAGE_URL https://github.com/amaiorano/vectrexy
 )
 
 option(BUILD_SHARED_LIBS "Build libs as shared libraries." OFF)
