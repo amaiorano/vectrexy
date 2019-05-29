@@ -6,6 +6,7 @@ find_package(GLEW CONFIG REQUIRED)
 find_package(glm CONFIG REQUIRED)
 find_package(OpenGL MODULE REQUIRED)
 find_package(SDL2 CONFIG REQUIRED)
+find_package(sdl2-net CONFIG REQUIRED)
 find_package(imgui CONFIG REQUIRED)
 
 file(GLOB_RECURSE SRC_FILES "include/*.*" "src/*.*")
@@ -25,6 +26,7 @@ target_link_libraries(${PROJECT_NAME}
 
 	PRIVATE
 		SDL2::SDL2-static
+		SDL2::SDL2_net
 		imgui::imgui
 		GLEW::GLEW
 		glm

@@ -38,11 +38,11 @@ target_include_directories(${PROJECT_NAME}
 
 target_link_libraries(${PROJECT_NAME}
 	PUBLIC
-		SDL2::SDL2-static
-		SDL2::SDL2_net
 		imgui::imgui
 	PRIVATE
 		STB
+		SDL2::SDL2-static
+		SDL2::SDL2_net
 )
 
 # TODO: Move this out of Core and make it something each module can include

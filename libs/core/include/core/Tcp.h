@@ -1,93 +1,59 @@
 #pragma once
 
 #include "core/Base.h"
-
-//@TODO: get rid of this public dependency on SDL (pimpl or polymorphic type)
-#include <SDL_net.h>
+#include "core/Pimpl.h"
 
 class TcpServer {
 public:
-    ~TcpServer() { Close(); }
+    TcpServer();
+    ~TcpServer();
 
-    void Open(uint16_t port) {
-        m_port = port;
-        if (SDLNet_ResolveHost(&m_ip, NULL, port) == -1)
-            FAIL();
-        m_server = SDLNet_TCP_Open(&m_ip);
-        if (!m_server)
-            FAIL();
-    }
+    void Open(uint16_t port);
+    void Close();
+    bool TryAccept();
 
-    void Close() {
-        if (m_server) {
-            SDLNet_TCP_Close(m_server);
-            m_server = {};
-        }
-        if (m_client) {
-            SDLNet_TCP_Close(m_client);
-            m_client = {};
-        }
-        m_ip = {};
-        m_port = {};
-    }
-
-    bool TryAccept() {
-        m_client = SDLNet_TCP_Accept(m_server);
-        return m_client != nullptr;
-    }
+    int Send(const void* data, int len);
+    int Receive(void* data, int maxlen);
 
     template <typename T>
     bool Send(const T& value) {
-        auto bytesSent = SDLNet_TCP_Send(m_client, &value, sizeof(T));
+        auto bytesSent = Send(&value, sizeof(T));
         return bytesSent <= sizeof(T);
     }
 
     template <typename T>
     bool Receive(T& value) {
-        auto size = SDLNet_TCP_Recv(m_client, &value, sizeof(T));
+        auto size = Receive(&value, sizeof(T));
         return size == sizeof(T);
     }
 
 private:
-    TCPsocket m_server{};
-    TCPsocket m_client{};
-    IPaddress m_ip{};
-    uint16_t m_port{};
+    pimpl::Pimpl<class TcpServerImpl, 128> m_impl;
 };
 
 class TcpClient {
 public:
-    ~TcpClient() { Close(); }
+    TcpClient();
+    ~TcpClient();
 
-    void Open(const char* ipAddress, uint16_t port) {
-        if (SDLNet_ResolveHost(&m_ip, ipAddress, port) == -1)
-            FAIL();
-        m_socket = SDLNet_TCP_Open(&m_ip);
-        if (!m_socket)
-            FAIL();
-    }
+    void Open(const char* ipAddress, uint16_t port);
+    void Close();
 
-    void Close() {
-        if (m_socket) {
-            SDLNet_TCP_Close(m_socket);
-            m_socket = {};
-        }
-        m_ip = {};
-    }
+    int Send(const void* data, int len);
+    int Receive(void* data, int maxlen);
 
     template <typename T>
     bool Send(const T& value) {
-        auto bytesSent = SDLNet_TCP_Send(m_socket, &value, sizeof(T));
+        auto bytesSent = Send(&value, sizeof(T));
         return bytesSent <= sizeof(T);
     }
 
     template <typename T>
     bool Receive(T& value) {
-        auto size = SDLNet_TCP_Recv(m_socket, &value, sizeof(T));
+        auto size = Receive(&value, sizeof(T));
         return size == sizeof(T);
     }
 
 private:
-    TCPsocket m_socket{};
-    IPaddress m_ip{};
+    pimpl::Pimpl<class TcpClientImpl, 128> m_impl;
 };
