@@ -16,5 +16,5 @@ target_link_libraries(${PROJECT_NAME}
 		emulator
 		debugger
 		engine
-		$<$<BOOL:${USE_SDL_ENGINE}>:sdl_gl_engine>
+		$<$<BOOL:${USE_SDL_ENGINE}>:sdl_engine>
 )

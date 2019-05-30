@@ -1,4 +1,4 @@
-#include "sdl_gl/SDLEngine.h"
+#include "sdl_engine/SDLEngine.h"
 
 #include "GLRender.h"
 #include "GLUtil.h"

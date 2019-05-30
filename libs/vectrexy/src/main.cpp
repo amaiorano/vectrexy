@@ -8,7 +8,7 @@
 #include <memory>
 
 #ifdef PLATFORM_SDL
-#include "sdl_gl/SDLEngine.h"
+#include "sdl_engine/SDLEngine.h"
 using Engine = SDLEngine;
 #else
 #error Define Engine type for this platform
