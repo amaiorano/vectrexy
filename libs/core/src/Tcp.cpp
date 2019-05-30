@@ -1,5 +1,7 @@
 #include "core/Tcp.h"
 
+#ifdef PLATFORM_SDL
+
 #include <SDL_net.h>
 
 class TcpServerImpl {
@@ -114,3 +116,7 @@ int TcpClient::Send(const void* data, int len) {
 int TcpClient::Receive(void* data, int maxlen) {
     return m_impl->Receive(data, maxlen);
 }
+
+#else
+#error Implement me for current platform
+#endif

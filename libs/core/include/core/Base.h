@@ -11,9 +11,9 @@
 
 // Platform defines
 #ifdef _MSC_VER
-#define PLATFORM_WINDOWS 1
+#define PLATFORM_WINDOWS
 #elif __linux__
-#define PLATFORM_LINUX 1
+#define PLATFORM_LINUX
 #else
 #error "Define current platform"
 #endif
@@ -34,13 +34,13 @@
 #endif
 
 // Disable warnings
-#if _MSC_VER
+#ifdef _MSC_VER
 // nonstandard extension used : nameless struct/union
 #pragma warning(disable : 4201)
 #endif
 
 // Macros to push/pop warning disables (compiler specific)
-#if _MSC_VER
+#ifdef _MSC_VER
 #define MSC_PUSH_WARNING_DISABLE(warning_number)                                                   \
     __pragma(warning(push)) __pragma(warning(disable : warning_number))
 
@@ -51,7 +51,7 @@
 #endif
 
 // Optimization control
-#if _MSC_VER
+#ifdef _MSC_VER
 #define OPTIMIZE_OFF __pragma(optimize("", off))
 #define OPTIMIZE_ON __pragma(optimize("", on))
 #define NO_INLINE_FUNC __declspec(noinline)

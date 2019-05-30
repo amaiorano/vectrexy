@@ -17,8 +17,10 @@ endif()
 
 add_library(${PROJECT_NAME} ${SRC_FILES} ${NOC_SRC_FILES} ${LINENOISE_SRC_FILES})
 
-find_package(SDL2 CONFIG REQUIRED)
-find_package(sdl2-net CONFIG REQUIRED)
+if(USE_SDL_ENGINE)
+	find_package(SDL2 CONFIG REQUIRED)
+	find_package(sdl2-net CONFIG REQUIRED)
+endif()
 find_package(imgui CONFIG REQUIRED)
 find_package(STB MODULE REQUIRED)
 if (LINUX)
@@ -41,8 +43,8 @@ target_link_libraries(${PROJECT_NAME}
 		imgui::imgui
 	PRIVATE
 		STB
-		SDL2::SDL2-static
-		SDL2::SDL2_net
+		$<$<BOOL:${USE_SDL_ENGINE}>:SDL2::SDL2-static>
+		$<$<BOOL:${USE_SDL_ENGINE}>:SDL2::SDL2_net>
 )
 
 # TODO: Move this out of Core and make it something each module can include

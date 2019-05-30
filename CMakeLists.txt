@@ -7,6 +7,7 @@ project(vectrexy
 )
 
 option(BUILD_SHARED_LIBS "Build libs as shared libraries." OFF)
+option(USE_SDL_ENGINE "Use the SDL engine." ON)
 
 if(NOT BUILD_SHARED_LIBS)
   set(BUILD_STATIC_LIBS ON)
@@ -29,9 +30,15 @@ set(CMAKE_MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
 # Set module path to local cmake folder so find_package looks there first
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
+if(USE_SDL_ENGINE)
+	add_compile_definitions(PLATFORM_SDL)
+endif()
+
 add_subdirectory(libs/core)
 add_subdirectory(libs/engine)
 add_subdirectory(libs/emulator)
 add_subdirectory(libs/debugger)
-add_subdirectory(libs/sdl_gl_engine)
+if(USE_SDL_ENGINE)
+	add_subdirectory(libs/sdl_gl_engine)
+endif()
 add_subdirectory(libs/vectrexy)

@@ -7,8 +7,12 @@
 #include "engine/Paths.h"
 #include <memory>
 
+#ifdef PLATFORM_SDL
 #include "sdl_gl/SDLEngine.h"
 using Engine = SDLEngine;
+#else
+#error Define Engine type for this platform
+#endif
 
 class EngineClient final : public IEngineClient {
 private:
