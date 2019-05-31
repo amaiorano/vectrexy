@@ -129,8 +129,9 @@ public:
                        ImGui::PlotLines("Unpaused", pauseHistory.data(), (int)pauseHistory.size(),
                                         0, 0, 0.f, 1.f, ImVec2(0, 100.f)));
 
-            const auto color = m_paused ? IM_COL32(255, 0, 0, 255) : IM_COL32(255, 255, 0, 255);
-            IMGUI_CALL(Debug, ImGui::PushStyleColor(ImGuiCol_PlotHistogram, color));
+            IMGUI_CALL(Debug, ImGui::PushStyleColor(ImGuiCol_PlotHistogram,
+                                                    m_paused ? IM_COL32(255, 0, 0, 255)
+                                                             : IM_COL32(255, 255, 0, 255)));
             IMGUI_CALL(Debug, ImGui::ProgressBar(GetBufferUsageRatio(), ImVec2(-1, 100)));
             IMGUI_CALL(Debug, ImGui::PopStyleColor());
         }

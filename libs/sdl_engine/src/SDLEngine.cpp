@@ -457,7 +457,10 @@ bool SDLEngine::Run(int argc, char** argv) {
     enum SwapInterval : int { NoVSync = 0, VSync = 1, AdaptiveVSync = -1 };
     SDL_GL_SetSwapInterval(SwapInterval::NoVSync);
 
+#ifdef DEBUG_UI_ENABLED
     Gui::EnabledWindows[Gui::Window::Debug] = g_options.Get<bool>("imguiDebugWindow");
+#endif
+
     ImGui_ImplSdlGL3_Init(g_window);
     ImGui::GetIO().FontGlobalScale = g_options.Get<float>("imguiFontScale");
     static const auto imguiIniFilePath = Paths::imguiIniFile.string();
@@ -695,7 +698,9 @@ void SDLEngine::UpdateMenu(bool& quit, EmuEvents& emuEvents) {
         if (ImGui::BeginMenu("Debug")) {
             g_paused[PauseSource::Menu] = true;
 
+#ifdef DEBUG_UI_ENABLED
             ImGui::MenuItem("Debug window", "", &Gui::EnabledWindows[Gui::Window::Debug]);
+#endif
 
             if (ImGui::MenuItem("Break into Debugger", "Ctrl+C"))
                 emuEvents.push_back({EmuEvent::BreakIntoDebugger{}});
@@ -750,6 +755,7 @@ void SDLEngine::UpdateMenu(bool& quit, EmuEvents& emuEvents) {
         }
     }
 
+#ifdef DEBUG_UI_ENABLED
     //@TODO: save imguiEnabledWindows#Name and just iterate here
     static auto lastEnabledWindows = Gui::EnabledWindows;
     if (Gui::EnabledWindows[Gui::Window::Debug] != lastEnabledWindows[Gui::Window::Debug]) {
@@ -757,4 +763,5 @@ void SDLEngine::UpdateMenu(bool& quit, EmuEvents& emuEvents) {
         g_options.Save();
     }
     lastEnabledWindows = Gui::EnabledWindows;
+#endif
 }

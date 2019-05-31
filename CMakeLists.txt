@@ -8,6 +8,7 @@ project(vectrexy
 
 option(BUILD_SHARED_LIBS "Build libs as shared libraries." OFF)
 option(USE_SDL_ENGINE "Use the SDL engine." ON)
+option(DEBUG_UI "Enable the debug UI." ON)
 
 if(NOT BUILD_SHARED_LIBS)
   set(BUILD_STATIC_LIBS ON)
@@ -32,6 +33,10 @@ set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
 if(USE_SDL_ENGINE)
 	add_compile_definitions(PLATFORM_SDL)
+endif()
+
+if(DEBUG_UI)
+	add_compile_definitions(DEBUG_UI_ENABLED)
 endif()
 
 add_subdirectory(libs/core)

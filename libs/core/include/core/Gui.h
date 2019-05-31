@@ -1,5 +1,12 @@
 #pragma once
 
+#ifndef DEBUG_UI_ENABLED
+
+#define IMGUI_CALL(window, func)
+#define IMGUI_CALL_IF(condition, window, func)
+
+#else
+
 #include <array>
 #include <imgui.h>
 
@@ -34,3 +41,5 @@ namespace Gui {
     Gui::Internal::DoImguiCall(#window, Gui::Window::window, [&] { func; })
 
 } // namespace Gui
+
+#endif

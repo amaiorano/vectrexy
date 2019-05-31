@@ -21,7 +21,9 @@ if(USE_SDL_ENGINE)
 	find_package(SDL2 CONFIG REQUIRED)
 	find_package(sdl2-net CONFIG REQUIRED)
 endif()
-find_package(imgui CONFIG REQUIRED)
+if(DEBUG_UI)
+	find_package(imgui CONFIG REQUIRED)
+endif()
 find_package(STB MODULE REQUIRED)
 if (LINUX)
 	find_package(GTK2 2.4 REQUIRED)
@@ -40,7 +42,7 @@ target_include_directories(${MODULE_NAME}
 
 target_link_libraries(${MODULE_NAME}
 	PUBLIC
-		imgui::imgui
+		$<$<BOOL:${DEBUG_UI}>:imgui::imgui>
 	PRIVATE
 		STB
 		$<$<BOOL:${USE_SDL_ENGINE}>:SDL2::SDL2-static>
