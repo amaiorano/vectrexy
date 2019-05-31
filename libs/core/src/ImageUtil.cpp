@@ -3,12 +3,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-MSC_PUSH_WARNING_DISABLE(4100) // unreferenced formal parameter
-MSC_PUSH_WARNING_DISABLE(4505) // unreferenced local function has been removed
+MSC_PUSH_WARNING_DISABLE(4100  // unreferenced formal parameter
+                         4505) // unreferenced local function has been removed
 #define STB_IMAGE_IMPLEMENTATION
 #define STBI_ONLY_PNG
 #include <stb_image.h>
-MSC_POP_WARNING_DISABLE()
 MSC_POP_WARNING_DISABLE()
 
 namespace ImageUtil {

@@ -189,10 +189,9 @@ namespace Platform {
 #if defined(PLATFORM_WINDOWS)
 #define NOC_FILE_DIALOG_IMPLEMENTATION
 #define NOC_FILE_DIALOG_WIN32
-MSC_PUSH_WARNING_DISABLE(4996) // 'strdup': The POSIX name for this item is deprecated.
-MSC_PUSH_WARNING_DISABLE(4100) // unreferenced formal parameter
+MSC_PUSH_WARNING_DISABLE(4996  // 'strdup': The POSIX name for this item is deprecated.
+                         4100) // unreferenced formal parameter
 #include "noc/noc_file_dialog.h"
-MSC_POP_WARNING_DISABLE()
 MSC_POP_WARNING_DISABLE()
 #elif defined(PLATFORM_LINUX)
 #define NOC_FILE_DIALOG_IMPLEMENTATION
@@ -210,7 +209,7 @@ namespace Platform {
         auto filter =
             FormattedString<>("%s (%s)%c%s%c", filterName, filterTypes, '\0', filterTypes, '\0');
 
-        if ( !(initialPath.has_value() && fs::exists(*initialPath)) ) {
+        if (!(initialPath.has_value() && fs::exists(*initialPath))) {
             initialPath = fs::current_path();
         }
 

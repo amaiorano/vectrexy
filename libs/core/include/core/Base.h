@@ -41,8 +41,8 @@
 
 // Macros to push/pop warning disables (compiler specific)
 #ifdef _MSC_VER
-#define MSC_PUSH_WARNING_DISABLE(warning_number)                                                   \
-    __pragma(warning(push)) __pragma(warning(disable : warning_number))
+#define MSC_PUSH_WARNING_DISABLE(...)                                                              \
+    __pragma(warning(push)) __pragma(warning(disable : __VA_ARGS__))
 
 #define MSC_POP_WARNING_DISABLE() __pragma(warning(pop))
 #else
