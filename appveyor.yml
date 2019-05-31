@@ -16,12 +16,14 @@ environment:
   matrix:
     - platform: x64
       VCPKG_TRIPLET: x64-windows-static
-      VS_CONFIG: Visual Studio 15 2017 Win64
+      VS_CONFIG: Visual Studio 15 2017
+      VS_ARCH: x64
       PACKAGE_SUFFIX: win64
 
     - platform: Win32
       VCPKG_TRIPLET: x86-windows-static
       VS_CONFIG: Visual Studio 15 2017
+      VS_ARCH: Win32
       PACKAGE_SUFFIX: win32
 
 cache:
@@ -43,7 +45,7 @@ install:
     echo Generating vectrexy sln    
     cd /d c:\projects\vectrexy
     mkdir build && cd build
-    cmake -G "%VS_CONFIG%" -DCMAKE_TOOLCHAIN_FILE=C:/Tools/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=%VCPKG_TRIPLET% ..
+    cmake -G "%VS_CONFIG%" -A %VS_ARCH% -DCMAKE_TOOLCHAIN_FILE=C:/Tools/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=%VCPKG_TRIPLET% ..
     cd ..
 
 build:
