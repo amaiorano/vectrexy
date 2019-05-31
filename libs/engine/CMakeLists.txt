@@ -1,5 +1,14 @@
-file (GLOB_RECURSE ENGINE_SRC_FILES "include/*.*" "src/*.*")
-source_group(TREE "${PROJECT_SOURCE_DIR}/libs/engine" FILES ${ENGINE_SRC_FILES})
-add_library(engine ${ENGINE_SRC_FILES})
-target_include_directories(engine PUBLIC "include")
-target_link_libraries(engine PUBLIC core emulator)
+set(MODULE_NAME engine)
+
+file(GLOB_RECURSE SRC_FILES "include/*.*" "src/*.*")
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${SRC_FILES})
+
+add_library(${MODULE_NAME} ${SRC_FILES})
+
+target_include_directories(${MODULE_NAME} PUBLIC "include")
+
+target_link_libraries(${MODULE_NAME}
+    PUBLIC
+        core
+        emulator
+)

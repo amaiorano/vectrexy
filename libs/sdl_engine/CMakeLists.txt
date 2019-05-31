@@ -1,7 +1,7 @@
-project(sdl_engine)
+set(MODULE_NAME sdl_engine)
 
 if(NOT USE_SDL_ENGINE)
-	message(FATAL_ERROR "USE_SDL_ENGINE must be enabled to use ${PROJECT_NAME}")
+	message(FATAL_ERROR "USE_SDL_ENGINE must be enabled to use ${MODULE_NAME}")
 endif()
 
 # Force linking against GLEW static libs, even when BUILD_SHARED_LIBS is ON
@@ -14,13 +14,13 @@ find_package(sdl2-net CONFIG REQUIRED)
 find_package(imgui CONFIG REQUIRED)
 
 file(GLOB_RECURSE SRC_FILES "include/*.*" "src/*.*")
-source_group(TREE ${PROJECT_SOURCE_DIR} FILES ${SRC_FILES})
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${SRC_FILES})
 
-add_library(${PROJECT_NAME} ${SRC_FILES})
+add_library(${MODULE_NAME} ${SRC_FILES})
 
-target_include_directories(${PROJECT_NAME} PUBLIC "include")
+target_include_directories(${MODULE_NAME} PUBLIC "include")
 
-target_link_libraries(${PROJECT_NAME}
+target_link_libraries(${MODULE_NAME}
 	PUBLIC
 		core
 		emulator
