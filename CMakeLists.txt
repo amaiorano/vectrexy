@@ -1,5 +1,22 @@
 cmake_minimum_required (VERSION 3.10)
 
+# Try to find vcpkg toolchain file in sibling directory as a convenience
+get_filename_component(VCPKG_TOOLCHAIN_FILE "../vcpkg/scripts/buildsystems/vcpkg.cmake" ABSOLUTE)
+if(NOT CMAKE_TOOLCHAIN_FILE AND EXISTS ${VCPKG_TOOLCHAIN_FILE})
+	set(CMAKE_TOOLCHAIN_FILE ${VCPKG_TOOLCHAIN_FILE})
+	message("Auto setting CMAKE_TOOLCHAIN_FILE to ${CMAKE_TOOLCHAIN_FILE}")
+endif()
+
+if(NOT VCPKG_TARGET_TRIPLET AND WIN32)
+	set(VCPKG_TARGET_TRIPLET "x64-windows-static" CACHE STRING "" FORCE)
+	message("Auto setting VCPKG_TARGET_TRIPLET to ${VCPKG_TARGET_TRIPLET}")
+endif()
+
+if(NOT CMAKE_GENERATOR_PLATFORM AND WIN32)
+	set(CMAKE_GENERATOR_PLATFORM "x64" CACHE STRING "" FORCE)
+	message("Auto setting CMAKE_GENERATOR_PLATFORM to ${CMAKE_GENERATOR_PLATFORM}")
+endif()
+
 project(vectrexy
 	DESCRIPTION "A Vectrexy emulator by Antonio Maiorano"
 	# Requires CMake 3.13
@@ -31,7 +48,7 @@ set(CMAKE_MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
 if(USE_SDL_ENGINE)
-	add_compile_definitions(PLATFORM_SDL)
+	add_definitions(-DPLATFORM_SDL)
 endif()
 
 add_subdirectory(libs/core)
