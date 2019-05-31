@@ -51,6 +51,8 @@ Although the emulator core is written by me, Antonio Maiorano (Daroou2), it make
 - GLM: [G-Truc Creations](http://www.g-truc.net/)
 - stb: [Sean Barrett (Nothings)](http://nothings.org/)
 - Dear ImGui: [omar (ocornut)](http://www.miracleworld.net/)
+- linenoise: [Salvatore Sanfilippo (antirez)](http://invece.org/)
+- noc: [Guillaume Chereau](https://blog.noctua-software.com/)
 
 ## Building the code
 
@@ -58,7 +60,7 @@ Although the emulator core is written by me, Antonio Maiorano (Daroou2), it make
 
 Install:
 * [CMake](https://cmake.org/)
-* [Visual Studio 2017](https://www.visualstudio.com/downloads/)
+* [Visual Studio](https://www.visualstudio.com/downloads/)
 * [vcpkg](https://github.com/Microsoft/vcpkg)
 
 Install dependent packages with vcpkg:
@@ -71,7 +73,7 @@ Clone and build vectrexy using CMake:
 git clone --recursive https://github.com/amaiorano/vectrexy.git
 cd vectrexy
 mkdir build && cd build
-cmake -G "Visual Studio 15 2017 Win64" -DCMAKE_TOOLCHAIN_FILE=../../vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-static ..
+cmake -A x64 -DCMAKE_TOOLCHAIN_FILE=../../vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-static ..
 vectrexy.sln ..
 ```
 
@@ -79,7 +81,7 @@ vectrexy.sln ..
 
 Install:
 * gcc 8 or higher
-* CMake
+* [CMake](https://cmake.org/)
 * [vcpkg](https://github.com/Microsoft/vcpkg)
 
 Install some Linux-specific libs we depend on:
