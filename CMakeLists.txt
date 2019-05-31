@@ -32,11 +32,11 @@ set(CMAKE_MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
 if(USE_SDL_ENGINE)
-	add_compile_definitions(PLATFORM_SDL)
+	add_definitions(-DPLATFORM_SDL)
 endif()
 
 if(DEBUG_UI)
-	add_compile_definitions(DEBUG_UI_ENABLED)
+	add_definitions(-DDEBUG_UI_ENABLED)
 endif()
 
 add_subdirectory(libs/core)
