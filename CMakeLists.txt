@@ -6,6 +6,10 @@ project(vectrexy
 	# HOMEPAGE_URL https://github.com/amaiorano/vectrexy
 )
 
+if (UNIX AND NOT APPLE)
+	set(LINUX true)
+endif()
+
 option(BUILD_SHARED_LIBS "Build libs as shared libraries." OFF)
 option(USE_SDL_ENGINE "Use the SDL engine." ON)
 option(DEBUG_UI "Enable the debug UI." ON)
@@ -39,6 +43,9 @@ if(DEBUG_UI)
 	add_definitions(-DDEBUG_UI_ENABLED)
 endif()
 
+if(LINUX)
+	add_subdirectory(external/linenoise)
+endif()
 add_subdirectory(libs/core)
 add_subdirectory(libs/engine)
 add_subdirectory(libs/emulator)
