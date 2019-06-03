@@ -1,6 +1,6 @@
-[submodule "external/noc"]
-	path = external/noc
-	url = https://github.com/amaiorano/noc.git
-[submodule "external/linenoise"]
-	path = external/linenoise
+[submodule "linenoise"]
+	path = external/linenoise/linenoise
 	url = https://github.com/amaiorano/linenoise.git
+[submodule "noc"]
+	path = external/noc/noc
+	url = https://github.com/amaiorano/noc.git
