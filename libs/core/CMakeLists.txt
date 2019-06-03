@@ -1,8 +1,5 @@
 set(MODULE_NAME core)
 
-add_library(noc INTERFACE)
-target_include_directories(noc INTERFACE ${CMAKE_SOURCE_DIR}/external/noc)
-
 file(GLOB_RECURSE SRC_FILES "include/*.*" "src/*.*")
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${SRC_FILES})
 

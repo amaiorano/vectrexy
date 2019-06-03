@@ -43,9 +43,13 @@ if(DEBUG_UI)
 	add_definitions(-DDEBUG_UI_ENABLED)
 endif()
 
+# Add externals
 if(LINUX)
 	add_subdirectory(external/linenoise)
 endif()
+add_subdirectory(external/noc)
+
+# Add libs
 add_subdirectory(libs/core)
 add_subdirectory(libs/engine)
 add_subdirectory(libs/emulator)
