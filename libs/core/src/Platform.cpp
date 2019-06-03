@@ -103,7 +103,7 @@ namespace Platform {
 
 #elif defined(PLATFORM_LINUX)
 
-#include "linenoise/linenoise.h"
+#include "linenoise.h"
 #include <signal.h>
 #include <unistd.h>
 
@@ -191,12 +191,12 @@ namespace Platform {
 #define NOC_FILE_DIALOG_WIN32
 MSC_PUSH_WARNING_DISABLE(4996  // 'strdup': The POSIX name for this item is deprecated.
                          4100) // unreferenced formal parameter
-#include "noc/noc_file_dialog.h"
+#include "noc_file_dialog.h "
 MSC_POP_WARNING_DISABLE()
 #elif defined(PLATFORM_LINUX)
 #define NOC_FILE_DIALOG_IMPLEMENTATION
 #define NOC_FILE_DIALOG_GTK
-#include "noc/noc_file_dialog.h"
+#include "noc_file_dialog.h"
 #else
 #error Implement me for current platform
 #endif

@@ -4,18 +4,23 @@ if (UNIX AND NOT APPLE)
 	set(LINUX true)
 endif()
 
+# file(GLOB NOC_SRC_FILES "${CMAKE_SOURCE_DIR}/external/noc/noc_file_dialog.h")
+# source_group(TREE ${CMAKE_SOURCE_DIR}/external/noc FILES ${NOC_SRC_FILES})
+add_library(noc INTERFACE)
+target_include_directories(noc INTERFACE ${CMAKE_SOURCE_DIR}/external/noc)
+
+if (LINUX)
+	file(GLOB LINENOISE_SRC_FILES "${CMAKE_SOURCE_DIR}/external/linenoise/linenoise.*")
+	source_group(TREE ${CMAKE_SOURCE_DIR}/external/linenoise FILES ${LINENOISE_SRC_FILES})
+	add_library(linenoise ${LINENOISE_SRC_FILES})
+	target_include_directories(linenoise PUBLIC "${CMAKE_SOURCE_DIR}/external/linenoise")
+endif()
+
 file(GLOB_RECURSE SRC_FILES "include/*.*" "src/*.*")
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${SRC_FILES})
 
-file(GLOB NOC_SRC_FILES "external/noc/noc_file_dialog.h")
-source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${NOC_SRC_FILES})
-
-if (LINUX)
-	file(GLOB LINENOISE_SRC_FILES "external/linenoise/linenoise.*")
-	source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${LINENOISE_SRC_FILES})
-endif()
-
-add_library(${MODULE_NAME} ${SRC_FILES} ${NOC_SRC_FILES} ${LINENOISE_SRC_FILES})
+# add_library(${MODULE_NAME} ${SRC_FILES} ${NOC_SRC_FILES} ${LINENOISE_SRC_FILES})
+add_library(${MODULE_NAME} ${SRC_FILES})
 
 if(USE_SDL_ENGINE)
 	find_package(SDL2 CONFIG REQUIRED)
@@ -37,7 +42,6 @@ target_include_directories(STB INTERFACE ${STB_INCLUDE_PATH})
 
 target_include_directories(${MODULE_NAME}
 	PUBLIC "include"
-	PRIVATE "external"
 )
 
 target_link_libraries(${MODULE_NAME}
@@ -45,6 +49,8 @@ target_link_libraries(${MODULE_NAME}
 		$<$<BOOL:${DEBUG_UI}>:imgui::imgui>
 	PRIVATE
 		STB
+		noc
+		linenoise
 		$<$<BOOL:${USE_SDL_ENGINE}>:SDL2::SDL2-static>
 		$<$<BOOL:${USE_SDL_ENGINE}>:SDL2::SDL2_net>
 )
