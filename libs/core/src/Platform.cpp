@@ -4,6 +4,7 @@
 #include "core/FileSystemUtil.h"
 
 #include <iostream>
+#include <string>
 
 #if defined(PLATFORM_WINDOWS)
 
