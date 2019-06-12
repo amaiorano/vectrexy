@@ -261,7 +261,7 @@ namespace {
                 comment = FormattedString<>("%d,$%04x", offset, reg);
             } break;
             case 0b0111:
-                FAIL_MSG("Illegal");
+                comment = "Illegal indexed instruction post-byte";
                 break;
             case 0b1000: { // (+/- 7 bit offset),R
                 auto& reg = RegisterSelect(postbyte);
@@ -283,7 +283,7 @@ namespace {
                 comment = FormattedString<>("%d,$%04x", offset, reg);
             } break;
             case 0b1010:
-                FAIL_MSG("Illegal");
+                comment = "Illegal indexed instruction post-byte";
                 break;
             case 0b1011: { // (+/- D),R
                 auto& reg = RegisterSelect(postbyte);
@@ -311,7 +311,7 @@ namespace {
                 comment = FormattedString<>("%d,$%04x", offset, cpuRegisters.PC);
             } break;
             case 0b1110:
-                FAIL_MSG("Illegal");
+                comment = "Illegal indexed instruction post-byte";
                 break;
             case 0b1111: { // [address] (Indirect-only)
                 uint8_t postbyte2 = instruction.GetOperand(1);
@@ -319,7 +319,7 @@ namespace {
                 EA = CombineToS16(postbyte2, postbyte3);
             } break;
             default:
-                FAIL_MSG("Illegal");
+                comment = "Illegal indexed instruction post-byte";
                 break;
             }
         }
@@ -432,7 +432,7 @@ namespace {
 
             case AddressingMode::Illegal: {
             case AddressingMode::Variant:
-                FAIL_MSG("Unexpected addressing mode");
+                comment = "Unexpected addressing mode";
             } break;
             }
         }

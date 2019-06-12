@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/Base.h"
+#include "core/ErrorHandler.h"
 #include <algorithm>
 #include <functional>
 #include <vector>
@@ -91,7 +92,7 @@ private:
             }
         }
 
-        FAIL_MSG("Unmapped address");
+        ErrorHandler::Undefined("Unmapped address: $%02x\n", address);
         static DeviceInfo nullDeviceInfo{};
         return nullDeviceInfo;
     }

@@ -1,5 +1,6 @@
 #include "emulator/Via.h"
 #include "core/BitOps.h"
+#include "core/ErrorHandler.h"
 #include "emulator/EngineTypes.h"
 #include "emulator/MemoryMap.h"
 
@@ -50,8 +51,10 @@ namespace {
         inline ShiftRegisterMode GetShiftRegisterMode(uint8_t auxCntrl) {
             uint8_t result =
                 ReadBitsWithShift(auxCntrl, ShiftRegisterModeMask, ShiftRegisterModeShift);
-            ASSERT_MSG(result == 0b110,
-                       "ShiftRegisterMode expected to only support ShiftOutUnder02");
+            if (result != 0b110) {
+                ErrorHandler::Unsupported(
+                    "ShiftRegisterMode expected to only support ShiftOutUnder02\n");
+            }
             return ShiftRegisterMode::ShiftOutUnder02;
         }
 
@@ -314,7 +317,7 @@ uint8_t Via::Read(uint16_t address) const {
         return m_interruptEnable;
 
     case Register::PortANoHandshake:
-        FAIL_MSG("A without handshake not implemented yet");
+        ErrorHandler::Unsupported("A without handshake not implemented yet\n");
         break;
 
     default:
@@ -389,8 +392,8 @@ void Via::Write(uint16_t address, uint8_t value) {
 
     case Register::DataDirA:
         m_dataDirA = value;
-        ASSERT_MSG(m_dataDirA == 0 || m_dataDirA == 0xFF,
-                   "Expecting DDR for A to be either all 0s or all 1s");
+        if (!(m_dataDirA == 0 || m_dataDirA == 0xFF))
+            ErrorHandler::Undefined("Expecting DDR for A to be either all 0s or all 1s");
         break;
 
     case Register::Timer1Low:
@@ -492,7 +495,7 @@ void Via::Write(uint16_t address, uint8_t value) {
     } break;
 
     case Register::PortANoHandshake:
-        FAIL_MSG("A without handshake not implemented yet");
+        ErrorHandler::Unsupported("A without handshake not implemented yet\n");
         break;
 
     default:

@@ -205,7 +205,7 @@ public:
                 AddCycles(1);
                 break;
             case 0b0111:
-                FAIL_MSG("Illegal");
+                ErrorHandler::Undefined("Illegal indexed instruction post-byte\n");
                 break;
             case 0b1000: { // (+/- 7 bit offset),R
                 uint8_t postbyte2 = ReadPC8();
@@ -219,7 +219,7 @@ public:
                 AddCycles(4);
             } break;
             case 0b1010:
-                FAIL_MSG("Illegal");
+                ErrorHandler::Undefined("Illegal indexed instruction post-byte\n");
                 break;
             case 0b1011: // (+/- D),R
                 EA = RegisterSelect(postbyte) + S16(D);
@@ -237,7 +237,7 @@ public:
                 AddCycles(5);
             } break;
             case 0b1110:
-                FAIL_MSG("Illegal");
+                ErrorHandler::Undefined("Illegal indexed instruction post-byte\n");
                 break;
             case 0b1111: { // [address] (Indirect-only)
                 uint8_t postbyte2 = ReadPC8();
@@ -246,7 +246,7 @@ public:
                 AddCycles(2);
             } break;
             default:
-                FAIL_MSG("Illegal");
+                ErrorHandler::Undefined("Illegal indexed instruction post-byte\n");
                 break;
             }
         }
@@ -280,7 +280,7 @@ public:
     // Read 16-bit effective address based on addressing mode
     template <AddressingMode addressingMode>
     uint16_t ReadEA16() {
-        FAIL_MSG("Not implemented for addressing mode");
+        ErrorHandler::Undefined("Not implemented for addressing mode\n");
         return 0xFFFF;
     }
 
@@ -902,7 +902,7 @@ public:
     void DoExecuteInstruction(bool irqEnabled, bool firqEnabled) {
         auto UnhandledOp = [this](const CpuOp& cpuOp) {
             (void)cpuOp;
-            FAIL_MSG("Unhandled Op: %s", cpuOp.name);
+            ErrorHandler::Undefined("Unhandled Op: %s\n", cpuOp.name);
         };
 
         // Just for debugging, keep a copy in case we assert
@@ -917,7 +917,7 @@ public:
                 return;
 
             } else if (firqEnabled && (CC.FastInterruptMask == 0)) {
-                FAIL_MSG("Implement FIRQ after CWAI");
+                ErrorHandler::Unsupported("Implement FIRQ after CWAI\n");
                 return;
 
             } else {
@@ -938,7 +938,7 @@ public:
         }
 
         if (firqEnabled && (CC.FastInterruptMask == 0)) {
-            FAIL_MSG("Implement FIRQ");
+            ErrorHandler::Unsupported("Implement FIRQ\n");
             return;
         }
 
