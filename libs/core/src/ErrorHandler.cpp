@@ -8,6 +8,7 @@ namespace {
 
 namespace ErrorHandler {
     void SetPolicy(Policy policy) { g_policy = policy; }
+    void Reset() { g_errorMessages.clear(); }
 
     void Internal::DoHandleError(const char* messagePrefix, const char* message) {
         if (g_policy == Policy::Ignore)

@@ -50,6 +50,7 @@ private:
     void Reset() {
         m_emulator.Reset();
         m_debugger.Reset();
+        ErrorHandler::Reset();
     }
 
     bool LoadRom(const char* file) {

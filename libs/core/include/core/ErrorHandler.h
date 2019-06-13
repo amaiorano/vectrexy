@@ -14,6 +14,7 @@ namespace ErrorHandler {
     constexpr Policy DefaultPolicy = Policy::LogOnce;
 
     void SetPolicy(Policy policy);
+    void Reset();
 
     template <typename... Args>
     void Undefined(const char* format, Args... args) {
