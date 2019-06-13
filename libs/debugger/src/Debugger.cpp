@@ -524,29 +524,29 @@ namespace {
     }
 
     void PrintHelp() {
-        Printf("s[tep] [count]               step instruction [count] times\n"
-               "c[ontinue]                   continue running\n"
-               "u[ntil] <address>            run until address is reached\n"
-               "info reg[isters]             display register values\n"
-               "p[rint] <address>            display value add address\n"
-               "set <address>=<value>        set value at address\n"
-               "info break                   display breakpoints\n"
-               "b[reak] <address>            set instruction breakpoint at address\n"
-               "[ |r|a]watch <address>       set write/read/both watchpoint at address\n"
-               "delete <index>               delete breakpoint at index\n"
-               "disable <index>              disable breakpoint at index\n"
-               "enable <index>               enable breakpoint at index\n"
-               "loadsymbols <file>           load file with symbol/address definitions\n"
-               "toggle ...                   toggle input option\n"
-               "  color                        colored output (slow)\n"
-               "  trace                        disassembly trace\n"
-               "option ...                   set option\n"
-               "  errors [ignore|log|fail]     error policy\n"
-               "t[race] [...]                display trace output\n"
-               "  -n <num_lines>               display num_lines worth\n"
-               "  -f <file_name>               output trace to file_name\n"
-               "q[uit]                       quit\n"
-               "h[elp]                       display this help text\n");
+        Printf("s[tep] [count]                       step instruction [count] times\n"
+               "c[ontinue]                           continue running\n"
+               "u[ntil] <address>                    run until address is reached\n"
+               "info reg[isters]                     display register values\n"
+               "p[rint] <address>                    display value add address\n"
+               "set <address>=<value>                set value at address\n"
+               "info break                           display breakpoints\n"
+               "b[reak] <address>                    set instruction breakpoint at address\n"
+               "[ |r|a]watch <address>               set write/read/both watchpoint at address\n"
+               "delete <index>                       delete breakpoint at index\n"
+               "disable <index>                      disable breakpoint at index\n"
+               "enable <index>                       enable breakpoint at index\n"
+               "loadsymbols <file>                   load file with symbol/address definitions\n"
+               "toggle ...                           toggle input option\n"
+               "  color                                colored output (slow)\n"
+               "  trace                                disassembly trace\n"
+               "option ...                           set option\n"
+               "  errors [ignore|log|logonce|fail]     error policy\n"
+               "t[race] [...]                        display trace output\n"
+               "  -n <num_lines>                       display num_lines worth\n"
+               "  -f <file_name>                       output trace to file_name\n"
+               "q[uit]                               quit\n"
+               "h[elp]                               display this help text\n");
     }
 
     bool LoadUserSymbolsFile(const char* file, Debugger::SymbolTable& symbolTable) {
@@ -913,13 +913,14 @@ bool Debugger::FrameUpdate(double frameTime, const EmuEvents& emuEvents, const I
         } else if (tokens[0] == "option") {
             if (tokens.size() > 2) {
                 if (tokens[1] == "errors") {
-                    auto& policy = ErrorHandler::g_policy;
                     if (tokens[2] == "ignore")
-                        policy = ErrorHandler::Policy::Ignore;
+                        ErrorHandler::SetPolicy(ErrorHandler::Policy::Ignore);
                     else if (tokens[2] == "log")
-                        policy = ErrorHandler::Policy::Log;
+                        ErrorHandler::SetPolicy(ErrorHandler::Policy::Log);
+                    else if (tokens[2] == "logonce")
+                        ErrorHandler::SetPolicy(ErrorHandler::Policy::LogOnce);
                     else if (tokens[2] == "fail")
-                        policy = ErrorHandler::Policy::Fail;
+                        ErrorHandler::SetPolicy(ErrorHandler::Policy::Fail);
                     else
                         validCommand = false;
                 }

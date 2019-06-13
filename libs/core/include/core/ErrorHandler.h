@@ -4,37 +4,31 @@
 #include "core/ConsoleOutput.h"
 
 namespace ErrorHandler {
-    enum class Policy { Ignore, Log, Fail };
+    enum class Policy {
+        Ignore,  // Ignore error
+        Log,     // Log error (even if repeated)
+        LogOnce, // Log error only once (ignore repeated instances of the error)
+        Fail     // Fail hard
+    };
 
-    inline Policy g_policy = Policy::Ignore;
+    constexpr Policy DefaultPolicy = Policy::LogOnce;
 
-    namespace Internal {
-        template <typename... Args>
-        void HandleError(const char* errorType, const char* format, Args... args) {
-            switch (g_policy) {
-            case Policy::Ignore:
-                break;
-
-            case Policy::Log:
-                Errorf(FormattedString<>("%s %s", errorType, format), std::forward<Args>(args)...);
-                break;
-
-            case Policy::Fail:
-                FAIL_MSG(FormattedString<>("%s %s", errorType, format),
-                         std::forward<Args>(args)...);
-                break;
-            }
-        }
-    } // namespace Internal
+    void SetPolicy(Policy policy);
 
     template <typename... Args>
     void Undefined(const char* format, Args... args) {
-        Internal::HandleError("[Undefined]", format, std::forward<Args>(args)...);
+        Internal::DoHandleError("[Undefined] ",
+                                FormattedString<>(format, std::forward<Args>(args)...));
     }
 
     template <typename... Args>
     void Unsupported(const char* format, Args... args) {
-        Internal::HandleError("[Unsupported]", format, std::forward<Args>(args)...);
+        Internal::DoHandleError("[Unsupported] ",
+                                FormattedString<>(format, std::forward<Args>(args)...));
     }
+
+    namespace Internal {
+        void DoHandleError(const char* messagePrefix, const char* message);
+    } // namespace Internal
 
 } // namespace ErrorHandler
