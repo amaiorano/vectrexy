@@ -110,6 +110,8 @@ public:
             PopFront(dummy);
         }
         const size_t numExtraPushed = PushBack(source + numActuallyPushed, numNotPushed);
+
+        (void)numExtraPushed;
         assert(numExtraPushed == numNotPushed);
         assert(numActuallyPushed + numExtraPushed == numValues);
     }

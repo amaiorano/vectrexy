@@ -90,10 +90,6 @@ namespace {
 
     std::vector<VertexData> CreateQuadVertexArray(const std::vector<Line>& lines, float lineWidth,
                                                   float scaleX, float scaleY) {
-        auto AlmostEqual = [](float a, float b, float epsilon = 0.01f) {
-            return abs(a - b) <= epsilon;
-        };
-
         std::vector<VertexData> result;
 
         const float MinPixelDist = 1.f;
@@ -225,9 +221,10 @@ namespace {
 #include "shaders/CombineVectorsAndGlow.frag"
             ;
 
-        const char* CopyTexture_frag =
-#include "shaders/CopyTexture.frag"
-            ;
+        // Unused
+        //        const char* CopyTexture_frag =
+        //#include "shaders/CopyTexture.frag"
+        //            ;
 
         const char* DarkenTexture_frag =
 #include "shaders/DarkenTexture.frag"

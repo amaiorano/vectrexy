@@ -56,7 +56,7 @@ namespace {
 
         if (s[0] == '$') { // '$' Hex value
             return HexStringToIntegral<T>(s.substr(1));
-        } else if (s[0] == '0' && s[1] == 'x' || s[1] == 'X') { // '0x' Hex value
+        } else if ((s[0] == '0' && s[1] == 'x') || s[1] == 'X') { // '0x' Hex value
             return HexStringToIntegral<T>(s);
         } else { // Integral value
             int64_t value;

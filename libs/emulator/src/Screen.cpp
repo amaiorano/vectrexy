@@ -53,15 +53,14 @@ void Screen::Update(cycles_t cycles, RenderContext& renderContext) {
         if (--m_rampDelay <= 0) {
             m_rampPhase = RampPhase::RampOff;
         }
+
+    case RampPhase::RampOff:
+    case RampPhase::RampOn:
+        break;
     }
 
     const auto lastPos = m_pos;
     const Vector2 currDir = Normalized({m_velocityX, m_velocityY});
-
-    if (Magnitude({m_velocityX, m_velocityY}) == 0.f) {
-        int a = 0;
-        a = a;
-    }
 
     // Move beam while ramp is on or its way down
     switch (m_rampPhase) {
@@ -73,6 +72,10 @@ void Screen::Update(cycles_t cycles, RenderContext& renderContext) {
         m_pos += delta;
         break;
     }
+
+    case RampPhase::RampOff:
+    case RampPhase::RampUp:
+        break;
     }
 
     // We might draw even when integrators are disabled (e.g. drawing dots)

@@ -34,8 +34,7 @@ namespace {
             std::string requiredCopyright = "g GCE";
             auto copyright = ReadStreamUntil(fs, 0x80);
             if (copyright.size() < requiredCopyright.size() ||
-                memcmp(copyright.data(), requiredCopyright.data(),
-                       sizeof(requiredCopyright) != 0)) {
+                memcmp(copyright.data(), requiredCopyright.data(), requiredCopyright.size()) != 0) {
                 Errorf("Warning: missing \"g GCE\" copyright string at start of rom\n");
             }
 

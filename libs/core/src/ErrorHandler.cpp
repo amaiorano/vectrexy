@@ -11,10 +11,10 @@ namespace ErrorHandler {
     void Reset() { g_errorMessages.clear(); }
 
     void Internal::DoHandleError(const char* messagePrefix, const char* message) {
-        if (g_policy == Policy::Ignore)
-            return;
-
         switch (g_policy) {
+        case Policy::Ignore:
+            break;
+
         case Policy::Log:
             Errorf("%s%s", messagePrefix, message);
             break;

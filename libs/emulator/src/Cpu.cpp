@@ -900,8 +900,7 @@ public:
     }
 
     void DoExecuteInstruction(bool irqEnabled, bool firqEnabled) {
-        auto UnhandledOp = [this](const CpuOp& cpuOp) {
-            (void)cpuOp;
+        auto UnhandledOp = [](const CpuOp& cpuOp) {
             ErrorHandler::Undefined("Unhandled Op: %s\n", cpuOp.name);
         };
 
@@ -1129,10 +1128,10 @@ public:
                 break;
 
             case 0x20: // BRA (branch always)
-                OpBranch([this] { return true; });
+                OpBranch([] { return true; });
                 break;
             case 0x21: // BRN (branch never)
-                OpBranch([this] { return false; });
+                OpBranch([] { return false; });
                 break;
             case 0x22: // BHI (branch if higher)
                 OpBranch([this] { return (CC.Carry | CC.Zero) == 0; });
@@ -1780,7 +1779,7 @@ public:
                 break;
 
             case 0x21: // BRN (branch never)
-                OpLongBranch([this] { return false; });
+                OpLongBranch([] { return false; });
                 break;
             case 0x22: // BHI (branch if higher)
                 OpLongBranch([this] { return (CC.Carry | CC.Zero) == 0; });
