@@ -918,6 +918,7 @@ public:
 
             } else if (firqEnabled && (CC.FastInterruptMask == 0)) {
                 ErrorHandler::Unsupported("Implement FIRQ after CWAI\n");
+                AddCycles(10);
                 return;
 
             } else {
