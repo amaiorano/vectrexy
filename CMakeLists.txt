@@ -22,7 +22,7 @@ else()
 endif()
 
 if(NOT BUILD_SHARED_LIBS)
-  set(BUILD_STATIC_LIBS ON)
+	set(BUILD_STATIC_LIBS ON)
 else()
 	set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 endif()
