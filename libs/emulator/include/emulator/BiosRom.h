@@ -14,5 +14,5 @@ private:
     uint8_t Read(uint16_t address) const override;
     void Write(uint16_t address, uint8_t value) override;
 
-    std::array<uint8_t, 8 * 1024> m_data;
+    std::array<uint8_t, 8 * 1024> m_data{};
 };

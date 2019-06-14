@@ -47,12 +47,12 @@ private:
     } m_syncContext;
 
     // Registers
-    uint8_t m_portB;
-    uint8_t m_portA;
-    uint8_t m_dataDirB;
-    uint8_t m_dataDirA;
-    uint8_t m_periphCntl;
-    uint8_t m_interruptEnable;
+    uint8_t m_portB{};
+    uint8_t m_portA{};
+    uint8_t m_dataDirB{};
+    uint8_t m_dataDirA{};
+    uint8_t m_periphCntl{};
+    uint8_t m_interruptEnable{};
 
     Screen m_screen;
     Psg m_psg;

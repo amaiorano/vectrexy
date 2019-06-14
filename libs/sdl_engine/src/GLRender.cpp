@@ -177,7 +177,7 @@ namespace {
 
         // Store attributes so we can send it all at once
         struct Attributes {
-            std::array<glm::vec3, 6> vertices;
+            std::array<glm::vec3, 6> vertices{};
             glm::vec2 uvs[6] = {{0, 0}, {1, 0}, {0, 1}, {0, 1}, {1, 0}, {1, 1}};
         };
         static_assert(std::is_trivially_copyable_v<Attributes>);

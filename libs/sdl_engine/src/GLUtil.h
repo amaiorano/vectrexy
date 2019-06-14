@@ -92,7 +92,7 @@ namespace GLUtil {
             , m_deleteFunc(rhs.m_deleteFunc) {
             rhs.m_id = INVALID_RESOURCE_ID;
         }
-        GLResource& operator=(GLResource&& rhs) {
+        GLResource& operator=(GLResource&& rhs) noexcept {
             if (this != &rhs) {
                 std::swap(m_id, rhs.m_id);
                 std::swap(m_deleteFunc, m_deleteFunc);

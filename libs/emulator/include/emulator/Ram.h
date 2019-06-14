@@ -30,5 +30,5 @@ private:
         m_data[MemoryMap::Ram.MapAddress(address)] = value;
     }
 
-    std::array<uint8_t, 1024> m_data;
+    std::array<uint8_t, 1024> m_data{};
 };

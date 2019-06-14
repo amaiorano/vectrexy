@@ -131,7 +131,7 @@ GLuint GLUtil::LoadShaders(const char* vertShaderCode, const char* fragShaderCod
     auto CheckCompileStatus = [](GLuint id, GLenum pname) {
         assert(pname == GL_COMPILE_STATUS);
         GLint result = GL_FALSE;
-        int infoLogLength{};
+        GLint infoLogLength{};
         glGetShaderiv(id, pname, &result);
         glGetShaderiv(id, GL_INFO_LOG_LENGTH, &infoLogLength);
         if (infoLogLength > 0) {

@@ -31,6 +31,6 @@ public:
 
 private:
     cycles_t m_cyclesLeft{};
-    T m_nextValue;
-    T m_value;
+    T m_nextValue{};
+    T m_value{};
 };
