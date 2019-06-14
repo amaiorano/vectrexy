@@ -59,17 +59,24 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 			target_compile_options(${MODULE_NAME} PUBLIC "$<$<CONFIG:RelWithDebInfo>:/MT>")
 		endif()
 elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-	target_compile_definitions(${MODULE_NAME} PUBLIC
-		_CRT_SECURE_NO_WARNINGS # For clang-cl on Windows
-		_SCL_SECURE_NO_WARNINGS # For clang-cl on Windows
-	)
+	if ("x${CMAKE_CXX_SIMULATE_ID}" STREQUAL "xMSVC") # clang-cl
+		target_compile_definitions(${MODULE_NAME} PUBLIC
+			_CRT_SECURE_NO_WARNINGS
+			_SCL_SECURE_NO_WARNINGS
+		)
+	else() # clang
+		target_link_libraries(${MODULE_NAME} PUBLIC
+			stdc++fs # required for filesystem
+		)
+	endif()
+
 	target_compile_options(${MODULE_NAME} PUBLIC
 		-Wno-deprecated-declarations
 		-Wno-format-security
 		-Wno-nonportable-include-path
 		-Wno-pragma-pack
 		-Wno-unused-function
-		-Wno-unused-const-variable		
+		-Wno-unused-const-variable
 	)
 elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 	target_compile_options(${MODULE_NAME} PUBLIC

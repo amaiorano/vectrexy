@@ -16,6 +16,10 @@ namespace ErrorHandler {
     void SetPolicy(Policy policy);
     void Reset();
 
+    namespace Internal {
+        void DoHandleError(const char* messagePrefix, const char* message);
+    } // namespace Internal
+
     template <typename... Args>
     void Undefined(const char* format, Args... args) {
         Internal::DoHandleError("[Undefined] ",
@@ -27,9 +31,5 @@ namespace ErrorHandler {
         Internal::DoHandleError("[Unsupported] ",
                                 FormattedString<>(format, std::forward<Args>(args)...));
     }
-
-    namespace Internal {
-        void DoHandleError(const char* messagePrefix, const char* message);
-    } // namespace Internal
 
 } // namespace ErrorHandler
