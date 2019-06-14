@@ -17,4 +17,5 @@ target_link_libraries(${MODULE_NAME}
 		debugger
 		engine
 		$<$<BOOL:${USE_SDL_ENGINE}>:sdl_engine>
+		$<$<BOOL:${USE_NULL_ENGINE}>:null_engine>
 )
