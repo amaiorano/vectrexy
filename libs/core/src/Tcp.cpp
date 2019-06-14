@@ -1,6 +1,36 @@
 #include "core/Tcp.h"
 
-#if defined(PLATFORM_SDL)
+#if defined(ENGINE_NULL)
+
+class TcpServerImpl {};
+TcpServer::TcpServer() = default;
+TcpServer::~TcpServer() = default;
+void TcpServer::Open(uint16_t /*port*/) {}
+void TcpServer::Close() {}
+bool TcpServer::TryAccept() {
+    return false;
+}
+int TcpServer::Send(const void* /*data*/, int /*len*/) {
+    return 0;
+}
+int TcpServer::Receive(void* /*data*/, int /*maxlen*/) {
+    return 0;
+    ;
+}
+
+class TcpClientImpl {};
+TcpClient::TcpClient() = default;
+TcpClient::~TcpClient() = default;
+void TcpClient::Open(const char* /*ipAddress*/, uint16_t /*port*/) {}
+void TcpClient::Close() {}
+int TcpClient::Send(const void* /*data*/, int /*len*/) {
+    return 0;
+}
+int TcpClient::Receive(void* /*data*/, int /*maxlen*/) {
+    return 0;
+}
+
+#elif defined(ENGINE_SDL)
 
 #include <SDL_net.h>
 
@@ -115,36 +145,6 @@ int TcpClient::Send(const void* data, int len) {
 
 int TcpClient::Receive(void* data, int maxlen) {
     return m_impl->Receive(data, maxlen);
-}
-
-#elif defined(PLATFORM_NULL)
-
-class TcpServerImpl {};
-TcpServer::TcpServer() = default;
-TcpServer::~TcpServer() = default;
-void TcpServer::Open(uint16_t /*port*/) {}
-void TcpServer::Close() {}
-bool TcpServer::TryAccept() {
-    return false;
-}
-int TcpServer::Send(const void* /*data*/, int /*len*/) {
-    return 0;
-}
-int TcpServer::Receive(void* /*data*/, int /*maxlen*/) {
-    return 0;
-    ;
-}
-
-class TcpClientImpl {};
-TcpClient::TcpClient() = default;
-TcpClient::~TcpClient() = default;
-void TcpClient::Open(const char* /*ipAddress*/, uint16_t /*port*/) {}
-void TcpClient::Close() {}
-int TcpClient::Send(const void* /*data*/, int /*len*/) {
-    return 0;
-}
-int TcpClient::Receive(void* /*data*/, int /*maxlen*/) {
-    return 0;
 }
 
 #else

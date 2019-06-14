@@ -7,12 +7,12 @@
 #include "engine/Paths.h"
 #include <memory>
 
-#if defined(PLATFORM_SDL)
-#include "sdl_engine/SDLEngine.h"
-using Engine = SDLEngine;
-#elif defined(PLATFORM_NULL)
+#if defined(ENGINE_NULL)
 #include "null_engine/NullEngine.h"
 using Engine = NullEngine;
+#elif defined(ENGINE_SDL)
+#include "sdl_engine/SDLEngine.h"
+using Engine = SDLEngine;
 #else
 #error Define Engine type for this platform
 #endif

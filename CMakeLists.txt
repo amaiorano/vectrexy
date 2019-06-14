@@ -6,19 +6,29 @@ project(vectrexy
 	# HOMEPAGE_URL https://github.com/amaiorano/vectrexy
 )
 
-if (UNIX AND NOT APPLE)
-	set(LINUX true)
-endif()
-
 option(BUILD_SHARED_LIBS "Build libs as shared libraries." OFF)
-option(USE_SDL_ENGINE "Use the SDL engine." ON)
-option(USE_NULL_ENGINE "Use the NULL engine." OFF)
 option(DEBUG_UI "Enable the debug UI." ON)
+
+set(ENGINE_TYPE sdl CACHE STRING "Engine Type")
+set_property(CACHE ENGINE_TYPE PROPERTY STRINGS sdl null)
+
+string(TOLOWER ${ENGINE_TYPE} ENGINE_TYPE)
+if(ENGINE_TYPE STREQUAL null)
+	set(USE_NULL_ENGINE On)
+elseif(ENGINE_TYPE STREQUAL sdl)
+	set(USE_SDL_ENGINE On)
+else()
+	message(FATAL_ERROR "Unknown engine type")
+endif()
 
 if(NOT BUILD_SHARED_LIBS)
   set(BUILD_STATIC_LIBS ON)
 else()
 	set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+endif()
+
+if (UNIX AND NOT APPLE)
+	set(LINUX true)
 endif()
 
 # Force exes/libs to output in the build/ folder, rather than have each output
@@ -36,11 +46,10 @@ set(CMAKE_MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
 # Set module path to local cmake folder so find_package looks there first
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
-if(USE_SDL_ENGINE)
-	add_definitions(-DPLATFORM_SDL)
-endif()
 if(USE_NULL_ENGINE)
-	add_definitions(-DPLATFORM_NULL)
+	add_definitions(-DENGINE_NULL)
+elseif(USE_SDL_ENGINE)
+	add_definitions(-DENGINE_SDL)
 endif()
 
 if(DEBUG_UI)
@@ -58,10 +67,10 @@ add_subdirectory(libs/core)
 add_subdirectory(libs/engine)
 add_subdirectory(libs/emulator)
 add_subdirectory(libs/debugger)
-if(USE_SDL_ENGINE)
-	add_subdirectory(libs/sdl_engine)
-endif()
 if(USE_NULL_ENGINE)
 	add_subdirectory(libs/null_engine)
+endif()
+if(USE_SDL_ENGINE)
+	add_subdirectory(libs/sdl_engine)
 endif()
 add_subdirectory(libs/vectrexy)
