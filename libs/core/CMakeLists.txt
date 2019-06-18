@@ -13,7 +13,7 @@ if(DEBUG_UI)
 	find_package(imgui CONFIG REQUIRED)
 endif()
 find_package(STB MODULE REQUIRED)
-if (LINUX)
+if(LINUX)
 	find_package(GTK2 2.4 REQUIRED)
 	target_include_directories(${MODULE_NAME} PRIVATE ${GTK2_INCLUDE_DIRS})
 	target_link_libraries(${MODULE_NAME} PRIVATE ${GTK2_LIBRARIES})
@@ -42,7 +42,7 @@ target_link_libraries(${MODULE_NAME}
 target_compile_features(${MODULE_NAME} PUBLIC cxx_std_17)
 set_target_properties(${MODULE_NAME} PROPERTIES CXX_EXTENSIONS OFF)
 
-if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 	target_compile_definitions(${MODULE_NAME} PUBLIC
 		_CRT_SECURE_NO_WARNINGS
 		_SCL_SECURE_NO_WARNINGS
@@ -52,14 +52,14 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 		# issues with allocations in one DLL trying to be freed in another. But when building
 		# statically, force using the static CRT so we don't have to worry about user having
 		# the right CRT installed.
-		if (NOT BUILD_SHARED_LIBS)
+		if(NOT BUILD_SHARED_LIBS)
 			target_compile_options(${MODULE_NAME} PUBLIC "$<$<CONFIG:Debug>:/MTd>")
 			target_compile_options(${MODULE_NAME} PUBLIC "$<$<CONFIG:Release>:/MT>")
 			target_compile_options(${MODULE_NAME} PUBLIC "$<$<CONFIG:MinSizeRel>:/MT>")
 			target_compile_options(${MODULE_NAME} PUBLIC "$<$<CONFIG:RelWithDebInfo>:/MT>")
 		endif()
-elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-	if ("x${CMAKE_CXX_SIMULATE_ID}" STREQUAL "xMSVC") # clang-cl
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+	if("x${CMAKE_CXX_SIMULATE_ID}" STREQUAL "xMSVC") # clang-cl
 		target_compile_definitions(${MODULE_NAME} PUBLIC
 			_CRT_SECURE_NO_WARNINGS
 			_SCL_SECURE_NO_WARNINGS
@@ -78,7 +78,7 @@ elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 		-Wno-unused-function
 		-Wno-unused-const-variable
 	)
-elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 	target_compile_options(${MODULE_NAME} PUBLIC
 		-Wno-format-security
 	)
