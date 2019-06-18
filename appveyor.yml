@@ -14,15 +14,43 @@ clone_script:
 environment:
   APPVEYOR_SAVE_CACHE_ON_ERROR: true
   matrix:
-    - platform: x64
+    - JOB_NAME: Deployed x64 build
+      platform: x64
       VCPKG_TRIPLET: x64-windows-static
       VS_CONFIG: Visual Studio 15 2017 Win64
       PACKAGE_SUFFIX: win64
+      DEPLOY_VECTREXY: true
 
-    - platform: Win32
+    - JOB_NAME: Deployed Win32 build
+      platform: Win32
       VCPKG_TRIPLET: x86-windows-static
       VS_CONFIG: Visual Studio 15 2017
       PACKAGE_SUFFIX: win32
+      DEPLOY_VECTREXY: true
+
+    - JOB_NAME: Test shared lib build
+      platform: x64
+      VCPKG_TRIPLET: x64-windows-static
+      VS_CONFIG: Visual Studio 15 2017 Win64
+      PACKAGE_SUFFIX: win64
+      DEPLOY_VECTREXY: false
+      CMAKE_EXTRA_ARGS: -DBUILD_SHARED_LIBS=On
+
+    - JOB_NAME: Test no debug UI build
+      platform: x64
+      VCPKG_TRIPLET: x64-windows-static
+      VS_CONFIG: Visual Studio 15 2017 Win64
+      PACKAGE_SUFFIX: win64
+      DEPLOY_VECTREXY: false
+      CMAKE_EXTRA_ARGS: -DDEBUG_UI=Off
+
+    - JOB_NAME: Test null engine build
+      platform: x64
+      VCPKG_TRIPLET: x64-windows-static
+      VS_CONFIG: Visual Studio 15 2017 Win64
+      PACKAGE_SUFFIX: win64
+      DEPLOY_VECTREXY: false
+      CMAKE_EXTRA_ARGS: -DENGINE_TYPE=null
 
 cache:
 - c:\Tools\vcpkg\installed -> appveyor.yml
@@ -43,7 +71,7 @@ install:
     echo Generating vectrexy sln    
     cd /d c:\projects\vectrexy
     mkdir build && cd build
-    cmake -G "%VS_CONFIG%" -DCMAKE_TOOLCHAIN_FILE=C:/Tools/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=%VCPKG_TRIPLET% ..
+    cmake -G "%VS_CONFIG%" -DCMAKE_TOOLCHAIN_FILE=C:/Tools/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=%VCPKG_TRIPLET% %CMAKE_EXTRA_ARGS% ..
     cd ..
 
 build:
@@ -67,23 +95,17 @@ notifications:
   on_build_failure: true
   on_build_status_changed: true
 
-deploy: off
-
-for:
-
-# Deploy only for master branch
--
-  branches:
-    only:
-    - master
-  deploy:
-    provider: BinTray
-    username: amaiorano
-    api_key:
-      secure: LGZhbsWdgk6ULlpMIZwrPJH90cd/ER9CohXLNTA/arn8dXbUK/NFlM/C1UmmRxrG
-    subject: amaiorano
-    repo: vectrexy
-    package: dev_builds
-    version: latest
-    publish: true
-    override: true
+deploy:
+- provider: BinTray
+  on:
+    branch: master
+    DEPLOY_VECTREXY: true
+  username: amaiorano
+  api_key:
+    secure: LGZhbsWdgk6ULlpMIZwrPJH90cd/ER9CohXLNTA/arn8dXbUK/NFlM/C1UmmRxrG
+  subject: amaiorano
+  repo: vectrexy
+  package: dev_builds
+  version: latest
+  publish: true
+  override: true
