@@ -137,9 +137,9 @@ GLuint GLUtil::LoadShaders(const char* vertShaderCode, const char* fragShaderCod
         if (infoLogLength > 0) {
             std::vector<char> info(infoLogLength + 1);
             if (pname == GL_COMPILE_STATUS)
-                glGetShaderInfoLog(id, infoLogLength, NULL, info.data());
+                glGetShaderInfoLog(id, infoLogLength, nullptr, info.data());
             else
-                glGetProgramInfoLog(id, infoLogLength, NULL, info.data());
+                glGetProgramInfoLog(id, infoLogLength, nullptr, info.data());
             Errorf("%s", info.data());
         }
         return true;
@@ -148,7 +148,7 @@ GLuint GLUtil::LoadShaders(const char* vertShaderCode, const char* fragShaderCod
     auto CompileShader = [CheckCompileStatus](GLuint shaderId, const char* shaderCode) {
         // Printf("Compiling shader : %s\n", shaderFile);
         auto sourcePtr = shaderCode;
-        glShaderSource(shaderId, 1, &sourcePtr, NULL);
+        glShaderSource(shaderId, 1, &sourcePtr, nullptr);
         glCompileShader(shaderId);
         return CheckCompileStatus(shaderId, GL_COMPILE_STATUS);
     };

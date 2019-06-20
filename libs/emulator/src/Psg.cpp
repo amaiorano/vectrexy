@@ -557,23 +557,23 @@ void PsgImpl::FrameUpdate(double frameTime) {
 
             IMGUI_CALL(Debug, ImGui::PlotLines(ImGuiLoopLabel("Channel History", i),
                                                channelHistory.Values().data(),
-                                               (int)channelHistory.Values().size(), 0, 0, -1.f, 1.f,
-                                               ImVec2(0, 100.f)));
+                                               (int)channelHistory.Values().size(), 0, nullptr,
+                                               -1.f, 1.f, ImVec2(0, 100.f)));
 
             IMGUI_CALL(Debug, ImGui::PlotLines(ImGuiLoopLabel("Tone History", i),
                                                toneHistory.Values().data(),
-                                               (int)toneHistory.Values().size(), 0, 0, 0.f, 1.f,
-                                               ImVec2(0, 100.f)));
+                                               (int)toneHistory.Values().size(), 0, nullptr, 0.f,
+                                               1.f, ImVec2(0, 100.f)));
 
             IMGUI_CALL(Debug, ImGui::PlotLines(ImGuiLoopLabel("Noise History", i),
                                                noiseHistory.Values().data(),
-                                               (int)toneHistory.Values().size(), 0, 0, 0.f, 1.f,
-                                               ImVec2(0, 100.f)));
+                                               (int)toneHistory.Values().size(), 0, nullptr, 0.f,
+                                               1.f, ImVec2(0, 100.f)));
 
             IMGUI_CALL(Debug, ImGui::PlotLines(ImGuiLoopLabel("Volume History", i),
                                                volumeHistory.Values().data(),
-                                               (int)volumeHistory.Values().size(), 0, 0, 0.f, 1.f,
-                                               ImVec2(0, 100.f)));
+                                               (int)volumeHistory.Values().size(), 0, nullptr, 0.f,
+                                               1.f, ImVec2(0, 100.f)));
         }
 
         IMGUI_CALL(Debug, ImGui::Text("General"));
@@ -583,8 +583,8 @@ void PsgImpl::FrameUpdate(double frameTime) {
         }
 
         IMGUI_CALL(Debug, ImGui::PlotLines("Envelope", envelopeHistory.Values().data(),
-                                           (int)envelopeHistory.Values().size(), 0, 0, 0.f, 15.f,
-                                           ImVec2(0, 100.f)));
+                                           (int)envelopeHistory.Values().size(), 0, nullptr, 0.f,
+                                           15.f, ImVec2(0, 100.f)));
     }
 }
 

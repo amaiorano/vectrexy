@@ -49,8 +49,8 @@ namespace {
     }
 
     Viewport GetBestFitViewport(float targetAR, int windowWidth, int windowHeight) {
-        float windowWidthF = static_cast<float>(windowWidth);
-        float windowHeightF = static_cast<float>(windowHeight);
+        auto windowWidthF = static_cast<float>(windowWidth);
+        auto windowHeightF = static_cast<float>(windowHeight);
         float windowAR = windowWidthF / windowHeightF;
 
         bool fitToWindowHeight = targetAR <= windowAR;

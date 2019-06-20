@@ -243,7 +243,7 @@ uint8_t Via::Read(uint16_t address) const {
         uint8_t result = m_portB;
 
         // Set comparator bit to port A (DAC) value < joystick POT value
-        int8_t portASigned = static_cast<int8_t>(m_portA);
+        auto portASigned = static_cast<int8_t>(m_portA);
         SetBits(result, PortB::Comparator, portASigned < m_joystickPot);
 
         SetBits(result, PortB::SoundBC1, m_psg.BC1());

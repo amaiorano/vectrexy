@@ -40,7 +40,7 @@ public:
 
     void Open(uint16_t port) {
         m_port = port;
-        if (SDLNet_ResolveHost(&m_ip, NULL, port) == -1)
+        if (SDLNet_ResolveHost(&m_ip, nullptr, port) == -1)
             FAIL();
         m_server = SDLNet_TCP_Open(&m_ip);
         if (!m_server)

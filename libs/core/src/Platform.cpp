@@ -24,11 +24,11 @@ namespace {
 namespace Platform {
     void SetFocus(WindowHandle windowHandle) {
         // Global mutex to avoid deadlock when multiple instances attempt to attach thread input
-        auto mutex = ::CreateMutex(NULL, FALSE, "Global\\VectrexySetFocusMutex");
+        auto mutex = ::CreateMutex(nullptr, FALSE, "Global\\VectrexySetFocusMutex");
         ::WaitForSingleObject(mutex, INFINITE);
 
         HWND hwnd = std::any_cast<HWND>(windowHandle);
-        auto foreThread = GetWindowThreadProcessId(GetForegroundWindow(), 0);
+        auto foreThread = GetWindowThreadProcessId(GetForegroundWindow(), nullptr);
         auto appThread = GetCurrentThreadId();
         if (foreThread != appThread) {
             if (AttachThreadInput(foreThread, appThread, true))
@@ -97,7 +97,7 @@ namespace Platform {
     }
 
     bool ExecuteShellCommand(const char* command) {
-        ::ShellExecute(NULL, "open", command, NULL, NULL, SW_SHOWNORMAL);
+        ::ShellExecute(nullptr, "open", command, nullptr, nullptr, SW_SHOWNORMAL);
         return true;
     }
 } // namespace Platform

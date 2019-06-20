@@ -37,7 +37,7 @@ namespace {
     inline int WindowWidthFromHeight(int height) { return static_cast<int>(height * 3.0f / 4.0f); }
 
     IEngineClient* g_client = nullptr;
-    SDL_Window* g_window = NULL;
+    SDL_Window* g_window = nullptr;
     SDL_GLContext g_glContext;
     GLRender g_glRender;
     SDLAudioDriver g_audioDriver;
@@ -211,7 +211,7 @@ namespace {
         }
 
         for (auto& p : g_playerIndexToGamepad) {
-            uint8_t joystickIndex = static_cast<uint8_t>(p.first);
+            auto joystickIndex = static_cast<uint8_t>(p.first);
             auto& gamepad = p.second;
 
             input.SetButton(joystickIndex, 0, gamepad.GetButtonState(SDL_CONTROLLER_BUTTON_X).down);
@@ -441,7 +441,7 @@ bool SDLEngine::Run(int argc, char** argv) {
 
     g_window = SDL_CreateWindow(windowTitle.c_str(), windowX, windowY, windowWidth, windowHeight,
                                 windowCreateFlags);
-    if (g_window == NULL) {
+    if (g_window == nullptr) {
         std::cout << "Cannot create window with error " << SDL_GetError() << std::endl;
         return false;
     }
@@ -449,7 +449,7 @@ bool SDLEngine::Run(int argc, char** argv) {
     const bool enableGLDebugging = g_options.Get<bool>("enableGLDebugging");
 
     g_glContext = CreateGLContext(g_window, enableGLDebugging);
-    if (g_glContext == NULL) {
+    if (g_glContext == nullptr) {
         std::cout << "Cannot create OpenGL context with error " << SDL_GetError() << std::endl;
         return false;
     }

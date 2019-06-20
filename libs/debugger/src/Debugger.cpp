@@ -149,22 +149,22 @@ namespace {
         auto value = instruction.GetOperand(0);
         std::vector<std::string> registers;
         if (value & BITS(0))
-            registers.push_back("CC");
+            registers.emplace_back("CC");
         if (value & BITS(1))
-            registers.push_back("A");
+            registers.emplace_back("A");
         if (value & BITS(2))
-            registers.push_back("B");
+            registers.emplace_back("B");
         if (value & BITS(3))
-            registers.push_back("DP");
+            registers.emplace_back("DP");
         if (value & BITS(4))
-            registers.push_back("X");
+            registers.emplace_back("X");
         if (value & BITS(5))
-            registers.push_back("Y");
+            registers.emplace_back("Y");
         if (value & BITS(6)) {
-            registers.push_back(cpuOp->opCode < 0x36 ? "U" : "S");
+            registers.emplace_back(cpuOp->opCode < 0x36 ? "U" : "S");
         }
         if (value & BITS(7))
-            registers.push_back("PC");
+            registers.emplace_back("PC");
 
         disasmInstruction =
             FormattedString<>("%s %s", cpuOp->name, StringUtil::Join(registers, ",").c_str());
@@ -442,7 +442,7 @@ namespace {
             if (!symbolTable.empty()) {
                 auto AppendSymbol = [&symbolTable](const std::smatch& m) -> std::string {
                     std::string result = m.str(0);
-                    uint16_t address = StringToIntegral<uint16_t>(m.str(0));
+                    auto address = StringToIntegral<uint16_t>(m.str(0));
 
                     auto range = symbolTable.equal_range(address);
                     if (range.first != range.second) {
@@ -570,10 +570,10 @@ namespace {
         Platform::SetConsoleColoringEnabled(enabled);
         if (enabled) {
             // For colored trace, we must disable buffering for it to work (slow)
-            setvbuf(stdout, NULL, _IONBF, 0);
+            setvbuf(stdout, nullptr, _IONBF, 0);
         } else {
             // With color disabled, we can now buffer output in large chunks
-            setvbuf(stdout, NULL, _IOFBF, 100 * 1024);
+            setvbuf(stdout, nullptr, _IOFBF, 100 * 1024);
         }
     }
 } // namespace
@@ -774,7 +774,7 @@ bool Debugger::FrameUpdate(double frameTime, const EmuEvents& emuEvents, const I
 
         } else if (tokens[0] == "until" || tokens[0] == "u") {
             if (tokens.size() > 1) {
-                uint16_t address = StringToIntegral<uint16_t>(tokens[1]);
+                auto address = StringToIntegral<uint16_t>(tokens[1]);
                 auto bp = m_breakpoints.Add(Breakpoint::Type::Instruction, address);
                 bp->autoDelete = true;
                 ResumeFromDebugger();
@@ -785,7 +785,7 @@ bool Debugger::FrameUpdate(double frameTime, const EmuEvents& emuEvents, const I
         } else if (tokens[0] == "break" || tokens[0] == "b") {
             validCommand = false;
             if (tokens.size() > 1) {
-                uint16_t address = StringToIntegral<uint16_t>(tokens[1]);
+                auto address = StringToIntegral<uint16_t>(tokens[1]);
                 if (auto bp = m_breakpoints.Add(Breakpoint::Type::Instruction, address)) {
                     Printf("Added breakpoint at $%04x\n", address);
                     validCommand = true;
@@ -795,7 +795,7 @@ bool Debugger::FrameUpdate(double frameTime, const EmuEvents& emuEvents, const I
         } else if (tokens[0] == "watch" || tokens[0] == "rwatch" || tokens[0] == "awatch") {
             validCommand = false;
             if (tokens.size() > 1) {
-                uint16_t address = StringToIntegral<uint16_t>(tokens[1]);
+                auto address = StringToIntegral<uint16_t>(tokens[1]);
 
                 auto type = tokens[0][0] == 'w' ? Breakpoint::Type::Write
                                                 : tokens[0][0] == 'r' ? Breakpoint::Type::Read
@@ -866,7 +866,7 @@ bool Debugger::FrameUpdate(double frameTime, const EmuEvents& emuEvents, const I
 
         } else if (tokens[0] == "print" || tokens[0] == "p") {
             if (tokens.size() > 1) {
-                uint16_t address = StringToIntegral<uint16_t>(tokens[1]);
+                auto address = StringToIntegral<uint16_t>(tokens[1]);
                 uint8_t value = m_memoryBus->Read(address);
                 Printf("$%04x = $%02x (%d)\n", address, value, value);
             } else {

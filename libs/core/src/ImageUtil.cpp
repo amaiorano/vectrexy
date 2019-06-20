@@ -1,7 +1,7 @@
 #include "core/ImageUtil.h"
 #include "core/Base.h"
-#include <stdlib.h>
-#include <string.h>
+#include <cstdlib>
+#include <cstring>
 
 MSC_PUSH_WARNING_DISABLE(4100  // unreferenced formal parameter
                          4505) // unreferenced local function has been removed

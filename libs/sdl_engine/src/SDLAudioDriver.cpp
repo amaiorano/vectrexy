@@ -21,7 +21,7 @@ namespace {
 
     template <>
     struct AudioFormat<AUDIO_S16> {
-        typedef int16_t Type;
+        using Type = int16_t;
         static Type Remap(float ratio) {
             return static_cast<Type>(ratio * (std::numeric_limits<Type>::max() - 1));
         }
@@ -29,7 +29,7 @@ namespace {
 
     template <>
     struct AudioFormat<AUDIO_U16> {
-        typedef uint16_t Type;
+        using Type = uint16_t;
         static Type Remap(float ratio) {
             return static_cast<Type>(((ratio + 1.f) / 2.f) * std::numeric_limits<Type>::max());
         }
@@ -37,7 +37,7 @@ namespace {
 
     template <>
     struct AudioFormat<AUDIO_F32> {
-        typedef float Type;
+        using Type = float;
         static Type Remap(float ratio) { return ratio; }
     };
 } // namespace
@@ -54,8 +54,7 @@ public:
     using CurrAudioFormat = AudioFormat<kSampleFormat>;
     using SampleFormatType = CurrAudioFormat::Type;
 
-    SDLAudioDriverImpl()
-        : m_audioDeviceID(0) {}
+    SDLAudioDriverImpl() {}
 
     ~SDLAudioDriverImpl() { Shutdown(); }
 
@@ -75,7 +74,7 @@ public:
         // No changes allowed, meaning SDL will take care of converting our samples in our desired
         // format to the actual target format.
         int allowedChanges = 0;
-        m_audioDeviceID = SDL_OpenAudioDevice(NULL, 0, &desired, &actual, allowedChanges);
+        m_audioDeviceID = SDL_OpenAudioDevice(nullptr, 0, &desired, &actual, allowedChanges);
         m_audioSpec = desired;
 
         if (m_audioDeviceID == 0)
@@ -84,7 +83,7 @@ public:
         // Set buffer size as a function of the latency we allow
         const float kDesiredLatencySecs = 50 / 1000.0f;
         const float desiredLatencySamples = kDesiredLatencySecs * GetSampleRate();
-        const size_t bufferSize = static_cast<size_t>(
+        const auto bufferSize = static_cast<size_t>(
             desiredLatencySamples * 2); // We wait until buffer is 50% full to start playing
         m_samples.Init(bufferSize);
 
@@ -122,12 +121,12 @@ public:
             }
 
             IMGUI_CALL(Debug, ImGui::PlotLines("Buffer Usage", bufferUsageHistory.data(),
-                                               (int)bufferUsageHistory.size(), 0, 0, 0.f, 1.f,
+                                               (int)bufferUsageHistory.size(), 0, nullptr, 0.f, 1.f,
                                                ImVec2(0, 100.f)));
 
             IMGUI_CALL(Debug,
                        ImGui::PlotLines("Unpaused", pauseHistory.data(), (int)pauseHistory.size(),
-                                        0, 0, 0.f, 1.f, ImVec2(0, 100.f)));
+                                        0, nullptr, 0.f, 1.f, ImVec2(0, 100.f)));
 
             IMGUI_CALL(Debug, ImGui::PushStyleColor(ImGuiCol_PlotHistogram,
                                                     m_paused ? IM_COL32(255, 0, 0, 255)
@@ -207,7 +206,7 @@ private:
         }
     }
 
-    SDL_AudioDeviceID m_audioDeviceID;
+    SDL_AudioDeviceID m_audioDeviceID{0};
     SDL_AudioSpec m_audioSpec;
     CircularBuffer<SampleFormatType> m_samples;
     FileStream m_rawAudioOutputFS;
