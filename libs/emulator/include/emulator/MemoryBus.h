@@ -93,7 +93,12 @@ private:
         }
 
         ErrorHandler::Undefined("Unmapped address: $%02x\n", address);
-        static DeviceInfo nullDeviceInfo{};
+
+        static struct NullMemoryBusDevice : IMemoryBusDevice {
+            uint8_t Read(uint16_t) const override { return 0; };
+            void Write(uint16_t, uint8_t) override{};
+        } nullMemoryBusDevice;
+        static DeviceInfo nullDeviceInfo{&nullMemoryBusDevice};
         return nullDeviceInfo;
     }
 

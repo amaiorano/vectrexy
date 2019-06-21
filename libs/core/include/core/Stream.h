@@ -49,7 +49,7 @@ protected:
 };
 
 // Streams to/from file on disk
-class FileStream : public IStream {
+class FileStream final : public IStream {
 public:
     FileStream()
         : m_file(nullptr) {}
@@ -60,7 +60,7 @@ public:
             FAIL_MSG("Failed to open file: %s", name);
     }
 
-    virtual ~FileStream() { CloseImpl(); }
+    ~FileStream() override { CloseImpl(); }
 
     bool Open(const char* name, const char* mode) {
         Close();
@@ -100,8 +100,10 @@ private:
 };
 
 // Streams to/from a fixed-size block of memory
-class MemoryStream : public IStream {
+class MemoryStream final : public IStream {
 public:
+    ~MemoryStream() override { CloseImpl(); }
+
     void Open(uint8_t* buffer, size_t size) {
         m_buffer = buffer;
         m_curr = m_buffer;
@@ -151,10 +153,12 @@ private:
 };
 
 // Stream that counts the number of bytes that would be written
-class ByteCounterStream : public IStream {
+class ByteCounterStream final : public IStream {
 public:
     ByteCounterStream()
         : m_size(0) {}
+
+    ~ByteCounterStream() override { CloseImpl(); }
 
     size_t GetStreamSize() const { return m_size; }
 

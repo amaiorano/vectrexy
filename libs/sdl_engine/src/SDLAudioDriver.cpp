@@ -54,8 +54,6 @@ public:
     using CurrAudioFormat = AudioFormat<kSampleFormat>;
     using SampleFormatType = CurrAudioFormat::Type;
 
-    SDLAudioDriverImpl() {}
-
     ~SDLAudioDriverImpl() { Shutdown(); }
 
     void Initialize() {

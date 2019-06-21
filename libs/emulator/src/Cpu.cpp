@@ -876,7 +876,7 @@ public:
         Push8(S, CC.Value);
     }
 
-    void PopCCState(bool poppedEntire) {
+    void PopCCState(bool& poppedEntire) {
         CC.Value = Pop8(S);
         poppedEntire = CC.Entire != 0;
         if (CC.Entire) {
