@@ -87,7 +87,7 @@ namespace GLUtil {
         GLResource& operator=(const GLResource&) = delete;
 
         // Enable move
-        GLResource(GLResource&& rhs)
+        GLResource(GLResource&& rhs) noexcept
             : m_id(rhs.m_id)
             , m_deleteFunc(rhs.m_deleteFunc) {
             rhs.m_id = INVALID_RESOURCE_ID;

@@ -67,7 +67,7 @@ namespace {
             }
 
             // Remove extension, e.g. ".png"
-            index = s.rfind(".");
+            index = s.rfind('.');
             if (index != std::string::npos) {
                 sub = sub.substr(0, index);
             }
