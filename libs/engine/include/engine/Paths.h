@@ -3,15 +3,15 @@
 #include "core/FileSystem.h"
 
 namespace Paths {
-    inline fs::path dataDir = "data";
+    inline const fs::path dataDir = "data";
 
-    inline fs::path overlaysDir = dataDir / "overlays";
-    inline fs::path romsDir = dataDir / "roms";
-    inline fs::path userDir = dataDir / "user";
-    inline fs::path biosDir = dataDir / "bios";
-    inline fs::path devDir = dataDir / "dev";
+    inline const fs::path overlaysDir = dataDir / "overlays";
+    inline const fs::path romsDir = dataDir / "roms";
+    inline const fs::path userDir = dataDir / "user";
+    inline const fs::path biosDir = dataDir / "bios";
+    inline const fs::path devDir = dataDir / "dev";
 
-    inline fs::path biosRomFile = biosDir / "bios_rom.bin";
-    inline fs::path optionsFile = userDir / "options.txt";
-    inline fs::path imguiIniFile = userDir / "imgui.ini";
+    inline const fs::path biosRomFile = biosDir / "bios_rom.bin";
+    inline const fs::path optionsFile = userDir / "options.txt";
+    inline const fs::path imguiIniFile = userDir / "imgui.ini";
 } // namespace Paths
