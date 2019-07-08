@@ -7,6 +7,7 @@
 #include "SDLKeyboard.h"
 #include "core/ConsoleOutput.h"
 #include "core/FileSystem.h"
+#include "core/FrameTimer.h"
 #include "core/Gui.h"
 #include "core/Platform.h"
 #include "core/StringUtil.h"
@@ -17,10 +18,8 @@
 #include <SDL.h>
 #include <SDL_net.h>
 #include <algorithm>
-#include <chrono>
 #include <fstream>
 #include <iostream>
-#include <unordered_map>
 
 // Include SDL_syswm.h for SDL_GetWindowWMInfo
 // This includes windows.h on Windows platforms, we have to do the usual dance of disabling certain
@@ -51,12 +50,7 @@ namespace {
     }
     bool g_paused[PauseSource::Size]{};
     bool g_turbo = false;
-    double g_fps{};
-
-    template <typename T>
-    constexpr T MsToSec(T ms) {
-        return static_cast<T>(ms / 1000.0);
-    }
+    FrameTimer g_frameTimer;
 
     bool FindAndSetRootPath(fs::path exePath) {
         // Look for bios file in current directory and up parent dirs
@@ -535,25 +529,8 @@ void SDLEngine::PollEvents(bool& quit) {
 }
 
 double SDLEngine::UpdateFrameTime() {
-    static auto lastTime = std::chrono::high_resolution_clock::now();
-    const auto currTime = std::chrono::high_resolution_clock::now();
-    const std::chrono::duration<double> diff = currTime - lastTime;
-    const double realFrameTime = diff.count();
-    lastTime = currTime;
-
-    // FPS
-    static double frames = 0;
-    static double elapsedTime = 0;
-    frames += 1;
-    elapsedTime += realFrameTime;
-    if (elapsedTime >= 1) {
-        g_fps = frames / elapsedTime;
-        frames = 0;
-        elapsedTime = 0;
-    }
-
-    // Clamp
-    double frameTime = std::min(realFrameTime, MsToSec(100.0));
+    g_frameTimer.FrameUpdate();
+    double frameTime = g_frameTimer.GetFrameTime();
 
     // Reset to 0 if paused
     if (IsPaused())
@@ -630,8 +607,9 @@ void SDLEngine::UpdateMenu(bool& quit, EmuEvents& emuEvents) {
             ImGui::SameLine(ImGui::GetWindowContentRegionMax().x - ImGui::CalcTextSize(text).x);
             ImGui::LabelText("", text);
         };
-        RightAlignLabelText(FormattedString<>("%d FPS (%.3f ms)", static_cast<int>(g_fps + 0.5),
-                                              g_fps > 0 ? (1000.f / g_fps) : 0.f));
+        const double fps = g_frameTimer.GetFps();
+        RightAlignLabelText(FormattedString<>("%d FPS (%.3f ms)", static_cast<int>(fps + 0.5),
+                                              fps > 0 ? (1000.f / fps) : 0.f));
 
         ImGui::EndMainMenuBar();
 
