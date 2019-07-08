@@ -4,6 +4,7 @@
 #include "GLUtil.h"
 #include "SDLAudioDriver.h"
 #include "SDLGameController.h"
+#include "SDLKeyboard.h"
 #include "core/ConsoleOutput.h"
 #include "core/FileSystem.h"
 #include "core/Gui.h"
@@ -42,6 +43,7 @@ namespace {
     SDL_GLContext g_glContext;
     GLRender g_glRender;
     SDLGameControllerDriver g_controllerDriver;
+    SDLKeyboard g_keyboard;
     SDLAudioDriver g_audioDriver;
     Options g_options;
     namespace PauseSource {
@@ -176,38 +178,6 @@ namespace {
 
         return input;
     }
-
-    class Keyboard {
-    public:
-        struct KeyState {
-            bool down = false;
-            bool pressed = false;
-        };
-
-        void OnKeyStateChange(const SDL_KeyboardEvent& keyboardEvent) {
-            auto& keyState = m_keyStates[keyboardEvent.keysym.scancode];
-            if (keyboardEvent.type == SDL_KEYDOWN) {
-                keyState.pressed = !keyState.down;
-                keyState.down = true;
-            } else {
-                keyState.down = false;
-            }
-        }
-
-        void PostFrameUpdateKeyStates() {
-            for (auto& keyState : m_keyStates) {
-                keyState.pressed = false;
-            }
-        }
-
-        const KeyState& GetKeyState(SDL_Scancode scancode) { return m_keyStates[scancode]; }
-
-        void ResetKeyState(SDL_Scancode scancode) { m_keyStates[scancode] = {}; }
-
-    private:
-        std::array<KeyState, SDL_NUM_SCANCODES> m_keyStates;
-    };
-    Keyboard g_keyboard;
 
     void UpdatePauseState(bool& paused) {
         bool togglePause = false;
