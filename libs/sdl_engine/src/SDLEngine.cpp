@@ -549,7 +549,7 @@ double SDLEngine::UpdateFrameTime() {
     if (elapsedTime >= 1) {
         g_fps = frames / elapsedTime;
         frames = 0;
-        elapsedTime = elapsedTime - 1.0;
+        elapsedTime = 0;
     }
 
     // Clamp
@@ -630,8 +630,8 @@ void SDLEngine::UpdateMenu(bool& quit, EmuEvents& emuEvents) {
             ImGui::SameLine(ImGui::GetWindowContentRegionMax().x - ImGui::CalcTextSize(text).x);
             ImGui::LabelText("", text);
         };
-        RightAlignLabelText(
-            FormattedString<>("%.2f FPS (%.2f ms)", g_fps, g_fps > 0 ? (1000.f / g_fps) : 0.f));
+        RightAlignLabelText(FormattedString<>("%d FPS (%.3f ms)", static_cast<int>(g_fps + 0.5),
+                                              g_fps > 0 ? (1000.f / g_fps) : 0.f));
 
         ImGui::EndMainMenuBar();
 
