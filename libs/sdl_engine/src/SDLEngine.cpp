@@ -3,6 +3,7 @@
 #include "GLRender.h"
 #include "GLUtil.h"
 #include "SDLAudioDriver.h"
+#include "SDLGameController.h"
 #include "core/ConsoleOutput.h"
 #include "core/FileSystem.h"
 #include "core/Gui.h"
@@ -40,6 +41,7 @@ namespace {
     SDL_Window* g_window = nullptr;
     SDL_GLContext g_glContext;
     GLRender g_glRender;
+    SDLGameControllerDriver g_controllerDriver;
     SDLAudioDriver g_audioDriver;
     Options g_options;
     namespace PauseSource {
@@ -102,79 +104,6 @@ namespace {
         return SDL_GL_CreateContext(window);
     }
 
-    struct Gamepad {
-        struct ButtonState {
-            bool down = false;
-            bool pressed = false;
-        };
-
-        void OnButtonStateChange(int buttonIndex, bool down) {
-            auto& state = m_buttonStates[buttonIndex];
-            if (down) {
-                state.pressed = !state.down;
-                state.down = true;
-            } else {
-                state.down = false;
-            }
-        }
-
-        void OnAxisStateChange(int axisIndex, int32_t value) { m_axisValue[axisIndex] = value; }
-
-        void PostFrameUpdateStates() {
-            for (auto& state : m_buttonStates) {
-                state.pressed = false;
-            }
-        }
-
-        const ButtonState& GetButtonState(int buttonIndex) const {
-            return m_buttonStates[buttonIndex];
-        }
-
-        const int32_t& GetAxisValue(int axisValue) const { return m_axisValue[axisValue]; }
-
-    private:
-        std::array<ButtonState, SDL_CONTROLLER_BUTTON_MAX> m_buttonStates;
-        std::array<int32_t, SDL_CONTROLLER_AXIS_MAX> m_axisValue = {0};
-    };
-
-    std::unordered_map<int, Gamepad> g_playerIndexToGamepad;
-    std::unordered_map<int, int> g_instanceIdToPlayerIndex;
-
-    Gamepad& GetGamepadByInstanceId(int instanceId) {
-        assert(g_instanceIdToPlayerIndex.find(instanceId) != g_instanceIdToPlayerIndex.end());
-        int playerIndex = g_instanceIdToPlayerIndex[instanceId];
-        auto iter = g_playerIndexToGamepad.find(playerIndex);
-        assert(iter != g_playerIndexToGamepad.end());
-        return iter->second;
-    }
-
-    void AddController(int index) {
-        if (index >= 2) {
-            Printf("Cannot support more than 2 gamepads\n");
-            return;
-        }
-
-        if (SDL_IsGameController(index)) {
-            SDL_GameController* controller = SDL_GameControllerOpen(index);
-            if (controller) {
-                auto joy = SDL_GameControllerGetJoystick(controller);
-                auto instanceId = SDL_JoystickInstanceID(joy);
-                g_instanceIdToPlayerIndex[instanceId] = index;
-                g_playerIndexToGamepad[index] = {};
-            }
-        }
-    }
-
-    void RemoveController(int instanceId) {
-        auto controller = SDL_GameControllerFromInstanceID(instanceId);
-        SDL_GameControllerClose(controller);
-
-        int index = g_instanceIdToPlayerIndex[instanceId];
-        auto iter = g_playerIndexToGamepad.find(index);
-        assert(iter != g_playerIndexToGamepad.end());
-        g_playerIndexToGamepad.erase(iter);
-    }
-
     Input UpdateInput() {
         Input input;
 
@@ -189,11 +118,8 @@ namespace {
         // Prefer gamepads for both players. If one gamepad, then player 2 uses keyboard. If no
         // gamepads, player 1 uses keyboard and there's no player 2 input.
 
-        const bool playerOneHasGamepad =
-            g_playerIndexToGamepad.find(0) != g_playerIndexToGamepad.end();
-
-        const bool playerTwoHasGamepad =
-            g_playerIndexToGamepad.find(1) != g_playerIndexToGamepad.end();
+        const bool playerOneHasGamepad = g_controllerDriver.IsControllerConnected(0);
+        const bool playerTwoHasGamepad = g_controllerDriver.IsControllerConnected(1);
 
         if (!(playerOneHasGamepad && playerTwoHasGamepad)) {
             uint8_t joystickIndex = playerOneHasGamepad ? 1 : 0;
@@ -210,35 +136,40 @@ namespace {
                                                                         state[SDL_SCANCODE_UP]));
         }
 
-        for (auto& p : g_playerIndexToGamepad) {
-            auto joystickIndex = static_cast<uint8_t>(p.first);
-            auto& gamepad = p.second;
+        for (int i = 0; i < g_controllerDriver.NumControllers(); ++i) {
+            auto joystickIndex = static_cast<uint8_t>(i);
+            auto& controller = g_controllerDriver.ControllerByIndex(joystickIndex);
 
-            input.SetButton(joystickIndex, 0, gamepad.GetButtonState(SDL_CONTROLLER_BUTTON_X).down);
-            input.SetButton(joystickIndex, 1, gamepad.GetButtonState(SDL_CONTROLLER_BUTTON_A).down);
-            input.SetButton(joystickIndex, 2, gamepad.GetButtonState(SDL_CONTROLLER_BUTTON_B).down);
-            input.SetButton(joystickIndex, 3, gamepad.GetButtonState(SDL_CONTROLLER_BUTTON_Y).down);
+            input.SetButton(joystickIndex, 0,
+                            controller.GetButtonState(SDL_CONTROLLER_BUTTON_X).down);
+            input.SetButton(joystickIndex, 1,
+                            controller.GetButtonState(SDL_CONTROLLER_BUTTON_A).down);
+            input.SetButton(joystickIndex, 2,
+                            controller.GetButtonState(SDL_CONTROLLER_BUTTON_B).down);
+            input.SetButton(joystickIndex, 3,
+                            controller.GetButtonState(SDL_CONTROLLER_BUTTON_Y).down);
 
-            if (gamepad.GetButtonState(SDL_CONTROLLER_BUTTON_DPAD_LEFT).down ||
-                gamepad.GetButtonState(SDL_CONTROLLER_BUTTON_DPAD_RIGHT).down) {
+            if (controller.GetButtonState(SDL_CONTROLLER_BUTTON_DPAD_LEFT).down ||
+                controller.GetButtonState(SDL_CONTROLLER_BUTTON_DPAD_RIGHT).down) {
                 input.SetAnalogAxisX(
                     joystickIndex,
                     remapDigitalToAxisValue(
-                        gamepad.GetButtonState(SDL_CONTROLLER_BUTTON_DPAD_LEFT).down,
-                        gamepad.GetButtonState(SDL_CONTROLLER_BUTTON_DPAD_RIGHT).down));
+                        controller.GetButtonState(SDL_CONTROLLER_BUTTON_DPAD_LEFT).down,
+                        controller.GetButtonState(SDL_CONTROLLER_BUTTON_DPAD_RIGHT).down));
             } else {
-                input.SetAnalogAxisX(
-                    joystickIndex, remapAxisValue(gamepad.GetAxisValue(SDL_CONTROLLER_AXIS_LEFTX)));
+                input.SetAnalogAxisX(joystickIndex, remapAxisValue(controller.GetAxisValue(
+                                                        SDL_CONTROLLER_AXIS_LEFTX)));
             }
 
-            if (gamepad.GetButtonState(SDL_CONTROLLER_BUTTON_DPAD_DOWN).down ||
-                gamepad.GetButtonState(SDL_CONTROLLER_BUTTON_DPAD_UP).down) {
+            if (controller.GetButtonState(SDL_CONTROLLER_BUTTON_DPAD_DOWN).down ||
+                controller.GetButtonState(SDL_CONTROLLER_BUTTON_DPAD_UP).down) {
                 input.SetAnalogAxisY(
-                    joystickIndex, remapDigitalToAxisValue(
-                                       gamepad.GetButtonState(SDL_CONTROLLER_BUTTON_DPAD_DOWN).down,
-                                       gamepad.GetButtonState(SDL_CONTROLLER_BUTTON_DPAD_UP).down));
+                    joystickIndex,
+                    remapDigitalToAxisValue(
+                        controller.GetButtonState(SDL_CONTROLLER_BUTTON_DPAD_DOWN).down,
+                        controller.GetButtonState(SDL_CONTROLLER_BUTTON_DPAD_UP).down));
             } else {
-                input.SetAnalogAxisY(joystickIndex, -remapAxisValue(gamepad.GetAxisValue(
+                input.SetAnalogAxisY(joystickIndex, -remapAxisValue(controller.GetAxisValue(
                                                         SDL_CONTROLLER_AXIS_LEFTY)));
             }
         }
@@ -285,9 +216,9 @@ namespace {
             togglePause = true;
         }
 
-        for (auto& kvp : g_playerIndexToGamepad) {
-            auto& gamepad = kvp.second;
-            if (gamepad.GetButtonState(SDL_CONTROLLER_BUTTON_START).pressed)
+        for (int i = 0; i < g_controllerDriver.NumControllers(); ++i) {
+            auto& controller = g_controllerDriver.ControllerByIndex(i);
+            if (controller.GetButtonState(SDL_CONTROLLER_BUTTON_START).pressed)
                 togglePause = true;
         }
 
@@ -310,9 +241,9 @@ namespace {
             turbo = true;
         }
 
-        for (auto& kvp : g_playerIndexToGamepad) {
-            auto& gamepad = kvp.second;
-            if (gamepad.GetAxisValue(SDL_CONTROLLER_AXIS_RIGHTX) > 16000)
+        for (int i = 0; i < g_controllerDriver.NumControllers(); ++i) {
+            auto& controller = g_controllerDriver.ControllerByIndex(i);
+            if (controller.GetAxisValue(SDL_CONTROLLER_AXIS_RIGHTX) > 16000)
                 turbo = true;
         }
     }
@@ -538,9 +469,7 @@ bool SDLEngine::Run(int argc, char** argv) {
         }
 
         g_keyboard.PostFrameUpdateKeyStates();
-        for (auto& kvp : g_playerIndexToGamepad) {
-            kvp.second.PostFrameUpdateStates();
-        }
+        g_controllerDriver.PostFrameUpdateKeyStates();
     }
 
     g_client->Shutdown();
@@ -594,24 +523,24 @@ void SDLEngine::PollEvents(bool& quit) {
             break;
 
         case SDL_CONTROLLERDEVICEADDED:
-            AddController(sdlEvent.cdevice.which);
+            g_controllerDriver.AddController(sdlEvent.cdevice.which);
             break;
 
         case SDL_CONTROLLERDEVICEREMOVED:
-            RemoveController(sdlEvent.cdevice.which);
+            g_controllerDriver.RemoveController(sdlEvent.cdevice.which);
             break;
 
         case SDL_CONTROLLERBUTTONDOWN:
         case SDL_CONTROLLERBUTTONUP: {
             const auto& cbutton = sdlEvent.cbutton;
             const bool buttonDown = sdlEvent.type == SDL_CONTROLLERBUTTONDOWN;
-            GetGamepadByInstanceId(sdlEvent.cbutton.which)
+            g_controllerDriver.ControllerByInstanceId(sdlEvent.cbutton.which)
                 .OnButtonStateChange(cbutton.button, buttonDown);
         } break;
 
         case SDL_CONTROLLERAXISMOTION: {
             const auto& caxis = sdlEvent.caxis;
-            GetGamepadByInstanceId(sdlEvent.cdevice.which)
+            g_controllerDriver.ControllerByInstanceId(sdlEvent.cdevice.which)
                 .OnAxisStateChange(caxis.axis, caxis.value);
         } break;
 
