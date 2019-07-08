@@ -50,6 +50,7 @@ namespace {
         enum Type { Game, Menu, Size };
     }
     bool g_paused[PauseSource::Size]{};
+    bool g_turbo = false;
     double g_fps{};
 
     template <typename T>
@@ -204,19 +205,21 @@ namespace {
         return false;
     }
 
-    void UpdateTurboMode(bool& turbo) {
-        turbo = false;
+    void UpdateTurboMode() {
+        g_turbo = false;
 
         if (g_keyboard.GetKeyState(SDL_SCANCODE_GRAVE).down) {
-            turbo = true;
+            g_turbo = true;
         }
 
         for (int i = 0; i < g_controllerDriver.NumControllers(); ++i) {
             auto& controller = g_controllerDriver.ControllerByIndex(i);
             if (controller.GetAxisValue(SDL_CONTROLLER_AXIS_RIGHTX) > 16000)
-                turbo = true;
+                g_turbo = true;
         }
     }
+
+    bool IsTurboMode() { return g_turbo; }
 
     void HACK_Simulate3dImager(double frameTime, Input& input) {
         // @TODO: The 3D imager repeatedly sends button presses of joystick 2 button 4 at a given
@@ -429,6 +432,12 @@ bool SDLEngine::Run(int argc, char** argv) {
         audioContext.samples.clear();
         g_audioDriver.Update(frameTime);
 
+        // Render update
+        const size_t MaxLinesInTurboMode = 1'000;
+        if (IsTurboMode() && renderContext.lines.size() > MaxLinesInTurboMode) {
+            renderContext.lines.resize(MaxLinesInTurboMode);
+        }
+
         g_glRender.RenderScene(frameTime, renderContext);
         ImGui_Render();
         SDL_GL_SwapWindow(g_window);
@@ -548,9 +557,8 @@ double SDLEngine::UpdateFrameTime() {
         frameTime = 0.0;
 
     // Scale up if turbo
-    static bool turbo = false;
-    UpdateTurboMode(turbo);
-    if (turbo)
+    UpdateTurboMode();
+    if (IsTurboMode())
         frameTime *= 10;
 
     return frameTime;
