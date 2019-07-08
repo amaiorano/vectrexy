@@ -358,8 +358,11 @@ bool SDLEngine::Run(int argc, char** argv) {
         return false;
     }
 
+    // TODO: Expose as option
     enum SwapInterval : int { NoVSync = 0, VSync = 1, AdaptiveVSync = -1 };
-    SDL_GL_SetSwapInterval(SwapInterval::NoVSync);
+    if (SDL_GL_SetSwapInterval(SwapInterval::AdaptiveVSync) == -1) {
+        SDL_GL_SetSwapInterval(SwapInterval::VSync);
+    }
 
 #ifdef DEBUG_UI_ENABLED
     Gui::EnabledWindows[Gui::Window::Debug] = g_options.Get<bool>("imguiDebugWindow");
