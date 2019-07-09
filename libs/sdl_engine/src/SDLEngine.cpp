@@ -299,6 +299,7 @@ public:
         m_glRender.Shutdown();
         ImGui_ImplSdlGL3_Shutdown();
 
+        SDL_GL_DeleteContext(m_glContext);
         SDL_DestroyWindow(m_window);
         SDLNet_Quit();
         SDL_Quit();
