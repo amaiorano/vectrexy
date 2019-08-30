@@ -9,6 +9,7 @@ set(GLEW_USE_STATIC_LIBS ON)
 find_package(GLEW CONFIG REQUIRED)
 find_package(glm CONFIG REQUIRED)
 find_package(OpenGL MODULE REQUIRED)
+find_package(Vulkan MODULE REQUIRED)
 find_package(SDL2 CONFIG REQUIRED)
 find_package(sdl2-net CONFIG REQUIRED)
 find_package(imgui CONFIG REQUIRED)
@@ -36,4 +37,5 @@ target_link_libraries(${MODULE_NAME}
 		glm
 		OpenGL::GL
 		OpenGL::GLU
+		Vulkan::Vulkan
 )

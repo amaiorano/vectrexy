@@ -5,6 +5,7 @@
 #include "SDLAudioDriver.h"
 #include "SDLGameController.h"
 #include "SDLKeyboard.h"
+#include "VulkanRender.h"
 #include "core/ConsoleOutput.h"
 #include "core/FileSystem.h"
 #include "core/FrameTimer.h"
@@ -17,6 +18,7 @@
 #include "imgui_impl/imgui_impl_sdl_gl3.h"
 #include <SDL.h>
 #include <SDL_net.h>
+#include <SDL_vulkan.h>
 #include <algorithm>
 #include <fstream>
 #include <iostream>
@@ -99,6 +101,11 @@ namespace {
     }
 } // namespace
 
+enum class RenderBackend { OpenGL, Vulkan };
+RenderBackend renderBackend = RenderBackend::Vulkan;
+
+bool ImguiEnabled = false;
+
 class SDLEngineImpl {
 public:
     void RegisterClient(IEngineClient& client) { m_client = &client; }
@@ -120,7 +127,15 @@ public:
                 // SetFocusConsole
                 [] { Platform::SetConsoleFocus(); },
                 // ResetOverlay
-                [this](const char* file) { m_glRender.ResetOverlay(file); });
+                [this](const char* file) {
+                    switch (renderBackend) {
+                    case RenderBackend::OpenGL:
+                        m_glRender.ResetOverlay(file);
+                        break;
+                    case RenderBackend::Vulkan:
+                        m_vulkanRender.ResetOverlay(file);
+                    }
+                });
 
         if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER) < 0) {
             std::cout << "SDL cannot init with error " << SDL_GetError() << std::endl;
@@ -171,9 +186,18 @@ public:
             }
         }
 
-        Uint32 windowCreateFlags = SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE;
+        Uint32 windowCreateFlags = SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE;
         if (m_options.Get<bool>("windowMaximized"))
             windowCreateFlags |= SDL_WINDOW_MAXIMIZED;
+
+        switch (renderBackend) {
+        case RenderBackend::OpenGL:
+            windowCreateFlags |= SDL_WINDOW_OPENGL;
+            break;
+        case RenderBackend::Vulkan:
+            windowCreateFlags |= SDL_WINDOW_VULKAN;
+            break;
+        }
 
         std::string windowTitle = "Vectrexy";
         if (auto fin = std::ifstream("version.txt"); fin) {
@@ -190,30 +214,62 @@ public:
         }
 
         const bool enableGLDebugging = m_options.Get<bool>("enableGLDebugging");
+        switch (renderBackend) {
+        case RenderBackend::OpenGL: {
+            m_glContext = CreateGLContext(m_window, enableGLDebugging);
+            if (m_glContext == nullptr) {
+                std::cout << "Cannot create OpenGL context with error " << SDL_GetError()
+                          << std::endl;
+                return false;
+            }
 
-        m_glContext = CreateGLContext(m_window, enableGLDebugging);
-        if (m_glContext == nullptr) {
-            std::cout << "Cannot create OpenGL context with error " << SDL_GetError() << std::endl;
-            return false;
-        }
+            // TODO: Expose as option
+            enum SwapInterval : int { NoVSync = 0, VSync = 1, AdaptiveVSync = -1 };
+            if (SDL_GL_SetSwapInterval(SwapInterval::AdaptiveVSync) == -1) {
+                SDL_GL_SetSwapInterval(SwapInterval::VSync);
+            }
 
-        // TODO: Expose as option
-        enum SwapInterval : int { NoVSync = 0, VSync = 1, AdaptiveVSync = -1 };
-        if (SDL_GL_SetSwapInterval(SwapInterval::AdaptiveVSync) == -1) {
-            SDL_GL_SetSwapInterval(SwapInterval::VSync);
+            ImGui_ImplSdlGL3_Init(m_window);
+            m_glRender.Initialize(enableGLDebugging);
+            m_glRender.OnWindowResized(windowWidth, windowHeight);
+        } break;
+        case RenderBackend::Vulkan: {
+
+            auto getInstanceExtensions = [this]() {
+                // Get list of vulkan extensions used by SDL
+                uint32_t extensionCount{};
+                if (!SDL_Vulkan_GetInstanceExtensions(m_window, &extensionCount, nullptr))
+                    FAIL_MSG("Failed to get number of required instance extensions");
+                std::vector<const char*> extensionNames(extensionCount);
+                if (!SDL_Vulkan_GetInstanceExtensions(m_window, &extensionCount,
+                                                      extensionNames.data()))
+                    FAIL_MSG("Failed to get required instance extensions");
+                return extensionNames;
+            };
+
+            auto createSurface = [this](VkInstance instance) {
+                // now that you have a window and a vulkan instance you need a surface
+                VkSurfaceKHR surface{};
+                if (!SDL_Vulkan_CreateSurface(m_window, instance, &surface)) {
+                    FAIL_MSG("Failed to create VkSurface");
+                }
+                return surface;
+            };
+
+            m_vulkanRender.Initialize(getInstanceExtensions, createSurface);
+            m_vulkanRender.OnWindowResized(windowWidth, windowHeight);
+        } break;
         }
 
 #ifdef DEBUG_UI_ENABLED
         Gui::EnabledWindows[Gui::Window::Debug] = m_options.Get<bool>("imguiDebugWindow");
 #endif
 
-        ImGui_ImplSdlGL3_Init(m_window);
-        ImGui::GetIO().FontGlobalScale = m_options.Get<float>("imguiFontScale");
-        static const auto imguiIniFilePath = Paths::imguiIniFile.string();
-        ImGui::GetIO().IniFilename = imguiIniFilePath.c_str();
-
-        m_glRender.Initialize(enableGLDebugging);
-        m_glRender.OnWindowResized(windowWidth, windowHeight);
+        if (ImguiEnabled) {
+            ImGui::GetIO().FontGlobalScale = m_options.Get<float>("imguiFontScale");
+            static const auto imguiIniFilePath = Paths::imguiIniFile.string();
+            ImGui::GetIO().IniFilename = imguiIniFilePath.c_str();
+        }
 
         m_audioDriver.Initialize();
 
@@ -259,7 +315,9 @@ public:
                 emuEvents.push_back({EmuEvent::OpenRomFile{}});
             }
 
-            ImGui_ImplSdlGL3_NewFrame(m_window);
+            if (renderBackend == RenderBackend::OpenGL) {
+                ImGui_ImplSdlGL3_NewFrame(m_window);
+            }
 
             UpdateMenu(quit, emuEvents);
 
@@ -280,9 +338,11 @@ public:
                 renderContext.lines.resize(MaxLinesInTurboMode);
             }
 
-            m_glRender.RenderScene(frameTime, renderContext);
-            ImGui_Render();
-            SDL_GL_SwapWindow(m_window);
+            if (renderBackend == RenderBackend::OpenGL) {
+                m_glRender.RenderScene(frameTime, renderContext);
+                ImGui_Render();
+                SDL_GL_SwapWindow(m_window);
+            }
 
             // Don't clear lines when paused
             if (frameTime > 0) {
@@ -296,10 +356,11 @@ public:
         m_client->Shutdown();
 
         m_audioDriver.Shutdown();
-        m_glRender.Shutdown();
-        ImGui_ImplSdlGL3_Shutdown();
-
-        SDL_GL_DeleteContext(m_glContext);
+        if (renderBackend == RenderBackend::OpenGL) {
+            m_glRender.Shutdown();
+            ImGui_ImplSdlGL3_Shutdown();
+            SDL_GL_DeleteContext(m_glContext);
+        }
         SDL_DestroyWindow(m_window);
         SDLNet_Quit();
         SDL_Quit();
@@ -312,7 +373,10 @@ private:
         SDL_Event sdlEvent;
 
         while (SDL_PollEvent(&sdlEvent) != 0) {
-            ImGui_ImplSdlGL3_ProcessEvent(&sdlEvent);
+            if (ImguiEnabled) {
+                ImGui_ImplSdlGL3_ProcessEvent(&sdlEvent);
+            }
+
             if (sdlEvent.type == SDL_QUIT) {
                 quit = true;
             }
@@ -329,7 +393,14 @@ private:
                     }
                     m_options.Set("windowMaximized", IsWindowMaximized());
                     m_options.Save();
-                    m_glRender.OnWindowResized(width, height);
+                    switch (renderBackend) {
+                    case RenderBackend::OpenGL:
+                        m_glRender.OnWindowResized(width, height);
+                        break;
+                    case RenderBackend::Vulkan:
+                        m_vulkanRender.OnWindowResized(width, height);
+                        break;
+                    }
                 } break;
 
                 case SDL_WINDOWEVENT_MOVED: {
@@ -391,6 +462,9 @@ private:
         return frameTime;
     }
     void UpdateMenu(bool& quit, EmuEvents& emuEvents) {
+        if (!ImguiEnabled)
+            return;
+
         // ImGui menu bar
         if (ImGui::BeginMainMenuBar()) {
             m_paused[PauseSource::Menu] = false;
@@ -648,6 +722,7 @@ private:
     SDL_Window* m_window = nullptr;
     SDL_GLContext m_glContext{};
     GLRender m_glRender;
+    VulkanRender m_vulkanRender;
     SDLGameControllerDriver m_controllerDriver;
     SDLKeyboard m_keyboard;
     SDLAudioDriver m_audioDriver;

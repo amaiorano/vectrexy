@@ -267,8 +267,10 @@ namespace GLUtil {
     class Shader {
     public:
         ~Shader() {
-            glUseProgram(0);
-            glDeleteProgram(m_programId);
+            if (m_programId != 0) {
+                glUseProgram(0);
+                glDeleteProgram(m_programId);
+            }
         }
 
         void LoadShaders(const char* vertShaderFile, const char* fragShaderFile) {

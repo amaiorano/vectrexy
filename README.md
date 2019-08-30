@@ -56,6 +56,12 @@ Although the emulator core is written by me, Antonio Maiorano (Daroou2), it make
 
 ## Building the code
 
+### Vulkan
+
+* Install Vulkan SDK: https://vulkan.lunarg.com/sdk/home
+* Make sure VULKAN_SDK environment variable is set (installer should set it)
+* vcpkg: instead of "vcpkg install sdl2", use "vcpkg install sdl2[vulkan]"
+
 ### Windows
 
 Install:
@@ -65,7 +71,7 @@ Install:
 
 Install dependent packages with vcpkg:
 ```bash
-vcpkg install sdl2:x64-windows-static sdl2-net:x64-windows-static glew:x64-windows-static glm:x64-windows-static stb:x64-windows-static imgui:x64-windows-static
+vcpkg install sdl2[vulkan]:x64-windows-static sdl2-net:x64-windows-static glew:x64-windows-static glm:x64-windows-static stb:x64-windows-static imgui:x64-windows-static
 ```
 
 Clone and build vectrexy using CMake:
@@ -96,7 +102,7 @@ sudo apt-get install build-essential mercurial make cmake autoconf automake libt
 Install the rest of the dependencies through vcpkg:
 ```bash
 cd vcpkg
-./vcpkg install sdl2 sdl2-net glew glm stb imgui
+./vcpkg install sdl2[vulkan] sdl2-net glew glm stb imgui
 ```
 
 Clone and build vectrexy using CMake:
