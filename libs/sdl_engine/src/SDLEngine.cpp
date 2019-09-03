@@ -31,6 +31,50 @@ MSC_PUSH_WARNING_DISABLE(4121)
 #undef max
 MSC_POP_WARNING_DISABLE()
 
+class SDLMouse {
+public:
+    void OnMouseButtonChange(const SDL_MouseButtonEvent& event) {
+        if (event.button == SDL_BUTTON_LEFT)
+            m_leftDown = event.state == SDL_PRESSED;
+        if (event.button == SDL_BUTTON_RIGHT)
+            m_rightDown = event.state == SDL_PRESSED;
+        if (event.button == SDL_BUTTON_MIDDLE)
+            m_middleDown = event.state == SDL_PRESSED;
+    }
+
+    void OnMouseMotionChange(const SDL_MouseMotionEvent& event) {
+        m_x = static_cast<int>(event.x);
+        m_y = static_cast<int>(event.y);
+        m_xrel = static_cast<int>(event.xrel);
+        m_yrel = static_cast<int>(event.yrel);
+    }
+
+    void PostFrameUpdate() {
+        m_xrel = 0;
+        m_yrel = 0;
+        // m_leftDown = false;
+        // m_rightDown = false;
+        // m_middleDown = false;
+    }
+
+    int X() const { return m_x; }
+    int Y() const { return m_y; }
+    int XRel() const { return m_xrel; }
+    int YRel() const { return m_yrel; }
+    bool LeftDown() const { return m_leftDown; }
+    bool RightDown() const { return m_rightDown; }
+    bool MiddleDown() const { return m_middleDown; }
+
+private:
+    int m_x{};
+    int m_y{};
+    int m_xrel{};
+    int m_yrel{};
+    bool m_leftDown{};
+    bool m_rightDown{};
+    bool m_middleDown{};
+};
+
 namespace {
     // Display window dimensions
     const int DEFAULT_WINDOW_WIDTH = 600;
@@ -231,10 +275,11 @@ public:
 
         bool quit = false;
         while (!quit) {
+            const auto frameTime = UpdateFrameTime();
             PollEvents(quit);
             UpdatePauseState(m_paused[PauseSource::Game]);
-            auto input = UpdateInput();
-            const auto frameTime = UpdateFrameTime();
+            ImGui_ImplSdlGL3_NewFrame(m_window);
+            auto input = UpdateInput(frameTime);
 
             auto emuEvents = EmuEvents{};
             if (m_keyboard.GetKeyState(SDL_SCANCODE_LCTRL).down &&
@@ -258,8 +303,6 @@ public:
                 m_keyboard.GetKeyState(SDL_SCANCODE_O).pressed) {
                 emuEvents.push_back({EmuEvent::OpenRomFile{}});
             }
-
-            ImGui_ImplSdlGL3_NewFrame(m_window);
 
             UpdateMenu(quit, emuEvents);
 
@@ -291,6 +334,7 @@ public:
 
             m_keyboard.PostFrameUpdateKeyStates();
             m_controllerDriver.PostFrameUpdateKeyStates();
+            m_mouse.PostFrameUpdate();
         }
 
         m_client->Shutdown();
@@ -371,6 +415,15 @@ private:
             case SDL_KEYUP:
                 m_keyboard.OnKeyStateChange(sdlEvent.key);
                 break;
+
+            case SDL_MOUSEBUTTONDOWN:
+            case SDL_MOUSEBUTTONUP:
+                m_mouse.OnMouseButtonChange(sdlEvent.button);
+                break;
+
+            case SDL_MOUSEMOTION: {
+                m_mouse.OnMouseMotionChange(sdlEvent.motion);
+            } break;
             }
         }
     }
@@ -530,7 +583,20 @@ private:
         return SDL_GL_CreateContext(window);
     }
 
-    Input UpdateInput() {
+    template <typename T, typename U>
+    float RemapRange(T srcVal, T srcMin, T srcMax, U tgtMin, U tgtMax) {
+        float ratio = static_cast<float>(srcVal - srcMin) / (srcMax - srcMin);
+        ratio = std::clamp(ratio, 0.f, 1.f);
+        return static_cast<U>(tgtMin + ratio * (tgtMax - tgtMin));
+    }
+
+    template <typename T>
+    T IntegrateDamped(T current, T target, float rate, float deltaTime) {
+        float ratio = 1.0f - ::pow(1.0f - rate, deltaTime);
+        return current + (target - current) * ratio;
+    }
+
+    Input UpdateInput(double frameTime) {
         Input input;
 
         auto remapDigitalToAxisValue = [](auto left, auto right) -> int8_t {
@@ -556,10 +622,96 @@ private:
             input.SetButton(joystickIndex, 2, state[SDL_SCANCODE_D] != 0);
             input.SetButton(joystickIndex, 3, state[SDL_SCANCODE_F] != 0);
 
-            input.SetAnalogAxisX(joystickIndex, remapDigitalToAxisValue(state[SDL_SCANCODE_LEFT],
-                                                                        state[SDL_SCANCODE_RIGHT]));
-            input.SetAnalogAxisY(joystickIndex, remapDigitalToAxisValue(state[SDL_SCANCODE_DOWN],
-                                                                        state[SDL_SCANCODE_UP]));
+            // Toggle JoyMouseMode with space bar
+            const bool lastJoyMouseModeEnabled = m_joyMouseMode.enabled;
+            if (m_keyboard.GetKeyState(SDL_SCANCODE_SPACE).pressed) {
+                m_joyMouseMode.enabled = !m_joyMouseMode.enabled;
+            }
+            if (m_joyMouseMode.enabled) {
+                // TODO: options
+                const bool joyMouseModeRelativeMode = true;
+                const float joystickAreaRadius = 100.f;
+                const float joystickDeadZoneRadius = 10.f;
+                const float joystickCursorRadius = 5.f;
+
+                // Center around current mouse position when enabled
+                // TODO: instead, fix position relative to window size?
+                if (lastJoyMouseModeEnabled != m_joyMouseMode.enabled) {
+                    m_joyMouseMode.centerPos = Vector2{(float)m_mouse.X(), (float)m_mouse.Y()};
+                    m_joyMouseMode.currPos = m_joyMouseMode.centerPos;
+                }
+                const auto& centerPos = m_joyMouseMode.centerPos;
+                auto& currPos = m_joyMouseMode.currPos;
+
+                if (joyMouseModeRelativeMode) {
+                    // While left mouse button is pressed, apply mouse movements, otherwise move to
+                    // center
+                    if (m_mouse.LeftDown()) {
+                        currPos += Vector2{(float)m_mouse.XRel(), (float)m_mouse.YRel()};
+                    } else {
+                        currPos = IntegrateDamped(currPos, centerPos, 0.99999f, (float)frameTime);
+                    }
+                } else {
+                    currPos = Vector2{(float)m_mouse.X(), (float)m_mouse.Y()};
+                }
+
+                // Compute axis position
+                Vector2 axis = currPos - centerPos;
+                const float mag = Magnitude(axis);
+
+                // Clamp to valid area and update currPos
+                if (mag > joystickAreaRadius) {
+                    axis = Normalized(axis) * joystickAreaRadius;
+                    currPos = centerPos + axis;
+                }
+
+                if (mag <= joystickDeadZoneRadius) {
+                    input.SetAnalogAxisX(joystickIndex, 0);
+                    input.SetAnalogAxisY(joystickIndex, 0);
+                } else {
+                    // Ratio of current position within the "live" zone
+                    Vector2 deadZone = Normalized(axis) * joystickDeadZoneRadius;
+                    Vector2 liveZone = (Normalized(axis) * joystickAreaRadius) - deadZone;
+                    Vector2 validAxis = axis - deadZone;
+                    axis = Clamp(validAxis / Abs(liveZone), -1.f, 1.f);
+                    input.SetAnalogAxisX(joystickIndex, static_cast<int8_t>(axis.x * 127));
+                    input.SetAnalogAxisY(joystickIndex, static_cast<int8_t>(-axis.y * 127));
+                }
+
+                // Draw primitives on a fullscreen, invisible ImGui window
+
+                const auto joystickAreaColor = ImColor(0.f, 0.2f, 0.8f, 0.5f);
+                const auto joystickDeadZoneColor = ImColor(0.f, 0.1f, 0.9f, 0.5f);
+                const auto joystickCursorColor = ImColor(1.f, 1.f, 1.f, 0.5f);
+
+                int windowWidth{}, windowHeight{};
+                SDL_GetWindowSize(m_window, &windowWidth, &windowHeight);
+
+                // Set just below the menu bar so we can still click on it
+                ImVec2 windowPos{0.f, 20.f}; // TODO: Get height of menu bar
+                ImGui::SetNextWindowPos(windowPos);
+                ImGui::SetNextWindowSize(ImVec2{(float)windowWidth, (float)windowHeight});
+                ImGui::Begin("Mouse Movement", nullptr,
+                             ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoBackground);
+
+                const auto drawList = ImGui::GetWindowDrawList();
+                drawList->AddCircleFilled({centerPos.x, centerPos.y}, joystickAreaRadius,
+                                          joystickAreaColor, 100);
+                drawList->AddCircleFilled({centerPos.x, centerPos.y}, joystickDeadZoneRadius,
+                                          joystickAreaColor, 100);
+                drawList->AddCircleFilled({currPos.x, currPos.y}, joystickCursorRadius,
+                                          joystickCursorColor, 100);
+
+                ImGui::End();
+
+            } else {
+                input.SetAnalogAxisX(
+                    joystickIndex,
+                    remapDigitalToAxisValue(state[SDL_SCANCODE_LEFT], state[SDL_SCANCODE_RIGHT]));
+                input.SetAnalogAxisY(
+                    joystickIndex,
+                    remapDigitalToAxisValue(state[SDL_SCANCODE_DOWN], state[SDL_SCANCODE_UP]));
+            }
         }
 
         for (int i = 0; i < m_controllerDriver.NumControllers(); ++i) {
@@ -650,11 +802,19 @@ private:
     GLRender m_glRender;
     SDLGameControllerDriver m_controllerDriver;
     SDLKeyboard m_keyboard;
+    SDLMouse m_mouse;
     SDLAudioDriver m_audioDriver;
     Options m_options;
     FrameTimer m_frameTimer;
     bool m_paused[PauseSource::Size]{};
     bool m_turbo = false;
+
+    struct JoyMouseMode {
+        bool enabled = false;
+        Vector2 centerPos{};
+        Vector2 currPos{};
+        double noMoveElapsedTime{};
+    } m_joyMouseMode;
 };
 
 SDLEngine::SDLEngine() = default;
