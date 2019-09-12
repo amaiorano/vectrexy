@@ -524,7 +524,8 @@ namespace {
     }
 
     void PrintHelp() {
-        Printf("s[tep] [count]                       step instruction [count] times\n"
+        Printf("\n"
+               "s[tep] [count]                       step instruction [count] times\n"
                "c[ontinue]                           continue running\n"
                "u[ntil] <address>                    run until address is reached\n"
                "info reg[isters]                     display register values\n"
@@ -533,20 +534,21 @@ namespace {
                "info break                           display breakpoints\n"
                "b[reak] <address>                    set instruction breakpoint at address\n"
                "[ |r|a]watch <address>               set write/read/both watchpoint at address\n"
-               "delete <index>                       delete breakpoint at index\n"
-               "disable <index>                      disable breakpoint at index\n"
-               "enable <index>                       enable breakpoint at index\n"
+               "delete {<index>|*}                   delete breakpoint at index\n"
+               "disable {<index>|*}                  disable breakpoint at index\n"
+               "enable {<index>|*}                   enable breakpoint at index or all if *\n"
                "loadsymbols <file>                   load file with symbol/address definitions\n"
                "toggle ...                           toggle input option\n"
                "  color                                colored output (slow)\n"
                "  trace                                disassembly trace\n"
                "option ...                           set option\n"
-               "  errors [ignore|log|logonce|fail]     error policy\n"
-               "t[race] [...]                        display trace output\n"
+               "  errors {ignore|log|logonce|fail}     error policy\n"
+               "t[race] ...                          display trace output\n"
                "  -n <num_lines>                       display num_lines worth\n"
                "  -f <file_name>                       output trace to file_name\n"
                "q[uit]                               quit\n"
-               "h[elp]                               display this help text\n");
+               "h[elp]                               display this help text\n"
+               "\n");
     }
 
     bool LoadUserSymbolsFile(const char* file, Debugger::SymbolTable& symbolTable) {
@@ -809,7 +811,11 @@ bool Debugger::FrameUpdate(double frameTime, const EmuEvents& emuEvents, const I
 
         } else if (tokens[0] == "delete") {
             validCommand = false;
-            if (tokens.size() > 1) {
+            if (tokens.size() > 1 && tokens[1] == "*") {
+                m_breakpoints.RemoveAll();
+                Printf("Deleted all breakpoints\n");
+                validCommand = true;
+            } else if (tokens.size() > 1) {
                 int breakpointIndex = std::stoi(tokens[1]);
                 if (auto bp = m_breakpoints.RemoveAtIndex(breakpointIndex)) {
                     Printf("Deleted breakpoint %d at $%04x\n", breakpointIndex, bp->address);
@@ -821,7 +827,12 @@ bool Debugger::FrameUpdate(double frameTime, const EmuEvents& emuEvents, const I
 
         } else if (tokens[0] == "enable") {
             validCommand = false;
-            if (tokens.size() > 1) {
+            if (tokens.size() > 1 && tokens[1] == "*") {
+                for (size_t i = 0; i < m_breakpoints.Num(); ++i)
+                    m_breakpoints.GetAtIndex(i)->enabled = true;
+                Printf("Enabled all breakpoints\n");
+                validCommand = true;
+            } else if (tokens.size() > 1) {
                 size_t breakpointIndex = std::stoi(tokens[1]);
                 if (auto bp = m_breakpoints.GetAtIndex(breakpointIndex)) {
                     bp->enabled = true;
@@ -834,7 +845,12 @@ bool Debugger::FrameUpdate(double frameTime, const EmuEvents& emuEvents, const I
 
         } else if (tokens[0] == "disable") {
             validCommand = false;
-            if (tokens.size() > 1) {
+            if (tokens.size() > 1 && tokens[1] == "*") {
+                for (size_t i = 0; i < m_breakpoints.Num(); ++i)
+                    m_breakpoints.GetAtIndex(i)->enabled = false;
+                Printf("Disabled all breakpoints\n");
+                validCommand = true;
+            } else if (tokens.size() > 1) {
                 size_t breakpointIndex = std::stoi(tokens[1]);
                 if (auto bp = m_breakpoints.GetAtIndex(breakpointIndex)) {
                     bp->enabled = false;

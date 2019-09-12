@@ -62,6 +62,8 @@ public:
         return {};
     }
 
+    void RemoveAll() { m_breakpoints.clear(); }
+
     Breakpoint* Get(uint16_t address) {
         // @HACK: Temporary optimization to make debug builds faster when no breakpoints have been
         // added. Need to make breakpoints generally faster (with or without breakpoints set).
