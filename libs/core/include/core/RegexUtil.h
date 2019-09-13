@@ -47,9 +47,10 @@ namespace RegexUtil {
     }
 
     template <class Traits, class CharT, class UnaryFunction>
-    std::string RegexReplace(const std::string& s, const std::basic_regex<CharT, Traits>& re,
+    std::string RegexReplace(std::string_view s, const std::basic_regex<CharT, Traits>& re,
                              UnaryFunction f) {
-        return RegexReplace(s.cbegin(), s.cend(), re, f);
+        auto sc = std::string{s}; // TODO: get rid of this copy
+        return RegexReplace(sc.cbegin(), sc.cend(), re, f);
     }
 
 } // namespace RegexUtil

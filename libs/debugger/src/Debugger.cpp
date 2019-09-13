@@ -68,6 +68,46 @@ namespace {
 
     std::vector<std::string> Tokenize(const std::string& s) { return StringUtil::Split(s, " \t"); }
 
+    // E.g. Given 0xd001 returns "$d001{VIA_port_a}"
+    std::string FormatAddress(uint16_t address, const Debugger::SymbolTable& symbolTable) {
+        std::string result = FormattedString<>("$%04x", address);
+
+        auto range = symbolTable.equal_range(address);
+        if (range.first != range.second) {
+            std::vector<std::string> symbols;
+            std::transform(range.first, range.second, std::back_inserter(symbols),
+                           [](auto& kvp) { return kvp.second; });
+
+            result += "{" + StringUtil::Join(symbols, "|") + "}";
+        }
+        return result;
+    }
+
+    // Finds all instances of addresses in s (e.g. "$d001") and appends symbol name to each
+    // E.g. Given "Addrs: $d001 and $d000" returns "Addrs: $d001{VIA_port_a} and $d000{VIA_port_b}"
+    std::string FormatAddresses(std::string_view s, const Debugger::SymbolTable& symbolTable) {
+        if (!symbolTable.empty()) {
+            auto AppendSymbol = [&symbolTable](const std::smatch& m) -> std::string {
+                std::string result = m.str(0);
+                auto address = StringToIntegral<uint16_t>(m.str(0));
+
+                auto range = symbolTable.equal_range(address);
+                if (range.first != range.second) {
+                    std::vector<std::string> symbols;
+                    std::transform(range.first, range.second, std::back_inserter(symbols),
+                                   [](auto& kvp) { return kvp.second; });
+
+                    result += "{" + StringUtil::Join(symbols, "|") + "}";
+                }
+                return result;
+            };
+
+            std::regex re("\\$[A-Fa-f0-9][A-Fa-f0-9][A-Fa-f0-9][A-Fa-f0-9]");
+            return RegexUtil::RegexReplace(s, re, AppendSymbol);
+        }
+        return std::string{s};
+    }
+
     std::string TryMemoryBusRead(const MemoryBus& memoryBus, uint16_t address) {
         try {
             uint8_t value = memoryBus.Read(address);
@@ -437,30 +477,6 @@ namespace {
             }
         }
 
-        // Appends symbol names to known addresses
-        auto AppendSymbols = [&symbolTable](const std::string& s) {
-            if (!symbolTable.empty()) {
-                auto AppendSymbol = [&symbolTable](const std::smatch& m) -> std::string {
-                    std::string result = m.str(0);
-                    auto address = StringToIntegral<uint16_t>(m.str(0));
-
-                    auto range = symbolTable.equal_range(address);
-                    if (range.first != range.second) {
-                        std::vector<std::string> symbols;
-                        std::transform(range.first, range.second, std::back_inserter(symbols),
-                                       [](auto& kvp) { return kvp.second; });
-
-                        result += "{" + StringUtil::Join(symbols, "|") + "}";
-                    }
-                    return result;
-                };
-
-                std::regex re("\\$[A-Fa-f0-9][A-Fa-f0-9][A-Fa-f0-9][A-Fa-f0-9]");
-                return RegexUtil::RegexReplace(s, re, AppendSymbol);
-            }
-            return s;
-        };
-
         // Append memory accesses to comment section (if any)
         {
             // Skip the opcode + operand bytes - @TODO: we probably shouldn't be storing these in
@@ -475,8 +491,8 @@ namespace {
             }
         }
 
-        disasmInstruction = AppendSymbols(disasmInstruction);
-        comment = AppendSymbols(comment);
+        disasmInstruction = FormatAddresses(disasmInstruction, symbolTable);
+        comment = FormatAddresses(comment, symbolTable);
 
         return {hexInstruction, disasmInstruction, comment, cpuOp->description};
     };
@@ -624,7 +640,8 @@ void Debugger::Init(std::shared_ptr<IEngineService>& engineService, int argc, ch
                 if (bp->enabled && (bp->type == Breakpoint::Type::Read ||
                                     bp->type == Breakpoint::Type::ReadWrite)) {
                     BreakIntoDebugger();
-                    Printf("Watchpoint hit at $%04x (read value $%02x)\n", address, value);
+                    Printf("Watchpoint hit at %s (read value $%02x)\n",
+                           FormatAddress(address, m_symbolTable).c_str(), value);
                 }
             }
         },
@@ -638,7 +655,8 @@ void Debugger::Init(std::shared_ptr<IEngineService>& engineService, int argc, ch
                 if (bp->enabled && (bp->type == Breakpoint::Type::Write ||
                                     bp->type == Breakpoint::Type::ReadWrite)) {
                     BreakIntoDebugger();
-                    Printf("Watchpoint hit at $%04x (write value $%02x)\n", address, value);
+                    Printf("Watchpoint hit at %s (write value $%02x)\n",
+                           FormatAddress(address, m_symbolTable).c_str(), value);
                 }
             }
         });
@@ -884,7 +902,8 @@ bool Debugger::FrameUpdate(double frameTime, const EmuEvents& emuEvents, const I
             if (tokens.size() > 1) {
                 auto address = StringToIntegral<uint16_t>(tokens[1]);
                 uint8_t value = m_memoryBus->Read(address);
-                Printf("$%04x = $%02x (%d)\n", address, value, value);
+                Printf("%s = $%02x (%d)\n", FormatAddress(address, m_symbolTable).c_str(), value,
+                       value);
             } else {
                 validCommand = false;
             }
