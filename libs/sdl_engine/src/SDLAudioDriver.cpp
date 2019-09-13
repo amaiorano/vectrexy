@@ -54,6 +54,26 @@ public:
     using CurrAudioFormat = AudioFormat<kSampleFormat>;
     using SampleFormatType = CurrAudioFormat::Type;
 
+    static std::string RawAudioFileName() {
+        auto AudioFormatString = [](SDL_AudioFormat format) {
+            switch (format) {
+            case AUDIO_S16:
+                return "S16";
+            case AUDIO_U16:
+                return "U16";
+            case AUDIO_F32:
+                return "F32";
+            }
+            FAIL_MSG("Missing/unknown audio format");
+            return "NA";
+        };
+
+        std::string result =
+            FormattedString("RawAudio_%s_%dhz_%dch.raw", AudioFormatString(kSampleFormat),
+                            kSampleRate, kNumChannels);
+        return result;
+    }
+
     ~SDLAudioDriverImpl() { Shutdown(); }
 
     void Initialize() {
@@ -86,7 +106,7 @@ public:
         m_samples.Init(bufferSize);
 
         if constexpr (OutputRawAudioFileStream::Enabled) {
-            m_rawAudioOutputFS.Open(Paths::devDir / "RawAudio.raw", "wb");
+            m_rawAudioOutputFS.Open(Paths::devDir / RawAudioFileName(), "wb");
         }
 
         m_paused = false;
@@ -165,8 +185,6 @@ public:
         SDL_LockAudioDevice(m_audioDeviceID);
         m_samples.PushBack(targetSample);
         SDL_UnlockAudioDevice(m_audioDeviceID);
-
-        // AdjustBufferFlow();
 
         if constexpr (OutputRawAudioFileStream::Enabled &&
                       OutputRawAudioFileStream::SourceSamples) {
