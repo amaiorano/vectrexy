@@ -340,7 +340,7 @@ namespace {
             // There's a bug in the Vectrex BIOS Clear_Sound routine ($F272) that is suppposed to
             // initialize the PSG registers to 0, but instead, only does so for one register, and
             // sets the rest to 1. This makes it so that we hear some noise when we reset. We can
-            // "fix" this hear by considering volume 1 to be silent.
+            // "fix" this here by considering volume 1 to be silent.
             if (volume <= 1)
                 return 0.f;
 

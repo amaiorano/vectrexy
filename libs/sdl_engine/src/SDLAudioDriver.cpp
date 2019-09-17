@@ -154,6 +154,10 @@ public:
         }
     }
 
+    void SetVolume(float volume) { m_volume = volume; }
+
+    float GetVolume() { return m_volume; }
+
     size_t GetSampleRate() const { return m_audioSpec.freq; }
 
     float GetBufferUsageRatio() const {
@@ -180,6 +184,9 @@ public:
 
     void AddSample(float sample) {
         assert(sample >= -1.0f && sample <= 1.0f);
+
+        sample *= m_volume;
+
         auto targetSample = CurrAudioFormat::Remap(sample);
 
         SDL_LockAudioDevice(m_audioDeviceID);
@@ -227,6 +234,7 @@ private:
     CircularBuffer<SampleFormatType> m_samples;
     FileStream m_rawAudioOutputFS;
     bool m_paused;
+    float m_volume{1.f};
 };
 
 SDLAudioDriver::SDLAudioDriver() = default;
@@ -242,6 +250,13 @@ void SDLAudioDriver::Shutdown() {
 
 void SDLAudioDriver::Update(double frameTime) {
     m_impl->Update(frameTime);
+}
+
+void SDLAudioDriver::SetVolume(float volume) {
+    m_impl->SetVolume(volume);
+}
+float SDLAudioDriver::GetVolume() {
+    return m_impl->GetVolume();
 }
 
 size_t SDLAudioDriver::GetSampleRate() const {

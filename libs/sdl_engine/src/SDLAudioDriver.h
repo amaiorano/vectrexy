@@ -11,6 +11,9 @@ public:
     void Shutdown();
     void Update(double frameTime);
 
+    void SetVolume(float volume);
+    float GetVolume();
+
     size_t GetSampleRate() const;
     float GetBufferUsageRatio() const;
 
