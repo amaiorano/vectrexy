@@ -70,7 +70,7 @@ namespace {
 
     // E.g. Given 0xd001 returns "$d001{VIA_port_a}"
     std::string FormatAddress(uint16_t address, const Debugger::SymbolTable& symbolTable) {
-        std::string result = FormattedString<>("$%04x", address);
+        std::string result = FormattedString<>("$%04x", address).Value();
 
         auto range = symbolTable.equal_range(address);
         if (range.first != range.second) {

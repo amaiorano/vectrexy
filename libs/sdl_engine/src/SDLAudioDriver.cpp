@@ -70,7 +70,8 @@ public:
 
         std::string result =
             FormattedString("RawAudio_%s_%dhz_%dch.raw", AudioFormatString(kSampleFormat),
-                            kSampleRate, kNumChannels);
+                            kSampleRate, kNumChannels)
+                .Value();
         return result;
     }
 
