@@ -19,7 +19,7 @@ env:
 matrix:
   include:
     - os: linux
-      dist: trusty
+      dist: xenial
       sudo: required
       group: deprecated-2017Q4
       compiler: gcc-8
@@ -53,7 +53,8 @@ matrix:
             - libesd0-dev
             - libdbus-1-dev
             - libudev-dev
-            - libgles1-mesa-dev
+            # Removed as apt-get fails to retrieve this on Xenial 16.04
+            # - libgles1-mesa-dev
             - libgles2-mesa-dev
             - libegl1-mesa-dev
             - libibus-1.0-dev
