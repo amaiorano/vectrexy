@@ -53,10 +53,9 @@ matrix:
             - libesd0-dev
             - libdbus-1-dev
             - libudev-dev
-            # Removed as apt-get fails to retrieve this on Xenial 16.04
-            # - libgles1-mesa-dev
             - libgles2-mesa-dev
             - libegl1-mesa-dev
+            - libglu1-mesa-dev
             - libibus-1.0-dev
             - fcitx-libs-dev
             - libsamplerate0-dev
@@ -105,12 +104,13 @@ cache:
 script:
   - |
     set -e
+    # Build vectrexy
+    mkdir -p build && cd build
+    cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS=${CXX_FLAGS} -DCMAKE_TOOLCHAIN_FILE=${DEPS_DIR}/vcpkg/scripts/buildsystems/vcpkg.cmake ..
+    make -j
+    cd ..
     # Package and deploy only on master branch
     if [ "$TRAVIS_BRANCH" == "master" ]; then
-      mkdir -p build && cd build
-      cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS=${CXX_FLAGS} -DCMAKE_TOOLCHAIN_FILE=${DEPS_DIR}/vcpkg/scripts/buildsystems/vcpkg.cmake ..
-      make -j
-      cd ..
       bash ./tools/package/package_linux.sh vectrexy_linux64 https://dl.bintray.com/amaiorano/vectrexy/
     fi
 
