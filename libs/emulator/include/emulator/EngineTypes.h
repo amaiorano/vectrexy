@@ -60,11 +60,14 @@ class EmuEvent {
 public:
     struct BreakIntoDebugger {};
     struct Reset {};
+    struct OpenBiosRomFile {
+        fs::path path{};
+    };
     struct OpenRomFile {
         fs::path path{}; // If not set, use open file dialog
     };
 
-    using Type = std::variant<BreakIntoDebugger, Reset, OpenRomFile>;
+    using Type = std::variant<BreakIntoDebugger, Reset, OpenBiosRomFile, OpenRomFile>;
     Type type;
 };
 using EmuEvents = std::vector<EmuEvent>;

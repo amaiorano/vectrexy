@@ -160,6 +160,18 @@ bool find_if(Container container, Pred pred) {
     return std::find_if(std::begin(container), std::end(container), pred) != std::end(container);
 }
 
+// Returns index of value in container, or index_if_not_found
+template <typename Container, typename T>
+int find_index_of(Container container, const T& value, int index_if_not_found = -1) {
+    auto b = std::begin(container);
+    auto e = std::end(container);
+    auto iter = std::find(b, e, value);
+    if (iter != e) {
+        return static_cast<int>(std::distance(b, iter));
+    }
+    return index_if_not_found;
+}
+
 // Adapter with a variadic constructor template to forward the arguments, useful for aggregate
 // initialization of types via forwarding functions like make_shared.
 // From: https://stackoverflow.com/a/35300172/4039972

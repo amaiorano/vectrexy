@@ -12,6 +12,7 @@ class Emulator {
 public:
     void Init(const char* biosRomFile);
     void Reset();
+    bool LoadBios(const char* file);
     bool LoadRom(const char* file);
 
     cycles_t ExecuteInstruction(const Input& input, RenderContext& renderContext,

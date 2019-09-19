@@ -8,7 +8,7 @@
 class BiosRom : public IMemoryBusDevice {
 public:
     void Init(MemoryBus& memoryBus);
-    void LoadBiosRom(const char* file);
+    bool LoadBiosRom(const char* file);
 
 private:
     uint8_t Read(uint16_t address) const override;

@@ -8,7 +8,7 @@ void Emulator::Init(const char* biosRomFile) {
     m_illegal.Init(m_memoryBus);
     m_cartridge.Init(m_memoryBus);
 
-    m_biosRom.LoadBiosRom(biosRomFile);
+    LoadBios(biosRomFile);
 }
 
 void Emulator::Reset() {
@@ -18,6 +18,10 @@ void Emulator::Reset() {
 
     m_cpu.Reset();
     m_via.Reset();
+}
+
+bool Emulator::LoadBios(const char* file) {
+    return m_biosRom.LoadBiosRom(file);
 }
 
 bool Emulator::LoadRom(const char* file) {

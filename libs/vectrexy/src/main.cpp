@@ -19,7 +19,8 @@ using Engine = SDLEngine;
 
 class EngineClient final : public IEngineClient {
 private:
-    bool Init(std::shared_ptr<IEngineService>& engineService, int argc, char** argv) override {
+    bool Init(std::shared_ptr<IEngineService>& engineService, const Options& options, int argc,
+              char** argv) override {
         m_engineService = engineService;
 
         m_overlays.LoadOverlays(Paths::overlaysDir);
@@ -32,7 +33,7 @@ private:
                 rom = arg;
         }
 
-        m_emulator.Init(Paths::biosRomFile.string().c_str());
+        m_emulator.Init(options.Get<std::string>("biosRomFile").c_str());
         m_debugger.Init(engineService, argc, argv, Paths::devDir, m_emulator);
 
         if (!rom.empty()) {
@@ -86,6 +87,15 @@ private:
         for (auto& event : emuEvents) {
             if (auto reset = std::get_if<EmuEvent::Reset>(&event.type)) {
                 Reset();
+
+            } else if (auto openBiosRomFile = std::get_if<EmuEvent::OpenBiosRomFile>(&event.type)) {
+                auto biosRomPath = openBiosRomFile->path.string();
+                if (m_emulator.LoadBios(biosRomPath.c_str())) {
+                    options.Set("biosRomFile", biosRomPath);
+                    options.Save();
+                    Reset(); // TODO: Ask user?
+                }
+
             } else if (auto openRomFile = std::get_if<EmuEvent::OpenRomFile>(&event.type)) {
                 fs::path romPath{};
                 if (openRomFile->path.empty()) {

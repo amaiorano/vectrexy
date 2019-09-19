@@ -132,6 +132,7 @@ public:
             return false;
         }
 
+        m_options.Add<std::string>("biosRomFile", Paths::biosRomFile.string());
         m_options.Add<int>("windowX", -1);
         m_options.Add<int>("windowY", -1);
         m_options.Add<int>("windowWidth", -1);
@@ -219,7 +220,7 @@ public:
         m_audioDriver.Initialize();
         m_audioDriver.SetVolume(m_options.Get<float>("volume"));
 
-        if (!m_client->Init(engineService, argc, argv)) {
+        if (!m_client->Init(engineService, m_options, argc, argv)) {
             return false;
         }
 
@@ -442,6 +443,23 @@ private:
                     emuEvents.push_back({EmuEvent::Reset{}});
 
                 ImGui::MenuItem("Pause", "P", &m_paused[PauseSource::Game]);
+                ImGui::EndMenu();
+            }
+
+            if (ImGui::BeginMenu("Options")) {
+                // Bios
+                {
+                    static const std::array<const char*, 3> items{"Normal", "Fast", "Skip"};
+                    static const std::array<fs::path, 3> biosFiles{
+                        Paths::biosRomFile, Paths::biosRomFastFile, Paths::biosRomSkipFile};
+
+                    auto currBiosFile = m_options.Get<std::string>("biosRomFile");
+                    int index = find_index_of(biosFiles, currBiosFile, 0);
+                    if (ImGui::Combo("Bios", &index, items.data(), (int)items.size())) {
+                        auto& biosFile = biosFiles[index];
+                        emuEvents.push_back({EmuEvent::OpenBiosRomFile{biosFile}});
+                    }
+                }
 
                 ImGui::EndMenu();
             }

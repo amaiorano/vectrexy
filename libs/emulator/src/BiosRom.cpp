@@ -7,9 +7,9 @@ void BiosRom::Init(MemoryBus& memoryBus) {
     memoryBus.ConnectDevice(*this, MemoryMap::Bios.range, EnableSync::False);
 }
 
-void BiosRom::LoadBiosRom(const char* file) {
+bool BiosRom::LoadBiosRom(const char* file) {
     FileStream fs(file, "rb");
-    fs.Read(&m_data[0], m_data.size());
+    return fs.Read(&m_data[0], m_data.size());
 }
 
 uint8_t BiosRom::Read(uint16_t address) const {

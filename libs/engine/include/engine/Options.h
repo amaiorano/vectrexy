@@ -21,7 +21,7 @@ public:
     void Save();
 
     template <typename T>
-    T Get(const char* name) {
+    T Get(const char* name) const {
         if (auto iter = m_options.find(name); iter != m_options.end()) {
             return std::get<T>(iter->second);
         }
