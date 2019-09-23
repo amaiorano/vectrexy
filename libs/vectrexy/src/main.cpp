@@ -19,8 +19,8 @@ using Engine = SDLEngine;
 
 class EngineClient final : public IEngineClient {
 private:
-    bool Init(std::shared_ptr<IEngineService>& engineService, const Options& options, int argc,
-              char** argv) override {
+    bool Init(std::shared_ptr<IEngineService>& engineService, std::string_view biosRomFile,
+              int argc, char** argv) override {
         m_engineService = engineService;
 
         m_overlays.LoadOverlays(Paths::overlaysDir);
@@ -33,7 +33,7 @@ private:
                 rom = arg;
         }
 
-        m_emulator.Init(options.Get<std::string>("biosRomFile").c_str());
+        m_emulator.Init(biosRomFile.data());
         m_debugger.Init(engineService, argc, argv, Paths::devDir, m_emulator);
 
         if (!rom.empty()) {

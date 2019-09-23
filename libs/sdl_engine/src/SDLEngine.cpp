@@ -220,7 +220,7 @@ public:
         m_audioDriver.Initialize();
         m_audioDriver.SetVolume(m_options.Get<float>("volume"));
 
-        if (!m_client->Init(engineService, m_options, argc, argv)) {
+        if (!m_client->Init(engineService, m_options.Get<std::string>("biosRomFile"), argc, argv)) {
             return false;
         }
 

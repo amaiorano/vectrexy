@@ -1,4 +1,5 @@
 #include "null_engine/NullEngine.h"
+#include "engine/Paths.h"
 
 namespace {
     IEngineClient* g_client = nullptr;
@@ -18,7 +19,7 @@ bool NullEngine::Run(int argc, char** argv) {
             // ResetOverlay
             [](const char* /*file*/) {});
 
-    if (!g_client->Init(engineService, argc, argv)) {
+    if (!g_client->Init(engineService, Paths::biosRomFile.string(), argc, argv)) {
         return false;
     }
 
