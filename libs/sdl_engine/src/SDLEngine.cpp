@@ -268,20 +268,6 @@ public:
 
             HACK_Simulate3dImager(frameTime, input);
 
-            // Options - @TODO: move to a separate ImGui control
-            {
-                static bool OptionsImGui = false;
-                IMGUI_CALL(Debug, ImGui::Checkbox("<<< Options >>>", &OptionsImGui));
-
-                static float volume = m_options.Get<float>("volume");
-                IMGUI_CALL_IF(OptionsImGui, Debug, ImGui::SliderFloat("Volume", &volume, 0.f, 1.f));
-                if (volume != m_options.Get<float>("volume")) {
-                    m_audioDriver.SetVolume(volume);
-                    m_options.Set("volume", volume);
-                    m_options.Save();
-                }
-            }
-
             if (!m_client->FrameUpdate(frameTime, {std::ref(emuEvents), std::ref(m_options)}, input,
                                        renderContext, audioContext)) {
                 quit = true;
@@ -446,7 +432,8 @@ private:
                 ImGui::EndMenu();
             }
 
-            if (ImGui::BeginMenu("Options")) {
+            if (ImGui::BeginMenu("Settings")) {
+                ImGui::Text("System");
                 // Bios
                 {
                     static const std::array<const char*, 3> items{"Normal", "Fast", "Skip"};
@@ -456,9 +443,19 @@ private:
                     auto currBiosFile = m_options.Get<std::string>("biosRomFile");
                     int index = find_index_of(biosFiles, currBiosFile, 0);
                     if (ImGui::Combo("Bios", &index, items.data(), (int)items.size())) {
-                        auto& biosFile = biosFiles[index];
-                        emuEvents.push_back({EmuEvent::OpenBiosRomFile{biosFile}});
+                        emuEvents.push_back({EmuEvent::OpenBiosRomFile{biosFiles[index]}});
                     }
+                }
+
+                ImGui::Separator();
+                ImGui::Text("Sound");
+
+                static float volume = m_options.Get<float>("volume");
+                ImGui::SliderFloat("Volume", &volume, 0.f, 1.f);
+                if (volume != m_options.Get<float>("volume")) {
+                    m_audioDriver.SetVolume(volume);
+                    m_options.Set("volume", volume);
+                    m_options.Save();
                 }
 
                 ImGui::EndMenu();
