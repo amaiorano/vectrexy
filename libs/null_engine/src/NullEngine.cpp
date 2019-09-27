@@ -1,4 +1,5 @@
 #include "null_engine/NullEngine.h"
+#include "engine/EngineUtil.h"
 #include "engine/Paths.h"
 
 namespace {
@@ -10,6 +11,9 @@ void NullEngine::RegisterClient(IEngineClient& client) {
 }
 
 bool NullEngine::Run(int argc, char** argv) {
+    if (!EngineUtil::FindAndSetRootPath(fs::path(fs::absolute(argv[0]))))
+        return false;
+
     std::shared_ptr<IEngineService> engineService =
         std::make_shared<aggregate_adapter<IEngineService>>(
             // SetFocusMainWindow

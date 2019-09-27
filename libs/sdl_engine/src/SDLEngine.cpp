@@ -12,6 +12,7 @@
 #include "core/Platform.h"
 #include "core/StringUtil.h"
 #include "engine/EngineClient.h"
+#include "engine/EngineUtil.h"
 #include "engine/Options.h"
 #include "engine/Paths.h"
 #include "imgui_impl/imgui_impl_sdl_gl3.h"
@@ -39,28 +40,6 @@ namespace {
 
     namespace PauseSource {
         enum Type { Game, Menu, Size };
-    }
-
-    bool FindAndSetRootPath(fs::path exePath) {
-        // Look for bios file in current directory and up parent dirs
-        // and set current working directory to the one found.
-        fs::path biosRomFile = Paths::biosRomFile;
-
-        auto currDir = exePath.remove_filename();
-
-        do {
-            auto path = currDir / biosRomFile;
-
-            if (fs::exists(currDir / biosRomFile)) {
-                fs::current_path(currDir);
-                Printf("Root path set to: %s\n", fs::current_path().string().c_str());
-                return true;
-            }
-            currDir = currDir.parent_path();
-        } while (!currDir.empty());
-
-        Errorf("Bios rom file not found: %s", biosRomFile.c_str());
-        return false;
     }
 
     void HACK_Simulate3dImager(double frameTime, Input& input) {
@@ -104,7 +83,7 @@ public:
     void RegisterClient(IEngineClient& client) { m_client = &client; }
 
     bool Run(int argc, char** argv) {
-        if (!FindAndSetRootPath(fs::path(fs::absolute(argv[0]))))
+        if (!EngineUtil::FindAndSetRootPath(fs::path(fs::absolute(argv[0]))))
             return false;
 
         // Create standard directories
