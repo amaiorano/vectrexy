@@ -7,19 +7,33 @@
 
 namespace StringUtil {
 
-    inline std::vector<std::string> Split(const std::string& s, const char* delimiters) {
-        std::vector<std::string> result;
-        size_t startIndex = 0;
-        while ((startIndex = s.find_first_not_of(delimiters, startIndex)) != std::string::npos) {
-            size_t endIndex = s.find_first_of(delimiters, startIndex + 1);
+    enum class KeepEmptyEntries { False, True };
 
-            if (endIndex == std::string::npos) {
-                result.emplace_back(s.substr(startIndex));
-                break;
-            } else {
-                result.emplace_back(s.substr(startIndex, endIndex - startIndex));
-                startIndex = endIndex;
+    inline std::vector<std::string>
+    Split(const std::string& s, const char* delimiters,
+          KeepEmptyEntries KeepEmptyEntries = KeepEmptyEntries::False) {
+        if (s.empty())
+            return {};
+
+        std::string delims = delimiters;
+        std::vector<std::string> result;
+        std::string curr = "";
+        const size_t lastIndex = s.length() - 1;
+        size_t startIndex = 0;
+        size_t i = startIndex;
+
+        while (i <= lastIndex) {
+            if (delims.find(s[i]) != -1) {
+                auto token = s.substr(startIndex, i - startIndex);
+                if (!token.empty() || KeepEmptyEntries == KeepEmptyEntries::True)
+                    result.push_back(token);
+                startIndex = i + 1;
+            } else if (i == lastIndex) {
+                auto token = s.substr(startIndex, i - startIndex + 1);
+                if (!token.empty() || KeepEmptyEntries == KeepEmptyEntries::True)
+                    result.push_back(token);
             }
+            ++i;
         }
         return result;
     }
