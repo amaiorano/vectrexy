@@ -8,7 +8,9 @@
 
 class Options {
 public:
-    using OptionType = std::variant<int, float, bool, std::string>;
+    using OptionType =
+        std::variant<int, float, bool, std::string, std::vector<int>, std::vector<float>,
+                     std::vector<bool>, std::vector<std::string>>;
 
     // Make sure to add options before loading file
     template <typename T>
