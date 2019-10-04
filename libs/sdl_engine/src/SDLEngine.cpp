@@ -650,10 +650,8 @@ private:
         if (!(playerOneHasGamepad && playerTwoHasGamepad)) {
             uint8_t joystickIndex = playerOneHasGamepad ? 1 : 0;
 
-            auto* state = SDL_GetKeyboardState(nullptr);
-
             auto IsKeyDown = [&](InputMapping::Type type) -> bool {
-                return state[m_inputMapping.keys[type]] != 0;
+                return m_keyboard.GetKeyState(m_inputMapping.keys[type]).down;
             };
 
             input.SetButton(joystickIndex, 0, IsKeyDown(InputMapping::B1));
