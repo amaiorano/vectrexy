@@ -76,6 +76,31 @@ namespace {
         }
         return 1.f;
     }
+
+    // Convert vector<U> to array<size, T> where U is explicitly convertible to T
+    template <typename T, int Size, typename U>
+    std::array<T, Size> ToArray(const std::vector<U> vec) {
+        static_assert(std::is_convertible_v<T, U>);
+        assert(vec.size() == Size);
+        std::array<T, Size> arr{};
+        for (size_t i = 0; i < vec.size(); ++i) {
+            arr[i] = static_cast<T>(vec[i]);
+        }
+        return arr;
+    }
+
+    // Convert array<U, Size> to vector<T> where U is explicitly convertible to T
+    template <typename T, typename U, size_t Size>
+    std::vector<T> ToVector(const std::array<U, Size> arr) {
+        // static_assert(std::is_convertible_v<T, U>);
+        std::vector<T> vec;
+        vec.reserve(Size);
+        for (auto& v : arr) {
+            vec.push_back(static_cast<T>(v));
+        }
+        return vec;
+    }
+
 } // namespace
 
 class SDLEngineImpl {
@@ -122,8 +147,14 @@ public:
         m_options.Add<float>("imguiFontScale", GetDefaultImguiFontScale());
         m_options.Add<std::string>("lastOpenedFile", {});
         m_options.Add<float>("volume", 0.5f);
+        m_options.Add<std::vector<int>>(
+            "inputKeys", std::vector<int>(m_inputMapping.keys.begin(), m_inputMapping.keys.end()));
+
         m_options.SetFilePath(Paths::optionsFile);
         m_options.Load();
+
+        m_inputMapping.keys = ToArray<SDL_Scancode, InputMapping::Count>(
+            m_options.Get<std::vector<int>>("inputKeys"));
 
         int windowX = m_options.Get<int>("windowX");
         if (windowX == -1)
@@ -377,7 +408,8 @@ private:
         // ImGui menu bar
         if (ImGui::BeginMainMenuBar()) {
             m_paused[PauseSource::Menu] = false;
-            bool openAboutDialog = false;
+            bool openAboutPopup = false;
+            bool openSetKeysPopup = false;
 
             if (ImGui::BeginMenu("File")) {
                 m_paused[PauseSource::Menu] = true;
@@ -437,6 +469,12 @@ private:
                     m_options.Save();
                 }
 
+                ImGui::Separator();
+                ImGui::Text("Input");
+                if (ImGui::Button("Set keys")) {
+                    openSetKeysPopup = true;
+                }
+
                 ImGui::EndMenu();
             }
 
@@ -457,7 +495,7 @@ private:
                 m_paused[PauseSource::Menu] = true;
 
                 if (ImGui::MenuItem("About Vectrexy"))
-                    openAboutDialog = true;
+                    openAboutPopup = true;
                 ImGui::EndMenu();
             }
 
@@ -472,33 +510,8 @@ private:
             ImGui::EndMainMenuBar();
 
             // Handle popups
-
-            if (openAboutDialog) {
-                ImGui::OpenPopup("About Vectrexy");
-            }
-            if (bool open = true; ImGui::BeginPopupModal("About Vectrexy", &open,
-                                                         ImGuiWindowFlags_AlwaysAutoResize)) {
-                m_paused[PauseSource::Menu] = true;
-
-                ImGui::Text("Vectrexy");
-                ImGui::Text("Programmed by Antonio Maiorano (amaiorano@gmail.com)");
-
-                ImGui::Text("Available at");
-                ImGui::SameLine();
-                if (ImGui::SmallButton("github.com/amaiorano/vectrexy")) {
-                    Platform::ExecuteShellCommand("https://github.com/amaiorano/vectrexy");
-                }
-
-                ImGui::Text("See");
-                ImGui::SameLine();
-                if (ImGui::SmallButton("README")) {
-                    Platform::ExecuteShellCommand("README.md");
-                }
-                ImGui::SameLine();
-                ImGui::Text("for more details");
-
-                ImGui::EndPopup();
-            }
+            UpdateMenu_AboutPopup(openAboutPopup);
+            UpdateMenu_SetKeysPopup(openSetKeysPopup);
         }
 
 #ifdef DEBUG_UI_ENABLED
@@ -510,6 +523,82 @@ private:
         }
         lastEnabledWindows = Gui::EnabledWindows;
 #endif
+    }
+
+    void UpdateMenu_AboutPopup(bool openPopup) {
+        if (openPopup) {
+            ImGui::OpenPopup("About Vectrexy");
+        }
+        if (bool open = true;
+            ImGui::BeginPopupModal("About Vectrexy", &open, ImGuiWindowFlags_AlwaysAutoResize)) {
+            m_paused[PauseSource::Menu] = true;
+
+            ImGui::Text("Vectrexy");
+            ImGui::Text("Programmed by Antonio Maiorano (amaiorano@gmail.com)");
+
+            ImGui::Text("Available at");
+            ImGui::SameLine();
+            if (ImGui::SmallButton("github.com/amaiorano/vectrexy")) {
+                Platform::ExecuteShellCommand("https://github.com/amaiorano/vectrexy");
+            }
+
+            ImGui::Text("See");
+            ImGui::SameLine();
+            if (ImGui::SmallButton("README")) {
+                Platform::ExecuteShellCommand("README.md");
+            }
+            ImGui::SameLine();
+            ImGui::Text("for more details");
+
+            ImGui::EndPopup();
+        }
+    }
+
+    void UpdateMenu_SetKeysPopup(bool openPopup) {
+        static InputMapping::Type nextKeyToSet{};
+        static decltype(m_inputMapping.keys) newKeys{};
+
+        if (openPopup) {
+            ImGui::OpenPopup("Set Keys");
+            nextKeyToSet = static_cast<InputMapping::Type>(0);
+            newKeys = m_inputMapping.keys;
+        }
+        if (bool open = true;
+            ImGui::BeginPopupModal("Set Keys", &open, ImGuiWindowFlags_AlwaysAutoResize)) {
+            m_paused[PauseSource::Menu] = true;
+
+            const std::string currKeyName = [&]() -> std::string {
+                std::string name = SDL_GetScancodeName(m_inputMapping.keys[nextKeyToSet]);
+                if (!name.empty())
+                    return name;
+                return FormattedString<>("<Scancode %d>", m_inputMapping.keys[nextKeyToSet])
+                    .Value();
+            }();
+
+            ImGui::Text(FormattedString<>("Input: '%s' mapped to key: '%s'\n\nPress a new key "
+                                          "or Escape to keep current.\n\n",
+                                          InputMapping::Name[nextKeyToSet], currKeyName.c_str()));
+
+            if (ImGui::Button("Reset all to default")) {
+                newKeys = InputMapping::DefaultKeys;
+                nextKeyToSet = InputMapping::Count;
+            } else if (auto scancode = m_keyboard.GetLastKeyPressed()) {
+                if (scancode != SDL_SCANCODE_ESCAPE) {
+                    newKeys[nextKeyToSet] = *scancode;
+                }
+                nextKeyToSet = static_cast<InputMapping::Type>(nextKeyToSet + 1);
+            }
+
+            if (nextKeyToSet == InputMapping::Count) {
+                m_inputMapping.keys = newKeys;
+                m_options.Set("inputKeys", ToVector<int>(m_inputMapping.keys));
+                m_options.Save();
+
+                ImGui::CloseCurrentPopup();
+            }
+
+            ImGui::EndPopup();
+        }
     }
 
     Platform::WindowHandle GetMainWindowHandle() {
@@ -562,15 +651,22 @@ private:
             uint8_t joystickIndex = playerOneHasGamepad ? 1 : 0;
 
             auto* state = SDL_GetKeyboardState(nullptr);
-            input.SetButton(joystickIndex, 0, state[SDL_SCANCODE_A] != 0);
-            input.SetButton(joystickIndex, 1, state[SDL_SCANCODE_S] != 0);
-            input.SetButton(joystickIndex, 2, state[SDL_SCANCODE_D] != 0);
-            input.SetButton(joystickIndex, 3, state[SDL_SCANCODE_F] != 0);
 
-            input.SetAnalogAxisX(joystickIndex, remapDigitalToAxisValue(state[SDL_SCANCODE_LEFT],
-                                                                        state[SDL_SCANCODE_RIGHT]));
-            input.SetAnalogAxisY(joystickIndex, remapDigitalToAxisValue(state[SDL_SCANCODE_DOWN],
-                                                                        state[SDL_SCANCODE_UP]));
+            auto IsKeyDown = [&](InputMapping::Type type) -> bool {
+                return state[m_inputMapping.keys[type]] != 0;
+            };
+
+            input.SetButton(joystickIndex, 0, IsKeyDown(InputMapping::B1));
+            input.SetButton(joystickIndex, 1, IsKeyDown(InputMapping::B2));
+            input.SetButton(joystickIndex, 2, IsKeyDown(InputMapping::B3));
+            input.SetButton(joystickIndex, 3, IsKeyDown(InputMapping::B4));
+
+            input.SetAnalogAxisX(joystickIndex,
+                                 remapDigitalToAxisValue(IsKeyDown(InputMapping::Left),
+                                                         IsKeyDown(InputMapping::Right)));
+            input.SetAnalogAxisY(joystickIndex,
+                                 remapDigitalToAxisValue(IsKeyDown(InputMapping::Up),
+                                                         IsKeyDown(InputMapping::Down)));
         }
 
         for (int i = 0; i < m_controllerDriver.NumControllers(); ++i) {
@@ -655,6 +751,20 @@ private:
 
     bool IsTurboMode() { return m_turbo; }
 
+    struct InputMapping {
+        enum Type { Up, Down, Left, Right, B1, B2, B3, B4, Count };
+
+        constexpr static std::array<const char*, Count> Name = {
+            "Joystick Up", "Joystick Down", "Joystick Left", "Joystick Right",
+            "Button 1",    "Button 2",      "Button 3",      "Button 4"};
+
+        constexpr static std::array<SDL_Scancode, Count> DefaultKeys = {
+            SDL_SCANCODE_UP, SDL_SCANCODE_DOWN, SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT,
+            SDL_SCANCODE_A,  SDL_SCANCODE_S,    SDL_SCANCODE_D,    SDL_SCANCODE_F};
+
+        std::array<SDL_Scancode, Count> keys = DefaultKeys;
+    };
+
     IEngineClient* m_client = nullptr;
     SDL_Window* m_window = nullptr;
     SDL_GLContext m_glContext{};
@@ -664,6 +774,7 @@ private:
     SDLAudioDriver m_audioDriver;
     Options m_options;
     FrameTimer m_frameTimer;
+    InputMapping m_inputMapping;
     bool m_paused[PauseSource::Size]{};
     bool m_turbo = false;
 };
