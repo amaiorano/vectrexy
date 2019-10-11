@@ -2,6 +2,7 @@
 
 #include "GLRender.h"
 #include "GLUtil.h"
+#include "InputDevice.h"
 #include "SDLAudioDriver.h"
 #include "SDLGameController.h"
 #include "SDLKeyboard.h"
@@ -103,100 +104,6 @@ namespace {
 
 } // namespace
 
-struct InputMapping {
-    enum Type { Up, Down, Left, Right, B1, B2, B3, B4, Count };
-
-    constexpr static std::array<const char*, Count> Name = {
-        "Joystick Up", "Joystick Down", "Joystick Left", "Joystick Right",
-        "Button 1",    "Button 2",      "Button 3",      "Button 4"};
-
-    constexpr static std::array<SDL_Scancode, Count> DefaultKeys = {
-        SDL_SCANCODE_UP, SDL_SCANCODE_DOWN, SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT,
-        SDL_SCANCODE_A,  SDL_SCANCODE_S,    SDL_SCANCODE_D,    SDL_SCANCODE_F};
-
-    std::array<SDL_Scancode, Count> keys = DefaultKeys;
-};
-
-struct NullInputDevice {};
-
-struct KeyboardInputDevice {
-    SDLKeyboard& keyboard;
-    uint8_t joystickIndex;
-};
-
-struct GamepadInputDevice {
-    SDLGameControllerDriver& driver;
-    uint8_t joystickIndex;
-};
-
-using InputDevice = std::variant<NullInputDevice, KeyboardInputDevice, GamepadInputDevice>;
-
-void PollInputDevice(const InputDevice& inputDevice, const InputMapping& inputMapping,
-                     Input& input) {
-
-    auto remapDigitalToAxisValue = [](auto left, auto right) -> int8_t {
-        return left ? -128 : right ? 127 : 0;
-    };
-
-    if (auto nd = std::get_if<NullInputDevice>(&inputDevice)) {
-        // Nothing to update
-    }
-    if (auto kb = std::get_if<KeyboardInputDevice>(&inputDevice)) {
-        auto IsKeyDown = [&](InputMapping::Type type) -> bool {
-            return kb->keyboard.GetKeyState(inputMapping.keys[type]).down;
-        };
-
-        uint8_t joystickIndex = kb->joystickIndex;
-
-        input.SetButton(joystickIndex, 0, IsKeyDown(InputMapping::B1));
-        input.SetButton(joystickIndex, 1, IsKeyDown(InputMapping::B2));
-        input.SetButton(joystickIndex, 2, IsKeyDown(InputMapping::B3));
-        input.SetButton(joystickIndex, 3, IsKeyDown(InputMapping::B4));
-
-        input.SetAnalogAxisX(
-            joystickIndex,
-            remapDigitalToAxisValue(IsKeyDown(InputMapping::Left), IsKeyDown(InputMapping::Right)));
-        input.SetAnalogAxisY(joystickIndex, remapDigitalToAxisValue(IsKeyDown(InputMapping::Up),
-                                                                    IsKeyDown(InputMapping::Down)));
-
-    } else if (auto gp = std::get_if<GamepadInputDevice>(&inputDevice)) {
-        auto remapAxisValue = [](int32_t value) -> int8_t {
-            return static_cast<int8_t>((value / 32767.0f) * 127);
-        };
-
-        uint8_t joystickIndex = gp->joystickIndex;
-        auto& controller = gp->driver.ControllerByIndex(joystickIndex);
-
-        input.SetButton(joystickIndex, 0, controller.GetButtonState(SDL_CONTROLLER_BUTTON_X).down);
-        input.SetButton(joystickIndex, 1, controller.GetButtonState(SDL_CONTROLLER_BUTTON_A).down);
-        input.SetButton(joystickIndex, 2, controller.GetButtonState(SDL_CONTROLLER_BUTTON_B).down);
-        input.SetButton(joystickIndex, 3, controller.GetButtonState(SDL_CONTROLLER_BUTTON_Y).down);
-
-        if (controller.GetButtonState(SDL_CONTROLLER_BUTTON_DPAD_LEFT).down ||
-            controller.GetButtonState(SDL_CONTROLLER_BUTTON_DPAD_RIGHT).down) {
-            input.SetAnalogAxisX(
-                joystickIndex,
-                remapDigitalToAxisValue(
-                    controller.GetButtonState(SDL_CONTROLLER_BUTTON_DPAD_LEFT).down,
-                    controller.GetButtonState(SDL_CONTROLLER_BUTTON_DPAD_RIGHT).down));
-        } else {
-            input.SetAnalogAxisX(
-                joystickIndex, remapAxisValue(controller.GetAxisValue(SDL_CONTROLLER_AXIS_LEFTX)));
-        }
-
-        if (controller.GetButtonState(SDL_CONTROLLER_BUTTON_DPAD_DOWN).down ||
-            controller.GetButtonState(SDL_CONTROLLER_BUTTON_DPAD_UP).down) {
-            input.SetAnalogAxisY(
-                joystickIndex, remapDigitalToAxisValue(
-                                   controller.GetButtonState(SDL_CONTROLLER_BUTTON_DPAD_DOWN).down,
-                                   controller.GetButtonState(SDL_CONTROLLER_BUTTON_DPAD_UP).down));
-        } else {
-            input.SetAnalogAxisY(
-                joystickIndex, -remapAxisValue(controller.GetAxisValue(SDL_CONTROLLER_AXIS_LEFTY)));
-        }
-    }
-}
-
 class SDLEngineImpl {
 public:
     void RegisterClient(IEngineClient& client) { m_client = &client; }
@@ -230,6 +137,40 @@ public:
             return false;
         }
 
+        // TODO: maybe move this to InputDevice.h (or create and move to InputMapping.h)
+        auto AddInputMappingToOptions = [](Options& options, const InputMapping& mapping,
+                                           int player) {
+            options.Add<std::vector<int>>(
+                FormattedString<>("inputKeys%d", player),
+                std::vector<int>(mapping.keyboard.keys.begin(), mapping.keyboard.keys.end()));
+
+            options.Add<std::vector<int>>(
+                FormattedString<>("inputAxes%d", player),
+                std::vector<int>(mapping.gamepad.axes.begin(), mapping.gamepad.axes.end()));
+
+            options.Add<std::vector<int>>(
+                FormattedString<>("inputButtons%d", player),
+                std::vector<int>(mapping.gamepad.buttons.begin(), mapping.gamepad.buttons.end()));
+        };
+
+        auto GetInputMappingFromOptions = [](const Options& options, int player) {
+            InputMapping mapping;
+            mapping.keyboard.keys = ToArray<SDL_Scancode, KeyboardInputMapping::Count>(
+                options.Get<std::vector<int>>(FormattedString<>("inputKeys%d", player)));
+            mapping.gamepad.axes = ToArray<SDL_GameControllerAxis, GamepadInputMapping::AxisCount>(
+                options.Get<std::vector<int>>(FormattedString("inputAxes%d", player)));
+            mapping.gamepad.buttons =
+                ToArray<SDL_GameControllerButton, GamepadInputMapping::ButtonCount>(
+                    options.Get<std::vector<int>>(FormattedString<>("inputButtons%d", player)));
+            return mapping;
+        };
+
+        // Keyboard is the only shared device, so make sure each player has a unique set of default
+        // keys.
+        m_inputMapping1.keyboard.keys = KeyboardInputMapping::DefaultKeys1;
+        m_inputMapping2.keyboard.keys = KeyboardInputMapping::DefaultKeys2;
+
+        // Load options
         m_options.Add<std::string>("biosRomFile", Paths::biosRomFile.string());
         m_options.Add<int>("windowX", -1);
         m_options.Add<int>("windowY", -1);
@@ -241,14 +182,17 @@ public:
         m_options.Add<float>("imguiFontScale", GetDefaultImguiFontScale());
         m_options.Add<std::string>("lastOpenedFile", {});
         m_options.Add<float>("volume", 0.5f);
-        m_options.Add<std::vector<int>>(
-            "inputKeys", std::vector<int>(m_inputMapping.keys.begin(), m_inputMapping.keys.end()));
-
+        AddInputMappingToOptions(m_options, m_inputMapping1, 1);
+        AddInputMappingToOptions(m_options, m_inputMapping2, 2);
         m_options.SetFilePath(Paths::optionsFile);
         m_options.Load();
 
-        m_inputMapping.keys = ToArray<SDL_Scancode, InputMapping::Count>(
-            m_options.Get<std::vector<int>>("inputKeys"));
+        // Init input mapping and device for each player
+        m_inputMapping1 = GetInputMappingFromOptions(m_options, 1);
+        m_inputMapping2 = GetInputMappingFromOptions(m_options, 2);
+        // TODO: save currenly mapped device per player and set it here
+        m_inputDevice1 = KeyboardInputDevice{m_keyboard, 0};
+        m_inputDevice2 = KeyboardInputDevice{m_keyboard, 1};
 
         int windowX = m_options.Get<int>("windowX");
         if (windowX == -1)
@@ -503,7 +447,7 @@ private:
         if (ImGui::BeginMainMenuBar()) {
             m_paused[PauseSource::Menu] = false;
             bool openAboutPopup = false;
-            bool openSetKeysPopup = false;
+            bool openConfigureInputPopup = false;
 
             if (ImGui::BeginMenu("File")) {
                 m_paused[PauseSource::Menu] = true;
@@ -565,8 +509,8 @@ private:
 
                 ImGui::Separator();
                 ImGui::Text("Input");
-                if (ImGui::Button("Set keys")) {
-                    openSetKeysPopup = true;
+                if (ImGui::Button("Configure...")) {
+                    openConfigureInputPopup = true;
                 }
 
                 ImGui::EndMenu();
@@ -605,7 +549,7 @@ private:
 
             // Handle popups
             UpdateMenu_AboutPopup(openAboutPopup);
-            UpdateMenu_SetKeysPopup(openSetKeysPopup);
+            UpdateMenu_ConfigureInputPopup(openConfigureInputPopup);
         }
 
 #ifdef DEBUG_UI_ENABLED
@@ -648,44 +592,45 @@ private:
         }
     }
 
-    void UpdateMenu_SetKeysPopup(bool openPopup) {
-        static InputMapping::Type nextKeyToSet{};
-        static decltype(m_inputMapping.keys) newKeys{};
+    void UpdateMenu_ConfigureInputPopup(bool openPopup) {
+        static KeyboardInputMapping::Type nextKeyToSet{};
+        static decltype(m_inputMapping1.keyboard.keys) newKeys{};
+        auto& keys = m_inputMapping1.keyboard.keys;
 
         if (openPopup) {
             ImGui::OpenPopup("Set Keys");
-            nextKeyToSet = static_cast<InputMapping::Type>(0);
-            newKeys = m_inputMapping.keys;
+            nextKeyToSet = static_cast<KeyboardInputMapping::Type>(0);
+            newKeys = keys;
         }
         if (bool open = true;
             ImGui::BeginPopupModal("Set Keys", &open, ImGuiWindowFlags_AlwaysAutoResize)) {
             m_paused[PauseSource::Menu] = true;
 
             const std::string currKeyName = [&]() -> std::string {
-                std::string name = SDL_GetScancodeName(m_inputMapping.keys[nextKeyToSet]);
+                std::string name = SDL_GetScancodeName(keys[nextKeyToSet]);
                 if (!name.empty())
                     return name;
-                return FormattedString<>("<Scancode %d>", m_inputMapping.keys[nextKeyToSet])
-                    .Value();
+                return FormattedString<>("<Scancode %d>", keys[nextKeyToSet]).Value();
             }();
 
             ImGui::Text(FormattedString<>("Input: '%s' mapped to key: '%s'\n\nPress a new key "
                                           "or Escape to keep current.\n\n",
-                                          InputMapping::Name[nextKeyToSet], currKeyName.c_str()));
+                                          KeyboardInputMapping::Name[nextKeyToSet],
+                                          currKeyName.c_str()));
 
             if (ImGui::Button("Reset all to default")) {
-                newKeys = InputMapping::DefaultKeys;
-                nextKeyToSet = InputMapping::Count;
+                newKeys = KeyboardInputMapping::DefaultKeys1;
+                nextKeyToSet = KeyboardInputMapping::Count;
             } else if (auto scancode = m_keyboard.GetLastKeyPressed()) {
                 if (scancode != SDL_SCANCODE_ESCAPE) {
                     newKeys[nextKeyToSet] = *scancode;
                 }
-                nextKeyToSet = static_cast<InputMapping::Type>(nextKeyToSet + 1);
+                nextKeyToSet = static_cast<KeyboardInputMapping::Type>(nextKeyToSet + 1);
             }
 
-            if (nextKeyToSet == InputMapping::Count) {
-                m_inputMapping.keys = newKeys;
-                m_options.Set("inputKeys", ToVector<int>(m_inputMapping.keys));
+            if (nextKeyToSet == KeyboardInputMapping::Count) {
+                keys = newKeys;
+                m_options.Set("inputKeys", ToVector<int>(keys));
                 m_options.Save();
 
                 ImGui::CloseCurrentPopup();
@@ -725,24 +670,29 @@ private:
     }
 
     Input UpdateInput() {
-        Input input;
+        Input input{};
 
         // Prefer gamepads for both players. If one gamepad, then player 2 uses keyboard. If no
         // gamepads, player 1 uses keyboard and there's no player 2 input.
 
+        /*
         const bool playerOneHasGamepad = m_controllerDriver.IsControllerConnected(0);
         const bool playerTwoHasGamepad = m_controllerDriver.IsControllerConnected(1);
 
         if (!(playerOneHasGamepad && playerTwoHasGamepad)) {
             uint8_t joystickIndex = playerOneHasGamepad ? 1 : 0;
-            PollInputDevice(KeyboardInputDevice{m_keyboard, joystickIndex}, m_inputMapping, input);
+            PollInputDevice(KeyboardInputDevice{m_keyboard, joystickIndex}, m_inputMapping1, input);
         }
 
         for (int i = 0; i < m_controllerDriver.NumControllers(); ++i) {
             auto joystickIndex = static_cast<uint8_t>(i);
-            PollInputDevice(GamepadInputDevice{m_controllerDriver, joystickIndex}, m_inputMapping,
+            PollInputDevice(GamepadInputDevice{m_controllerDriver, joystickIndex}, m_inputMapping1,
                             input);
         }
+        */
+
+        PollInputDevice(m_inputDevice1, m_inputMapping1, input);
+        PollInputDevice(m_inputDevice2, m_inputMapping2, input);
 
         return input;
     }
@@ -795,9 +745,10 @@ private:
     SDLGameControllerDriver m_controllerDriver;
     SDLKeyboard m_keyboard;
     SDLAudioDriver m_audioDriver;
+    InputMapping m_inputMapping1, m_inputMapping2;
+    InputDevice m_inputDevice1, m_inputDevice2;
     Options m_options;
     FrameTimer m_frameTimer;
-    InputMapping m_inputMapping;
     bool m_paused[PauseSource::Size]{};
     bool m_turbo = false;
 };
