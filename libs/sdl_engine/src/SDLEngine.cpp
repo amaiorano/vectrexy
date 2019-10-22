@@ -390,14 +390,14 @@ private:
 
     void SetInputDeviceByIndex(size_t inputDeviceIndex, int player) {
         switch (inputDeviceIndex) {
-        case 0:
+        case InputDevice::IndexOf<NullInputDevice>:
             SetInputDevice<NullInputDevice>(player);
             break;
-        case 1:
+        case InputDevice::IndexOf<KeyboardInputDevice>:
             SetInputDevice<KeyboardInputDevice>(player);
             break;
 
-        case 2:
+        case InputDevice::IndexOf<GamepadInputDevice>:
             SetInputDevice<GamepadInputDevice>(player);
             break;
         default:
