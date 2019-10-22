@@ -2,7 +2,7 @@
 
 #include "GLRender.h"
 #include "GLUtil.h"
-#include "InputDevice.h"
+#include "InputManager.h"
 #include "SDLAudioDriver.h"
 #include "SDLGameController.h"
 #include "SDLKeyboard.h"
@@ -77,72 +77,6 @@ namespace {
         }
         return 1.f;
     }
-
-    // Convert vector<U> to array<size, T> where U is explicitly convertible to T
-    template <typename T, int Size, typename U>
-    std::array<T, Size> ToArray(const std::vector<U> vec) {
-        static_assert(std::is_convertible_v<T, U>);
-        assert(vec.size() == Size);
-        std::array<T, Size> arr{};
-        for (size_t i = 0; i < vec.size(); ++i) {
-            arr[i] = static_cast<T>(vec[i]);
-        }
-        return arr;
-    }
-
-    // Convert array<U, Size> to vector<T> where U is explicitly convertible to T
-    template <typename T, typename U, size_t Size>
-    std::vector<T> ToVector(const std::array<U, Size> arr) {
-        // static_assert(std::is_convertible_v<T, U>);
-        std::vector<T> vec;
-        vec.reserve(Size);
-        for (auto& v : arr) {
-            vec.push_back(static_cast<T>(v));
-        }
-        return vec;
-    }
-
-    // TODO: maybe move this to InputDevice.h (or create and move to InputMapping.h)
-    void AddInputMappingOptions(Options& options, const InputMapping& mapping, int player) {
-        options.Add<std::vector<int>>(
-            FormattedString<>("inputKeys%d", player),
-            std::vector<int>(mapping.keyboard.keys.begin(), mapping.keyboard.keys.end()));
-
-        options.Add<std::vector<int>>(
-            FormattedString<>("inputAxes%d", player),
-            std::vector<int>(mapping.gamepad.axes.begin(), mapping.gamepad.axes.end()));
-
-        options.Add<std::vector<int>>(
-            FormattedString<>("inputButtons%d", player),
-            std::vector<int>(mapping.gamepad.buttons.begin(), mapping.gamepad.buttons.end()));
-    }
-
-    void SetInputMappingOptions(Options& options, const InputMapping& mapping, int player) {
-        options.Set<std::vector<int>>(
-            FormattedString<>("inputKeys%d", player),
-            std::vector<int>(mapping.keyboard.keys.begin(), mapping.keyboard.keys.end()));
-
-        options.Set<std::vector<int>>(
-            FormattedString<>("inputAxes%d", player),
-            std::vector<int>(mapping.gamepad.axes.begin(), mapping.gamepad.axes.end()));
-
-        options.Set<std::vector<int>>(
-            FormattedString<>("inputButtons%d", player),
-            std::vector<int>(mapping.gamepad.buttons.begin(), mapping.gamepad.buttons.end()));
-    }
-
-    InputMapping GetInputMappingOptions(const Options& options, int player) {
-        InputMapping mapping;
-        mapping.keyboard.keys = ToArray<SDL_Scancode, KeyboardInputMapping::Count>(
-            options.Get<std::vector<int>>(FormattedString<>("inputKeys%d", player)));
-        mapping.gamepad.axes = ToArray<SDL_GameControllerAxis, GamepadInputMapping::AxisCount>(
-            options.Get<std::vector<int>>(FormattedString("inputAxes%d", player)));
-        mapping.gamepad.buttons =
-            ToArray<SDL_GameControllerButton, GamepadInputMapping::ButtonCount>(
-                options.Get<std::vector<int>>(FormattedString<>("inputButtons%d", player)));
-        return mapping;
-    }
-
 } // namespace
 
 class SDLEngineImpl {
@@ -178,10 +112,7 @@ public:
             return false;
         }
 
-        // Keyboard is the only shared device, so make sure each player has a unique set of default
-        // keys.
-        m_inputMappings[0].keyboard.keys = KeyboardInputMapping::DefaultKeys[0];
-        m_inputMappings[1].keyboard.keys = KeyboardInputMapping::DefaultKeys[1];
+        m_inputManager.Init(m_keyboard, m_controllerDriver);
 
         // Load options
         m_options.Add<std::string>("biosRomFile", Paths::biosRomFile.string());
@@ -195,20 +126,12 @@ public:
         m_options.Add<float>("imguiFontScale", GetDefaultImguiFontScale());
         m_options.Add<std::string>("lastOpenedFile", {});
         m_options.Add<float>("volume", 0.5f);
-        AddInputMappingOptions(m_options, m_inputMappings[0], 0);
-        AddInputMappingOptions(m_options, m_inputMappings[1], 1);
-        m_options.Add<int>("inputDeviceIndex0", (int)InputDevice::IndexOf<KeyboardInputDevice>);
-        m_options.Add<int>("inputDeviceIndex1", (int)InputDevice::IndexOf<NullInputDevice>);
+        m_inputManager.AddOptions(m_options);
         m_options.SetFilePath(Paths::optionsFile);
         m_options.Load();
 
-        // Init input mapping and device for each player
-        m_inputMappings[0] = GetInputMappingOptions(m_options, 0);
-        m_inputMappings[1] = GetInputMappingOptions(m_options, 1);
-        m_inputDeviceIndices[0] = m_options.Get<int>("inputDeviceIndex0");
-        m_inputDeviceIndices[1] = m_options.Get<int>("inputDeviceIndex1");
-        SetInputDeviceByIndex(m_inputDeviceIndices[0], 0);
-        SetInputDeviceByIndex(m_inputDeviceIndices[1], 1);
+        // Init input mapping and device for each player from options
+        m_inputManager.ReadOptions(m_options);
 
         int windowX = m_options.Get<int>("windowX");
         if (windowX == -1)
@@ -375,35 +298,35 @@ public:
     }
 
 private:
-    template <typename InputDeviceType>
-    void SetInputDevice(int player) {
-        if constexpr (std::is_same_v<InputDeviceType, NullInputDevice>) {
-            m_inputDevices[player] = NullInputDevice{};
-        } else if constexpr (std::is_same_v<InputDeviceType, KeyboardInputDevice>) {
-            m_inputDevices[player] = KeyboardInputDevice{m_keyboard, player};
-        } else if constexpr (std::is_same_v<InputDeviceType, GamepadInputDevice>) {
-            m_inputDevices[player] = GamepadInputDevice{m_controllerDriver, player};
-        } else {
-            static_assert(false);
-        }
-    }
+    // template <typename InputDeviceType>
+    // void SetInputDevice(int player) {
+    //    if constexpr (std::is_same_v<InputDeviceType, NullInputDevice>) {
+    //        m_inputDevices[player] = NullInputDevice{};
+    //    } else if constexpr (std::is_same_v<InputDeviceType, KeyboardInputDevice>) {
+    //        m_inputDevices[player] = KeyboardInputDevice{m_keyboard, player};
+    //    } else if constexpr (std::is_same_v<InputDeviceType, GamepadInputDevice>) {
+    //        m_inputDevices[player] = GamepadInputDevice{m_controllerDriver, player};
+    //    } else {
+    //        static_assert(false);
+    //    }
+    //}
 
-    void SetInputDeviceByIndex(size_t inputDeviceIndex, int player) {
-        switch (inputDeviceIndex) {
-        case InputDevice::IndexOf<NullInputDevice>:
-            SetInputDevice<NullInputDevice>(player);
-            break;
-        case InputDevice::IndexOf<KeyboardInputDevice>:
-            SetInputDevice<KeyboardInputDevice>(player);
-            break;
+    // void SetInputDeviceByIndex(size_t inputDeviceIndex, int player) {
+    //    switch (inputDeviceIndex) {
+    //    case InputDevice::IndexOf<NullInputDevice>:
+    //        SetInputDevice<NullInputDevice>(player);
+    //        break;
+    //    case InputDevice::IndexOf<KeyboardInputDevice>:
+    //        SetInputDevice<KeyboardInputDevice>(player);
+    //        break;
 
-        case InputDevice::IndexOf<GamepadInputDevice>:
-            SetInputDevice<GamepadInputDevice>(player);
-            break;
-        default:
-            assert(false);
-        }
-    }
+    //    case InputDevice::IndexOf<GamepadInputDevice>:
+    //        SetInputDevice<GamepadInputDevice>(player);
+    //        break;
+    //    default:
+    //        assert(false);
+    //    }
+    //}
 
     void PollEvents(bool& quit) {
         SDL_Event sdlEvent;
@@ -649,9 +572,10 @@ private:
             m_paused[PauseSource::Menu] = true;
 
             auto ConfigureInputForPlayer = [&](int player) {
-                auto& inputDevice = m_inputDevices[player];
-                auto& inputMapping = m_inputMappings[player];
-                auto& deviceIndex = m_inputDeviceIndices[player];
+                // @TODO: don't modify privates like this
+                auto& inputDevice = m_inputManager.Device(player);
+                auto& inputMapping = m_inputManager.Mapping(player);
+                auto& deviceIndex = m_inputManager.DeviceIndex(player);
 
                 bool openSetupKeyboardPopup = false;
                 bool openSetupGamepadPopup = false;
@@ -661,7 +585,9 @@ private:
                                &InputDevice::Name[0], (int)InputDevice::Name.size());
 
                 if (lastDeviceIndex != deviceIndex) {
-                    SetInputDeviceByIndex(deviceIndex, player);
+                    m_inputManager.SetInputDeviceByIndex(deviceIndex, player);
+                    m_inputManager.WriteOptions(m_options);
+                    m_options.Save();
                 }
 
                 if (auto kb = std::get_if<KeyboardInputDevice>(&inputDevice)) {
@@ -723,7 +649,7 @@ private:
 
             if (nextKeyToSet == KeyboardInputMapping::Count) {
                 keys = newKeys;
-                SetInputMappingOptions(m_options, inputMapping, player);
+                m_inputManager.WriteOptions(m_options);
                 m_options.Save();
                 ImGui::CloseCurrentPopup();
             }
@@ -761,12 +687,7 @@ private:
         return SDL_GL_CreateContext(window);
     }
 
-    Input UpdateInput() {
-        Input input{};
-        PollInputDevice(m_inputDevices[0], m_inputMappings[0], input);
-        PollInputDevice(m_inputDevices[1], m_inputMappings[1], input);
-        return input;
-    }
+    Input UpdateInput() { return m_inputManager.Poll(); }
 
     void UpdatePauseState(bool& paused) {
         bool togglePause = false;
@@ -816,10 +737,7 @@ private:
     SDLGameControllerDriver m_controllerDriver;
     SDLKeyboard m_keyboard;
     SDLAudioDriver m_audioDriver;
-    static constexpr int NumPlayers = 2;
-    std::array<InputMapping, NumPlayers> m_inputMappings;
-    std::array<InputDevice::Type, NumPlayers> m_inputDevices;
-    std::array<int, NumPlayers> m_inputDeviceIndices = {0, 0};
+    InputManager m_inputManager;
     Options m_options;
     FrameTimer m_frameTimer;
     bool m_paused[PauseSource::Size]{};

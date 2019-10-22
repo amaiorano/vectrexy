@@ -34,7 +34,3 @@ namespace InputDevice {
     static constexpr size_t IndexOf = variant_type_index_v<DeviceType, Type>;
 
 } // namespace InputDevice
-
-// Polls inputDevice using inputMapping and populates relevant section of input
-void PollInputDevice(const InputDevice::Type& inputDevice, const InputMapping& inputMapping,
-                     Input& input);
