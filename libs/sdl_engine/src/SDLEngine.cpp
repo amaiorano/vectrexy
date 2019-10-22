@@ -39,8 +39,6 @@ namespace {
     inline int WindowHeightFromWidth(int width) { return static_cast<int>(width * 4.0f / 3.0f); }
     inline int WindowWidthFromHeight(int height) { return static_cast<int>(height * 3.0f / 4.0f); }
 
-    constexpr int NumPlayers = 2;
-
     namespace PauseSource {
         enum Type { Game, Menu, Size };
     }
@@ -105,7 +103,7 @@ namespace {
     }
 
     // TODO: maybe move this to InputDevice.h (or create and move to InputMapping.h)
-    void SetInputMappingOptions(Options& options, const InputMapping& mapping, int player) {
+    void AddInputMappingOptions(Options& options, const InputMapping& mapping, int player) {
         options.Add<std::vector<int>>(
             FormattedString<>("inputKeys%d", player),
             std::vector<int>(mapping.keyboard.keys.begin(), mapping.keyboard.keys.end()));
@@ -115,6 +113,20 @@ namespace {
             std::vector<int>(mapping.gamepad.axes.begin(), mapping.gamepad.axes.end()));
 
         options.Add<std::vector<int>>(
+            FormattedString<>("inputButtons%d", player),
+            std::vector<int>(mapping.gamepad.buttons.begin(), mapping.gamepad.buttons.end()));
+    }
+
+    void SetInputMappingOptions(Options& options, const InputMapping& mapping, int player) {
+        options.Set<std::vector<int>>(
+            FormattedString<>("inputKeys%d", player),
+            std::vector<int>(mapping.keyboard.keys.begin(), mapping.keyboard.keys.end()));
+
+        options.Set<std::vector<int>>(
+            FormattedString<>("inputAxes%d", player),
+            std::vector<int>(mapping.gamepad.axes.begin(), mapping.gamepad.axes.end()));
+
+        options.Set<std::vector<int>>(
             FormattedString<>("inputButtons%d", player),
             std::vector<int>(mapping.gamepad.buttons.begin(), mapping.gamepad.buttons.end()));
     }
@@ -183,17 +195,20 @@ public:
         m_options.Add<float>("imguiFontScale", GetDefaultImguiFontScale());
         m_options.Add<std::string>("lastOpenedFile", {});
         m_options.Add<float>("volume", 0.5f);
-        SetInputMappingOptions(m_options, m_inputMappings[0], 0);
-        SetInputMappingOptions(m_options, m_inputMappings[1], 1);
+        AddInputMappingOptions(m_options, m_inputMappings[0], 0);
+        AddInputMappingOptions(m_options, m_inputMappings[1], 1);
+        m_options.Add<int>("inputDeviceIndex0", (int)InputDevice::IndexOf<KeyboardInputDevice>);
+        m_options.Add<int>("inputDeviceIndex1", (int)InputDevice::IndexOf<NullInputDevice>);
         m_options.SetFilePath(Paths::optionsFile);
         m_options.Load();
 
         // Init input mapping and device for each player
         m_inputMappings[0] = GetInputMappingOptions(m_options, 0);
         m_inputMappings[1] = GetInputMappingOptions(m_options, 1);
-        // TODO: save currenly mapped device per player and set it here
-        m_inputDevices[0] = KeyboardInputDevice{m_keyboard, 0};
-        m_inputDevices[1] = KeyboardInputDevice{m_keyboard, 1};
+        m_inputDeviceIndices[0] = m_options.Get<int>("inputDeviceIndex0");
+        m_inputDeviceIndices[1] = m_options.Get<int>("inputDeviceIndex1");
+        SetInputDeviceByIndex(m_inputDeviceIndices[0], 0);
+        SetInputDeviceByIndex(m_inputDeviceIndices[1], 1);
 
         int windowX = m_options.Get<int>("windowX");
         if (windowX == -1)
@@ -360,6 +375,36 @@ public:
     }
 
 private:
+    template <typename InputDeviceType>
+    void SetInputDevice(int player) {
+        if constexpr (std::is_same_v<InputDeviceType, NullInputDevice>) {
+            m_inputDevices[player] = NullInputDevice{};
+        } else if constexpr (std::is_same_v<InputDeviceType, KeyboardInputDevice>) {
+            m_inputDevices[player] = KeyboardInputDevice{m_keyboard, player};
+        } else if constexpr (std::is_same_v<InputDeviceType, GamepadInputDevice>) {
+            m_inputDevices[player] = GamepadInputDevice{m_controllerDriver, player};
+        } else {
+            static_assert(false);
+        }
+    }
+
+    void SetInputDeviceByIndex(size_t inputDeviceIndex, int player) {
+        switch (inputDeviceIndex) {
+        case 0:
+            SetInputDevice<NullInputDevice>(player);
+            break;
+        case 1:
+            SetInputDevice<KeyboardInputDevice>(player);
+            break;
+
+        case 2:
+            SetInputDevice<GamepadInputDevice>(player);
+            break;
+        default:
+            assert(false);
+        }
+    }
+
     void PollEvents(bool& quit) {
         SDL_Event sdlEvent;
 
@@ -595,8 +640,6 @@ private:
 
     void UpdateMenu_ConfigureInputPopup(bool openPopup) {
         const char* popupName = "Configure Input";
-        bool openSetKeysPopup1 = false;
-        bool openSetKeysPopup2 = false;
 
         if (openPopup) {
             ImGui::OpenPopup(popupName);
@@ -605,22 +648,44 @@ private:
             ImGui::BeginPopupModal(popupName, &open, ImGuiWindowFlags_AlwaysAutoResize)) {
             m_paused[PauseSource::Menu] = true;
 
-            if (ImGui::Button("Set Player 1 keys...")) {
-                openSetKeysPopup1 = true;
-            }
-            if (ImGui::Button("Set Player 2 keys...")) {
-                openSetKeysPopup2 = true;
-            }
+            auto ConfigureInputForPlayer = [&](int player) {
+                auto& inputDevice = m_inputDevices[player];
+                auto& inputMapping = m_inputMappings[player];
+                auto& deviceIndex = m_inputDeviceIndices[player];
 
-            UpdateMenu_ConfigureInputPopup_SetKeys(openSetKeysPopup1, 0, m_inputMappings[0]);
-            UpdateMenu_ConfigureInputPopup_SetKeys(openSetKeysPopup2, 1, m_inputMappings[1]);
+                bool openSetupKeyboardPopup = false;
+                bool openSetupGamepadPopup = false;
+
+                const auto lastDeviceIndex = deviceIndex;
+                ImGui::ListBox(FormattedString<>("Player %d Device", player + 1), &deviceIndex,
+                               &InputDevice::Name[0], (int)InputDevice::Name.size());
+
+                if (lastDeviceIndex != deviceIndex) {
+                    SetInputDeviceByIndex(deviceIndex, player);
+                }
+
+                if (auto kb = std::get_if<KeyboardInputDevice>(&inputDevice)) {
+                    if (ImGui::Button(FormattedString<>("Setup Player %d keyboard", player + 1))) {
+                        openSetupKeyboardPopup = true;
+                    }
+                } else if (auto gp = std::get_if<GamepadInputDevice>(&inputDevice)) {
+                    if (ImGui::Button(FormattedString<>("Setup Player %d gamepad", player + 1))) {
+                        openSetupGamepadPopup = true;
+                    }
+                }
+                UpdateMenu_ConfigureInputPopup_SetupKeyboard(openSetupKeyboardPopup, player,
+                                                             inputMapping);
+            };
+
+            ConfigureInputForPlayer(0);
+            ConfigureInputForPlayer(1);
 
             ImGui::EndPopup();
         }
     }
 
-    void UpdateMenu_ConfigureInputPopup_SetKeys(bool openPopup, int player,
-                                                InputMapping& inputMapping) {
+    void UpdateMenu_ConfigureInputPopup_SetupKeyboard(bool openPopup, int player,
+                                                      InputMapping& inputMapping) {
         const auto popupName = std::string("Set Keys for Player ") + std::to_string(player + 1);
 
         static KeyboardInputMapping::Type nextKeyToSet{};
@@ -647,7 +712,7 @@ private:
                                           currKeyName.c_str()));
 
             if (ImGui::Button("Reset all to default")) {
-                newKeys = KeyboardInputMapping::DefaultKeys[player - 1];
+                newKeys = KeyboardInputMapping::DefaultKeys[player];
                 nextKeyToSet = KeyboardInputMapping::Count;
             } else if (auto scancode = m_keyboard.GetLastKeyPressed()) {
                 if (scancode != SDL_SCANCODE_ESCAPE) {
@@ -751,8 +816,10 @@ private:
     SDLGameControllerDriver m_controllerDriver;
     SDLKeyboard m_keyboard;
     SDLAudioDriver m_audioDriver;
+    static constexpr int NumPlayers = 2;
     std::array<InputMapping, NumPlayers> m_inputMappings;
-    std::array<InputDevice, NumPlayers> m_inputDevices;
+    std::array<InputDevice::Type, NumPlayers> m_inputDevices;
+    std::array<int, NumPlayers> m_inputDeviceIndices = {0, 0};
     Options m_options;
     FrameTimer m_frameTimer;
     bool m_paused[PauseSource::Size]{};

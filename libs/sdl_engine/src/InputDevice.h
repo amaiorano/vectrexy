@@ -2,6 +2,7 @@
 
 #include "SDLGameController.h"
 #include "SDLKeyboard.h"
+#include "core/StdUtil.h"
 #include <SDL_gamecontroller.h>
 #include <SDL_keyboard.h>
 #include <SDL_scancode.h>
@@ -77,16 +78,25 @@ struct NullInputDevice {};
 
 struct KeyboardInputDevice {
     std::reference_wrapper<SDLKeyboard> keyboard;
-    uint8_t joystickIndex;
+    int joystickIndex;
 };
 
 struct GamepadInputDevice {
     std::reference_wrapper<SDLGameControllerDriver> driver;
-    uint8_t joystickIndex;
+    int joystickIndex;
 };
 
-using InputDevice = std::variant<NullInputDevice, KeyboardInputDevice, GamepadInputDevice>;
+namespace InputDevice {
+    using Type = std::variant<NullInputDevice, KeyboardInputDevice, GamepadInputDevice>;
+
+    constexpr std::array<const char*, std::variant_size_v<Type>> Name = {"None", "Keyboard",
+                                                                         "Gamepad"};
+
+    template <typename DeviceType>
+    static constexpr size_t IndexOf = variant_type_index_v<DeviceType, Type>;
+
+} // namespace InputDevice
 
 // Polls inputDevice using inputMapping and populates relevant section of input
-void PollInputDevice(const InputDevice& inputDevice, const InputMapping& inputMapping,
+void PollInputDevice(const InputDevice::Type& inputDevice, const InputMapping& inputMapping,
                      Input& input);

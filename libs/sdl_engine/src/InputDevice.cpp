@@ -2,7 +2,7 @@
 #include "engine/EngineClient.h"
 
 // Polls inputDevice using inputMapping and populates relevant section of input
-void PollInputDevice(const InputDevice& inputDevice, const InputMapping& inputMapping,
+void PollInputDevice(const InputDevice::Type& inputDevice, const InputMapping& inputMapping,
                      Input& input) {
 
     auto remapDigitalToAxisValue = [](auto left, auto right) -> int8_t {
@@ -17,7 +17,7 @@ void PollInputDevice(const InputDevice& inputDevice, const InputMapping& inputMa
             return kb->keyboard.get().GetKeyState(inputMapping.keyboard.keys[type]).down;
         };
 
-        uint8_t joystickIndex = kb->joystickIndex;
+        uint8_t joystickIndex = checked_static_cast<uint8_t>(kb->joystickIndex);
 
         input.SetButton(joystickIndex, 0, IsKeyDown(KeyboardInputMapping::B1));
         input.SetButton(joystickIndex, 1, IsKeyDown(KeyboardInputMapping::B2));
@@ -36,7 +36,7 @@ void PollInputDevice(const InputDevice& inputDevice, const InputMapping& inputMa
             return static_cast<int8_t>((value / 32767.0f) * 127);
         };
 
-        uint8_t joystickIndex = gp->joystickIndex;
+        uint8_t joystickIndex = checked_static_cast<uint8_t>(gp->joystickIndex);
         auto& controller = gp->driver.get().ControllerByIndex(joystickIndex);
 
         auto IsButtonDown = [&](GamepadInputMapping::Button button) {
