@@ -5,10 +5,8 @@
 #include <array>
 
 struct KeyboardInputMapping {
-    // TODO: RENAME Type -> Button
     enum Type { Up, Down, Left, Right, B1, B2, B3, B4, Count };
 
-    // TODO: RENAME Name -> ButtonName
     constexpr static std::array<const char*, Count> Name = {
         "Joystick Up", "Joystick Down", "Joystick Left", "Joystick Right",
         "Button 1",    "Button 2",      "Button 3",      "Button 4"};
@@ -27,7 +25,8 @@ struct KeyboardInputMapping {
                                                                  DefaultKeysPlayer2};
 
     // Current keyboard mapping
-    std::array<SDL_Scancode, Count> keys = DefaultKeysPlayer1;
+    using KeyToScancodeArray = std::array<SDL_Scancode, Count>;
+    KeyToScancodeArray keys = DefaultKeysPlayer1;
 };
 
 struct GamepadInputMapping {

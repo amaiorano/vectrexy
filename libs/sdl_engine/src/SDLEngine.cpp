@@ -599,10 +599,7 @@ private:
                     }
                 }
 
-                // @TODO: don't modify privates like this
-                auto& inputMapping = m_inputManager.GetInputMapping(player);
-                UpdateMenu_ConfigureInputPopup_SetupKeyboard(openSetupKeyboardPopup, player,
-                                                             inputMapping);
+                UpdateMenu_ConfigureInputPopup_SetupKeyboard(openSetupKeyboardPopup, player);
             };
 
             ConfigureInputForPlayer(0);
@@ -612,13 +609,15 @@ private:
         }
     }
 
-    void UpdateMenu_ConfigureInputPopup_SetupKeyboard(bool openPopup, int player,
-                                                      InputMapping& inputMapping) {
+    void UpdateMenu_ConfigureInputPopup_SetupKeyboard(bool openPopup, int player) {
         const auto popupName = std::string("Set Keys for Player ") + std::to_string(player + 1);
 
         static KeyboardInputMapping::Type nextKeyToSet{};
-        static decltype(inputMapping.keyboard.keys) newKeys{};
-        auto& keys = inputMapping.keyboard.keys;
+        static KeyboardInputMapping::KeyToScancodeArray newKeys{};
+
+        const KeyboardInputMapping::KeyToScancodeArray& keys =
+            m_inputManager.GetInputMapping(player).keyboard.keys;
+
         if (openPopup) {
             ImGui::OpenPopup(popupName.c_str());
             nextKeyToSet = static_cast<KeyboardInputMapping::Type>(0);
@@ -650,7 +649,7 @@ private:
             }
 
             if (nextKeyToSet == KeyboardInputMapping::Count) {
-                keys = newKeys;
+                m_inputManager.GetInputMapping(player).keyboard.keys = newKeys;
                 m_inputManager.WriteOptions(m_options);
                 m_options.Save();
                 ImGui::CloseCurrentPopup();
