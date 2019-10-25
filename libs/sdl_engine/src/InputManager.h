@@ -1,6 +1,7 @@
 #pragma once
 
 #include "InputDevice.h"
+#include "core/Base.h"
 #include <array>
 
 class Options;
@@ -15,9 +16,13 @@ public:
     void ReadOptions(Options& options);
     void WriteOptions(Options& options);
 
-    InputDevice::Type& Device(int player) { return m_inputDevices[player]; }
-    InputMapping& Mapping(int player) { return m_inputMappings[player]; }
-    int& DeviceIndex(int player) { return m_inputDeviceIndices[player]; }
+    InputDevice::Type& GetInputDevice(int player) { return m_inputDevices[player]; }
+
+    int GetInputDeviceIndex(int player) {
+        return checked_static_cast<int>(m_inputDevices[player].index());
+    }
+
+    InputMapping& GetInputMapping(int player) { return m_inputMappings[player]; }
 
     void SetInputDeviceByIndex(size_t inputDeviceIndex, int player);
 
@@ -45,5 +50,4 @@ private:
     static constexpr int NumPlayers = 2;
     std::array<InputMapping, NumPlayers> m_inputMappings;
     std::array<InputDevice::Type, NumPlayers> m_inputDevices;
-    std::array<int, NumPlayers> m_inputDeviceIndices = {0, 0};
 };

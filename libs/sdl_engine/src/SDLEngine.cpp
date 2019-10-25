@@ -572,14 +572,12 @@ private:
             m_paused[PauseSource::Menu] = true;
 
             auto ConfigureInputForPlayer = [&](int player) {
-                // @TODO: don't modify privates like this
-                auto& inputDevice = m_inputManager.Device(player);
-                auto& inputMapping = m_inputManager.Mapping(player);
-                auto& deviceIndex = m_inputManager.DeviceIndex(player);
+                int deviceIndex = m_inputManager.GetInputDeviceIndex(player);
 
                 bool openSetupKeyboardPopup = false;
                 bool openSetupGamepadPopup = false;
 
+                // User can change device
                 const auto lastDeviceIndex = deviceIndex;
                 ImGui::ListBox(FormattedString<>("Player %d Device", player + 1), &deviceIndex,
                                &InputDevice::Name[0], (int)InputDevice::Name.size());
@@ -590,15 +588,19 @@ private:
                     m_options.Save();
                 }
 
-                if (auto kb = std::get_if<KeyboardInputDevice>(&inputDevice)) {
+                // User can configure currently selected device mapping via popup
+                if (deviceIndex == InputDevice::IndexOf<KeyboardInputDevice>) {
                     if (ImGui::Button(FormattedString<>("Setup Player %d keyboard", player + 1))) {
                         openSetupKeyboardPopup = true;
                     }
-                } else if (auto gp = std::get_if<GamepadInputDevice>(&inputDevice)) {
+                } else if (deviceIndex == InputDevice::IndexOf<GamepadInputDevice>) {
                     if (ImGui::Button(FormattedString<>("Setup Player %d gamepad", player + 1))) {
                         openSetupGamepadPopup = true;
                     }
                 }
+
+                // @TODO: don't modify privates like this
+                auto& inputMapping = m_inputManager.GetInputMapping(player);
                 UpdateMenu_ConfigureInputPopup_SetupKeyboard(openSetupKeyboardPopup, player,
                                                              inputMapping);
             };

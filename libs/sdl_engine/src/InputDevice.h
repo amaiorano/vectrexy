@@ -31,6 +31,6 @@ namespace InputDevice {
                                                                          "Gamepad"};
 
     template <typename DeviceType>
-    static constexpr size_t IndexOf = variant_type_index_v<DeviceType, Type>;
+    constexpr size_t IndexOf = std_util::variant_type_index<DeviceType, Type>::value;
 
 } // namespace InputDevice

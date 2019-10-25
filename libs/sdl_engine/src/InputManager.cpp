@@ -163,18 +163,15 @@ void InputManager::AddOptions(Options& options) {
 void InputManager::ReadOptions(Options& options) {
     m_inputMappings[0] = GetInputMappingOptions(options, 0);
     m_inputMappings[1] = GetInputMappingOptions(options, 1);
-    m_inputDeviceIndices[0] = options.Get<int>("inputDeviceIndex0");
-    m_inputDeviceIndices[1] = options.Get<int>("inputDeviceIndex1");
-
-    SetInputDeviceByIndex(m_inputDeviceIndices[0], 0);
-    SetInputDeviceByIndex(m_inputDeviceIndices[1], 1);
+    SetInputDeviceByIndex(options.Get<int>("inputDeviceIndex0"), 0);
+    SetInputDeviceByIndex(options.Get<int>("inputDeviceIndex1"), 1);
 }
 
 void InputManager::WriteOptions(Options& options) {
     SetInputMappingOptions(options, m_inputMappings[0], 0);
     SetInputMappingOptions(options, m_inputMappings[1], 1);
-    options.Set("inputDeviceIndex0", m_inputDeviceIndices[0]);
-    options.Set("inputDeviceIndex1", m_inputDeviceIndices[1]);
+    options.Set("inputDeviceIndex0", static_cast<int>(m_inputDevices[0].index()));
+    options.Set("inputDeviceIndex1", static_cast<int>(m_inputDevices[1].index()));
 }
 
 Input InputManager::Poll() {
