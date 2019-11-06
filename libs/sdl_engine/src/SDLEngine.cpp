@@ -600,6 +600,7 @@ private:
                 }
 
                 UpdateMenu_ConfigureInputPopup_SetupKeyboard(openSetupKeyboardPopup, player);
+                UpdateMenu_ConfigureInputPopup_SetupGamepad(openSetupGamepadPopup, player);
             };
 
             ConfigureInputForPlayer(0);
@@ -609,8 +610,60 @@ private:
         }
     }
 
+    // template <typename OutputButtonType, typename InputButtonType>
+    // void DisplayInputConfigPopup(const std::string& popupName, int player, OutputButtonType
+    // buttonType, const char* outputButtonNames) { 	static OutputButtonType nextKeyToSet{};
+    // static
+    // InputButtonType newKeys{};
+
+    //	const KeyboardInputMapping::KeyToScancodeArray& keys =
+    //		m_inputManager.GetInputMapping(player).keyboard.keys;
+
+    //	if (openPopup) {
+    //		ImGui::OpenPopup(popupName.c_str());
+    //		nextKeyToSet = static_cast<KeyboardInputMapping::Type>(0);
+    //		newKeys = keys;
+    //	}
+    //	if (bool open = true;
+    //		ImGui::BeginPopupModal(popupName.c_str(), &open, ImGuiWindowFlags_AlwaysAutoResize)) {
+
+    //		const std::string currKeyName = [&]() -> std::string {
+    //			std::string name = SDL_GetScancodeName(keys[nextKeyToSet]);
+    //			if (!name.empty())
+    //				return name;
+    //			return FormattedString<>("<Scancode %d>", keys[nextKeyToSet]).Value();
+    //		}();
+
+    //		ImGui::Text(FormattedString<>("Input: '%s' mapped to key: '%s'\n\nPress a new key "
+    //			"or Escape to keep current.\n\n",
+    //			KeyboardInputMapping::Name[nextKeyToSet],
+    //			currKeyName.c_str()));
+
+    //		if (ImGui::Button("Reset all to default")) {
+    //			newKeys = KeyboardInputMapping::DefaultKeys[player];
+    //			nextKeyToSet = KeyboardInputMapping::Count;
+    //		}
+    //		else if (auto scancode = m_keyboard.GetLastKeyPressed()) {
+    //			if (scancode != SDL_SCANCODE_ESCAPE) {
+    //				newKeys[nextKeyToSet] = *scancode;
+    //			}
+    //			nextKeyToSet = static_cast<KeyboardInputMapping::Type>(nextKeyToSet + 1);
+    //		}
+
+    //		if (nextKeyToSet == KeyboardInputMapping::Count) {
+    //			m_inputManager.GetInputMapping(player).keyboard.keys = newKeys;
+    //			m_inputManager.WriteOptions(m_options);
+    //			m_options.Save();
+    //			ImGui::CloseCurrentPopup();
+    //		}
+
+    //		ImGui::EndPopup();
+    //	}
+    //}
+
     void UpdateMenu_ConfigureInputPopup_SetupKeyboard(bool openPopup, int player) {
-        const auto popupName = std::string("Set Keys for Player ") + std::to_string(player + 1);
+        const auto popupName =
+            std::string("Configure keyboard for Player ") + std::to_string(player + 1);
 
         static KeyboardInputMapping::Type nextKeyToSet{};
         static KeyboardInputMapping::KeyToScancodeArray newKeys{};
@@ -654,6 +707,57 @@ private:
                 m_options.Save();
                 ImGui::CloseCurrentPopup();
             }
+
+            ImGui::EndPopup();
+        }
+    }
+
+    void UpdateMenu_ConfigureInputPopup_SetupGamepad(bool openPopup, int player) {
+        const auto popupName =
+            std::string("Configure gamepad for Player ") + std::to_string(player + 1);
+
+        static GamepadInputMapping::Button nextButtonToSet{};
+        static GamepadInputMapping::ButtonToGameControllerButtonArray newKeys{};
+
+        const GamepadInputMapping::ButtonToGameControllerButtonArray& buttons =
+            m_inputManager.GetInputMapping(player).gamepad.buttons;
+
+        if (openPopup) {
+            ImGui::OpenPopup(popupName.c_str());
+            nextButtonToSet = static_cast<GamepadInputMapping::Button>(0);
+            newKeys = buttons;
+        }
+        if (bool open = true;
+            ImGui::BeginPopupModal(popupName.c_str(), &open, ImGuiWindowFlags_AlwaysAutoResize)) {
+
+            const std::string currButtonName = [&]() -> std::string {
+                std::string name = sdl_util::GetControllerButtonName(buttons[nextButtonToSet]);
+                if (!name.empty())
+                    return name;
+                return FormattedString<>("<Scancode %d>", buttons[nextButtonToSet]).Value();
+            }();
+
+            ImGui::Text(FormattedString<>(
+                "Input: '%s' mapped to: '%s'\n\nPress a new button or Escape to keep current.\n\n",
+                GamepadInputMapping::ButtonName[nextButtonToSet], currButtonName.c_str()));
+
+            // if (ImGui::Button("Reset all to default")) {
+            //    newKeys = GamepadInputMapping::DefaultButtons;
+            //    nextButtonToSet = GamepadInputMapping::ButtonCount;
+            //    //} else if (auto button = m_
+            //} else if (auto scancode = m_keyboard.GetLastKeyPressed()) {
+            //    if (scancode != SDL_SCANCODE_ESCAPE) {
+            //        newKeys[nextButtonToSet] = *scancode;
+            //    }
+            //    nextButtonToSet = static_cast<GamepadInputMapping::Type>(nextButtonToSet + 1);
+            //}
+
+            // if (nextButtonToSet == GamepadInputMapping::Count) {
+            //    m_inputManager.GetInputMapping(player).keyboard.buttons = newKeys;
+            //    m_inputManager.WriteOptions(m_options);
+            //    m_options.Save();
+            //    ImGui::CloseCurrentPopup();
+            //}
 
             ImGui::EndPopup();
         }

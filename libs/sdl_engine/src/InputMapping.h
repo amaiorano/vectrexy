@@ -3,6 +3,7 @@
 #include <SDL_gamecontroller.h>
 #include <SDL_scancode.h>
 #include <array>
+#include <cassert>
 
 struct KeyboardInputMapping {
     enum Type { Up, Down, Left, Right, B1, B2, B3, B4, Count };
@@ -50,14 +51,57 @@ struct GamepadInputMapping {
         SDL_CONTROLLER_BUTTON_B,         SDL_CONTROLLER_BUTTON_Y};
 
     // Current game controller mapping
-    std::array<SDL_GameControllerAxis, AxisCount> axes = DefaultAxes;
-    std::array<SDL_GameControllerButton, ButtonCount> buttons = DefaultButtons;
+    using AxisToGameControllerAxisArray = std::array<SDL_GameControllerAxis, AxisCount>;
+    using ButtonToGameControllerButtonArray = std::array<SDL_GameControllerButton, ButtonCount>;
+    AxisToGameControllerAxisArray axes = DefaultAxes;
+    ButtonToGameControllerButtonArray buttons = DefaultButtons;
 };
 
-// Each player has an InputMapping for all possible devices. We do this so that the user can switch
-// between devices without losing their mapping. For example, if player 1 sets up custom keyboard
-// keys, then switches to gamepad, then back to keyboard, we want to keep the previously set
-// keyboard keys.
+namespace sdl_util {
+    inline const char* GetControllerButtonName(SDL_GameControllerButton button) {
+        switch (button) {
+        case SDL_CONTROLLER_BUTTON_INVALID:
+            return "Invalid";
+        case SDL_CONTROLLER_BUTTON_A:
+            return "A";
+        case SDL_CONTROLLER_BUTTON_B:
+            return "B";
+        case SDL_CONTROLLER_BUTTON_X:
+            return "X";
+        case SDL_CONTROLLER_BUTTON_Y:
+            return "Y";
+        case SDL_CONTROLLER_BUTTON_BACK:
+            return "Back";
+        case SDL_CONTROLLER_BUTTON_GUIDE:
+            return "Guide";
+        case SDL_CONTROLLER_BUTTON_START:
+            return "Start";
+        case SDL_CONTROLLER_BUTTON_LEFTSTICK:
+            return "Left Stick";
+        case SDL_CONTROLLER_BUTTON_RIGHTSTICK:
+            return "Right Stick";
+        case SDL_CONTROLLER_BUTTON_LEFTSHOULDER:
+            return "Left Shoulder";
+        case SDL_CONTROLLER_BUTTON_RIGHTSHOULDER:
+            return "Right Shoulder";
+        case SDL_CONTROLLER_BUTTON_DPAD_UP:
+            return "Dpad Up";
+        case SDL_CONTROLLER_BUTTON_DPAD_DOWN:
+            return "Dpad Down";
+        case SDL_CONTROLLER_BUTTON_DPAD_LEFT:
+            return "Dpad Left";
+        case SDL_CONTROLLER_BUTTON_DPAD_RIGHT:
+            return "Dpad Right";
+        }
+        assert(false);
+        return "ERROR";
+    }
+} // namespace sdl_util
+
+// Each player has an InputMapping for all possible devices. We do this so that the user can
+// switch between devices without losing their mapping. For example, if player 1 sets up custom
+// keyboard keys, then switches to gamepad, then back to keyboard, we want to keep the
+// previously set keyboard keys.
 struct InputMapping {
     KeyboardInputMapping keyboard;
     GamepadInputMapping gamepad;
