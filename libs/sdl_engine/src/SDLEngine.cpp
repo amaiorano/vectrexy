@@ -665,8 +665,8 @@ private:
                                  remapDigitalToAxisValue(IsKeyDown(InputMapping::Left),
                                                          IsKeyDown(InputMapping::Right)));
             input.SetAnalogAxisY(joystickIndex,
-                                 remapDigitalToAxisValue(IsKeyDown(InputMapping::Up),
-                                                         IsKeyDown(InputMapping::Down)));
+                                 remapDigitalToAxisValue(IsKeyDown(InputMapping::Down),
+                                                         IsKeyDown(InputMapping::Up)));
         }
 
         for (int i = 0; i < m_controllerDriver.NumControllers(); ++i) {
