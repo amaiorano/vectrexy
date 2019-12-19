@@ -4,8 +4,10 @@
 #include "emulator/BiosRom.h"
 #include "emulator/Cartridge.h"
 #include "emulator/Cpu.h"
+#include "emulator/DevMemoryDevice.h"
 #include "emulator/IllegalMemoryDevice.h"
 #include "emulator/Ram.h"
+#include "emulator/UnmappedMemoryDevice.h"
 #include "emulator/Via.h"
 
 class Emulator {
@@ -31,5 +33,8 @@ private:
     Ram m_ram;
     BiosRom m_biosRom;
     IllegalMemoryDevice m_illegal;
+    UnmappedMemoryDevice m_unmapped;
+    DevMemoryDevice m_dev;
+
     Cartridge m_cartridge;
 };

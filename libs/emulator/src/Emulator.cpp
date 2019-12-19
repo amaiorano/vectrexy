@@ -1,11 +1,19 @@
 #include "emulator/Emulator.h"
 
 void Emulator::Init(const char* biosRomFile) {
+    // TODO: config option
+    const bool DeveloperMode = true;
+
     m_cpu.Init(m_memoryBus);
     m_via.Init(m_memoryBus);
     m_ram.Init(m_memoryBus);
     m_biosRom.Init(m_memoryBus);
     m_illegal.Init(m_memoryBus);
+    if (DeveloperMode) {
+        m_dev.Init(m_memoryBus);
+    } else {
+        m_unmapped.Init(m_memoryBus);
+    }
     m_cartridge.Init(m_memoryBus);
 
     LoadBios(biosRomFile);

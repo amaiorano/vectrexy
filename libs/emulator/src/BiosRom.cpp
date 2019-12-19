@@ -16,6 +16,7 @@ uint8_t BiosRom::Read(uint16_t address) const {
     return m_data[MemoryMap::Bios.MapAddress(address)];
 }
 
-void BiosRom::Write(uint16_t /*address*/, uint8_t /*value*/) {
-    ErrorHandler::Undefined("Writes to BIOS ROM not allowed\n");
+void BiosRom::Write(uint16_t address, uint8_t value) {
+    ErrorHandler::Undefined("Writes to BIOS ROM not allowed. Address: $%04x, Value: $%02x (%d)\n",
+                            address, value, value);
 }

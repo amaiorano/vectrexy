@@ -59,6 +59,11 @@ public:
         deviceInfo.device->Write(address, value);
     }
 
+    uint8_t ReadRaw(uint16_t address) const {
+        auto& deviceInfo = FindDeviceInfo(address);
+        return deviceInfo.device->Read(address);
+    }
+
     void AddSyncCycles(cycles_t cycles) {
         //@TODO: optimize this so we don't loop through all devices every time we add cycles
         for (auto& deviceInfo : m_devices) {
