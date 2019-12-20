@@ -40,7 +40,7 @@ private:
         } else if constexpr (std::is_same_v<InputDeviceType, GamepadInputDevice>) {
             m_inputDevices[player] = GamepadInputDevice{*m_controllerDriver, player};
         } else {
-            static_assert(false);
+            static_assert(dependent_false<InputDeviceType>::value);
         }
     }
 

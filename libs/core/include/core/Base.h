@@ -181,3 +181,9 @@ struct aggregate_adapter : public T {
     aggregate_adapter(Args&&... args)
         : T{std::forward<Args>(args)...} {}
 };
+
+// Evaluates to false as a type-dependent expression. Useful for
+// static_assert(dependent_false<T>::value) in 'if constexpr' else cases, for e.g., where
+// static_assert(false) would always fail. From: https://en.cppreference.com/w/cpp/language/if
+template <class T>
+struct dependent_false : std::false_type {};

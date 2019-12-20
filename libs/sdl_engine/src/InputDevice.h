@@ -5,7 +5,8 @@
 #include "SDLKeyboard.h"
 #include "core/StdUtil.h"
 #include <array>
-#include <variant>
+#include <functional>
+#include <type_traits>
 
 class Input;
 
