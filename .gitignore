@@ -25,6 +25,9 @@ ipch/
 *.vsp
 *.vspx
 
+# Visual Studio 2019
+.vs/
+
 # Visual Studio Code
 .vscode/
 

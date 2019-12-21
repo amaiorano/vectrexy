@@ -1,9 +1,14 @@
-cmake_minimum_required (VERSION 3.10)
+cmake_minimum_required (VERSION 3.15)
+
+# Disable adding MSVC CRT to CMAKE_<LANG>_FLAGS_<CONFIG> by default.
+cmake_policy(SET CMP0091 NEW)
+
+# Disable adding MSVC warning flags to CMAKE_<LANG>_FLAGS by default.
+cmake_policy(SET CMP0092 NEW)
 
 project(vectrexy
 	DESCRIPTION "A Vectrexy emulator by Antonio Maiorano"
-	# Requires CMake 3.13
-	# HOMEPAGE_URL https://github.com/amaiorano/vectrexy
+	HOMEPAGE_URL https://github.com/amaiorano/vectrexy
 )
 
 option(BUILD_SHARED_LIBS "Build libs as shared libraries." OFF)
@@ -46,6 +51,51 @@ set(CMAKE_MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
 # Set module path to local cmake folder so find_package looks there first
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
+# Set C++ standard and disable extensions
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+if(USE_SDL_ENGINE)
+	add_compile_definitions(PLATFORM_SDL)
+endif()
+
+if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+	add_compile_definitions(
+		_CRT_SECURE_NO_WARNINGS
+		_SCL_SECURE_NO_WARNINGS
+	)
+	add_compile_options(/MP /W4 /WX)
+	# Use dynamic CRT for shared lib builds to avoido issues with allocations in one DLL
+	# being freed in another. For static buids, use static CRT so the user doesn't have to
+	# install the right CRT.
+	if (BUILD_SHARED_LIBS)
+		set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+	else()
+		set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+	endif()
+elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+	if("x${CMAKE_CXX_SIMULATE_ID}" STREQUAL "xMSVC") # clang-cl
+		add_compile_definitions(
+			_CRT_SECURE_NO_WARNINGS
+			_SCL_SECURE_NO_WARNINGS
+		)
+	endif()
+
+	add_compile_options(
+		-Wno-deprecated-declarations
+		-Wno-format-security
+		-Wno-nonportable-include-path
+		-Wno-pragma-pack
+		-Wno-unused-function
+		-Wno-unused-const-variable
+	)
+elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+	add_compile_options(
+		-Wno-format-security
+	)
+endif()
+	
 if(USE_NULL_ENGINE)
 	add_definitions(-DENGINE_NULL)
 elseif(USE_SDL_ENGINE)

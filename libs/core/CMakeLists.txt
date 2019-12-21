@@ -38,51 +38,16 @@ target_link_libraries(${MODULE_NAME}
 		$<$<BOOL:${USE_SDL_ENGINE}>:SDL2::SDL2_net>
 )
 
-# TODO: Move this out of Core and make it something each module can include
-target_compile_features(${MODULE_NAME} PUBLIC cxx_std_17)
-set_target_properties(${MODULE_NAME} PROPERTIES CXX_EXTENSIONS OFF)
-
-if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-	target_compile_definitions(${MODULE_NAME} PUBLIC
-		_CRT_SECURE_NO_WARNINGS
-		_SCL_SECURE_NO_WARNINGS
-	)
-	target_compile_options(${MODULE_NAME} PUBLIC /MP /W4 /WX)
-		# By default, CMake uses dynamic CRT, which is good if we're building DLLs to avoid
-		# issues with allocations in one DLL trying to be freed in another. But when building
-		# statically, force using the static CRT so we don't have to worry about user having
-		# the right CRT installed.
-		if(NOT BUILD_SHARED_LIBS)
-			target_compile_options(${MODULE_NAME} PUBLIC "$<$<CONFIG:Debug>:/MTd>")
-			target_compile_options(${MODULE_NAME} PUBLIC "$<$<CONFIG:Release>:/MT>")
-			target_compile_options(${MODULE_NAME} PUBLIC "$<$<CONFIG:MinSizeRel>:/MT>")
-			target_compile_options(${MODULE_NAME} PUBLIC "$<$<CONFIG:RelWithDebInfo>:/MT>")
-		endif()
-elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 	if("x${CMAKE_CXX_SIMULATE_ID}" STREQUAL "xMSVC") # clang-cl
-		target_compile_definitions(${MODULE_NAME} PUBLIC
-			_CRT_SECURE_NO_WARNINGS
-			_SCL_SECURE_NO_WARNINGS
-		)
-	else() # clang
+		# ...
+	else()
 		target_link_libraries(${MODULE_NAME} PUBLIC
 			stdc++fs # required for filesystem
-		)
+		) 
 	endif()
-
-	target_compile_options(${MODULE_NAME} PUBLIC
-		-Wno-deprecated-declarations
-		-Wno-format-security
-		-Wno-nonportable-include-path
-		-Wno-pragma-pack
-		-Wno-unused-function
-		-Wno-unused-const-variable
-	)
-elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-	target_compile_options(${MODULE_NAME} PUBLIC
-		-Wno-format-security
-	)
-	target_link_libraries(${MODULE_NAME} PUBLIC
-		stdc++fs # required for filesystem
-	)
+elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+		target_link_libraries(${MODULE_NAME} PUBLIC
+			stdc++fs # required for filesystem
+		) 
 endif()

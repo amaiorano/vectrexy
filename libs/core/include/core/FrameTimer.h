@@ -33,7 +33,7 @@ public:
 
 private:
     template <typename T>
-    static constexpr T MsToSec(T ms) {
+    static T MsToSec(T ms) {
         return static_cast<T>(ms / 1000.0);
     }
 
