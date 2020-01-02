@@ -20,8 +20,14 @@ private:
 
     struct PrintfData {
         int argIndex = 0;
-        std::array<uint8_t, 1024> args;
-        std::vector<std::string> strings;
+        std::array<uint8_t, 1024> args{};
+        std::vector<std::string> strings{};
+
+        PrintfData() {
+            // We store addresses of elements in this array, so make sure it doesn't ever relocate.
+            const size_t MaxStrings = 1024;
+            strings.reserve(MaxStrings);
+        }
 
         void Reset() {
             argIndex = 0;

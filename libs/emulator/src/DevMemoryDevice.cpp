@@ -96,7 +96,10 @@ bool DevMemoryDevice::HandleDevWrite(uint16_t address, uint8_t value) {
 
         auto format = readString(formatStringAddress);
         auto data = m_printfData.args.data();
-        vprintf(format.c_str(), *reinterpret_cast<va_list*>(&data));
+        char text[2048];
+        vsprintf(text, format.c_str(), *reinterpret_cast<va_list*>(&data));
+        
+        Printf("[DEV] %s", text);
         FlushStream(ConsoleStream::Output);
 
         // Reset for next printf call
