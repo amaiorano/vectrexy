@@ -1910,3 +1910,7 @@ cycles_t Cpu::ExecuteInstruction(bool irqEnabled, bool firqEnabled) {
 const CpuRegisters& Cpu::Registers() {
     return *m_impl;
 }
+
+void Cpu::SetRegisters(const CpuRegisters& registers) {
+    static_cast<CpuRegisters&>(*m_impl) = registers;
+}

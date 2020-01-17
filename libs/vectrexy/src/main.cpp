@@ -1,6 +1,7 @@
 #include "core/Base.h"
 #include "core/Platform.h"
 #include "debugger/Debugger.h"
+#include "debugger/GdbStub.h"
 #include "emulator/Emulator.h"
 #include "engine/EngineClient.h"
 #include "engine/Overlays.h"
@@ -35,6 +36,7 @@ private:
 
         m_emulator.Init(biosRomFile.data());
         m_debugger.Init(engineService, argc, argv, Paths::devDir, m_emulator);
+        m_gdbStub.Init(m_emulator);
 
         if (!rom.empty()) {
             LoadRom(rom.c_str());
@@ -51,6 +53,7 @@ private:
     void Reset() {
         m_emulator.Reset();
         m_debugger.Reset();
+        m_gdbStub.Reset();
         ErrorHandler::Reset();
     }
 
@@ -119,8 +122,13 @@ private:
             }
         }
 
-        bool keepGoing =
-            m_debugger.FrameUpdate(frameTime, emuEvents, input, renderContext, audioContext);
+        //bool keepGoing =
+        //    m_debugger.FrameUpdate(frameTime, emuEvents, input, renderContext, audioContext);
+
+        if (!m_gdbStub.Connected()) {
+            m_gdbStub.Connect();
+        }
+        bool keepGoing = m_gdbStub.FrameUpdate(frameTime, emuEvents, input, renderContext, audioContext);
 
         m_emulator.FrameUpdate(frameTime);
 
@@ -132,6 +140,8 @@ private:
     std::shared_ptr<IEngineService> m_engineService;
     Emulator m_emulator;
     Debugger m_debugger;
+    GdbStub m_gdbStub;
+
     Overlays m_overlays;
 };
 

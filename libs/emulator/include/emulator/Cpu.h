@@ -72,6 +72,7 @@ public:
     cycles_t ExecuteInstruction(bool irqEnabled, bool firqEnabled);
 
     const CpuRegisters& Registers();
+    void SetRegisters(const CpuRegisters& registers);
 
 private:
     pimpl::Pimpl<class CpuImpl, 48> m_impl;

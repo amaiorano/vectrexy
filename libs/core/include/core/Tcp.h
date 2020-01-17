@@ -11,6 +11,10 @@ public:
     void Open(uint16_t port);
     void Close();
     bool TryAccept();
+    bool Connected() const;
+
+    // Checks if data is available on the socket to receive. If timeout is 0, performs a quick check, otherwise it checks for timeout milliseconds.
+    bool ReceiveDataAvailable(uint32_t timeoutMS = 0) const;
 
     int Send(const void* data, int len);
     int Receive(void* data, int maxlen);

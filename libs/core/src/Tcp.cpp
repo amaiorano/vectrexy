@@ -10,6 +10,12 @@ void TcpServer::Close() {}
 bool TcpServer::TryAccept() {
     return false;
 }
+bool TcpServer::Connected() const {
+    return false;
+}
+bool TcpServer::ReceiveDataAvailable(uint32_t /*timeoutMS*/) const {
+    return false;
+}
 int TcpServer::Send(const void* /*data*/, int /*len*/) {
     return 0;
 }
@@ -62,7 +68,20 @@ public:
 
     bool TryAccept() {
         m_client = SDLNet_TCP_Accept(m_server);
+        if (m_client) {
+            m_socketSet = SDLNet_AllocSocketSet(1);
+            SDLNet_TCP_AddSocket(m_socketSet, m_client);
+        }
         return m_client != nullptr;
+    }
+
+    bool Connected() const {
+        return m_client != nullptr;
+    }
+
+    bool ReceiveDataAvailable(uint32_t timeoutMS) const {
+        int numSocketsReadyForReading = SDLNet_CheckSockets(m_socketSet, timeoutMS);
+        return numSocketsReadyForReading == 1;
     }
 
     int Send(const void* data, int len) { return SDLNet_TCP_Send(m_client, data, len); }
@@ -72,6 +91,7 @@ public:
 private:
     TCPsocket m_server{};
     TCPsocket m_client{};
+    SDLNet_SocketSet m_socketSet{};
     IPaddress m_ip{};
     uint16_t m_port{};
 };
@@ -89,6 +109,14 @@ void TcpServer::Close() {
 
 bool TcpServer::TryAccept() {
     return m_impl->TryAccept();
+}
+
+bool TcpServer::Connected() const {
+    return m_impl->Connected();
+}
+
+bool TcpServer::ReceiveDataAvailable(uint32_t timeoutMS) const {
+    return m_impl->ReceiveDataAvailable(timeoutMS);
 }
 
 int TcpServer::Send(const void* data, int len) {
