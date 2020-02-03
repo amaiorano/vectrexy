@@ -108,15 +108,6 @@ namespace {
         return std::string{s};
     }
 
-    std::string TryMemoryBusRead(const MemoryBus& memoryBus, uint16_t address) {
-        try {
-            uint8_t value = memoryBus.Read(address);
-            return FormattedString<>("$%02x (%d)", value, value).Value();
-        } catch (...) {
-            return "INVALID_READ";
-        }
-    }
-
     const char* GetRegisterName(const CpuRegisters& cpuRegisters, const uint8_t& r) {
         ptrdiff_t offset =
             reinterpret_cast<const uint8_t*>(&r) - reinterpret_cast<const uint8_t*>(&cpuRegisters);
@@ -641,7 +632,7 @@ namespace {
     std::optional<uint16_t> GetCallOpReturnAddress(uint16_t preOpPC, const Cpu& cpu,
                                                    const MemoryBus& memoryBus) {
         // For call, we only need to look at the first opcode byte of the op we just executed
-        uint8_t opCode = memoryBus.Read(preOpPC);
+        uint8_t opCode = memoryBus.ReadRaw(preOpPC);
 
         // If it's a call, read the return address off the stack
         switch (opCode) {
@@ -1028,7 +1019,7 @@ bool Debugger::FrameUpdate(double frameTime, const EmuEvents& emuEvents, const I
         } else if (tokens[0] == "print" || tokens[0] == "p") {
             if (tokens.size() > 1) {
                 auto address = StringToIntegral<uint16_t>(tokens[1]);
-                uint8_t value = m_memoryBus->Read(address);
+                uint8_t value = m_memoryBus->ReadRaw(address);
                 Printf("%s = $%02x (%d)\n", FormatAddress(address, m_symbolTable).c_str(), value,
                        value);
             } else {

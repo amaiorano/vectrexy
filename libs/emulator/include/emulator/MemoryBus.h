@@ -35,22 +35,20 @@ public:
         m_onWriteCallback = onWriteCallback;
     }
 
-    void SetCallbacksEnabled(bool enabled) { m_callbacksEnabled = enabled; }
-
     uint8_t Read(uint16_t address) const {
         auto& deviceInfo = FindDeviceInfo(address);
         SyncDevice(deviceInfo);
 
         uint8_t value = deviceInfo.device->Read(address);
 
-        if (m_callbacksEnabled && m_onReadCallback)
+        if (m_onReadCallback)
             m_onReadCallback(address, value);
 
         return value;
     }
 
     void Write(uint16_t address, uint8_t value) {
-        if (m_callbacksEnabled && m_onWriteCallback)
+        if (m_onWriteCallback)
             m_onWriteCallback(address, value);
 
         auto& deviceInfo = FindDeviceInfo(address);
@@ -124,7 +122,6 @@ private:
     // Sorted by first address in range
     std::vector<DeviceInfo> m_devices;
 
-    bool m_callbacksEnabled = true;
     OnReadCallback m_onReadCallback;
     OnWriteCallback m_onWriteCallback;
 };
