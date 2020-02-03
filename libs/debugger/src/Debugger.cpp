@@ -898,6 +898,11 @@ bool Debugger::FrameUpdate(double frameTime, const EmuEvents& emuEvents, const I
             ResumeFromDebugger();
 
         } else if (tokens[0] == "step" || tokens[0] == "s") {
+            // For step, erase the prompt line. This makes it easier to read the output from
+            // multiple stepped lines, and allows us to output the current instruction at the prompt
+            // without it having it printed twice as we step.
+            Rewind(ConsoleStream::Output);
+
             // "Step into"
             ExecuteInstruction(input, renderContext, audioContext);
 

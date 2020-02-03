@@ -35,6 +35,12 @@ void Errorf(const char* format, Args... args) {
     fprintf(GetStream(ConsoleStream::Error), format, args...);
 }
 
+// After calling Rewind, the next print will overwrite the current line
+inline void Rewind(ConsoleStream type) {
+    Consolef(type, "\033[A\033[2K");
+    rewind(GetStream(type));
+}
+
 inline void FlushStream(ConsoleStream type) {
     fflush(GetStream(type));
 }
