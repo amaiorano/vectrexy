@@ -511,6 +511,23 @@ namespace {
                r.DP, GetCCString(cpuRegisters).c_str());
     }
 
+    // Used to print the current instruction before we execute it
+    void PrintPreOp(const Trace::InstructionTraceInfo& traceInfo,
+                    const Debugger::SymbolTable& symbolTable) {
+        auto op = DisassembleOp(traceInfo, symbolTable);
+
+        using namespace Platform;
+        ScopedConsoleColor scc(ConsoleColor::Gray);
+        Printf("[$%04x] ", traceInfo.preOpCpuRegisters.PC);
+        SetConsoleColor(ConsoleColor::LightYellow);
+        Printf("%-10s ", op.hexInstruction.c_str());
+        SetConsoleColor(ConsoleColor::LightAqua);
+        Printf("%-32s ", op.disasmInstruction.c_str());
+        SetConsoleColor(ConsoleColor::LightGreen);
+        Printf("%-40s ", op.comment.c_str());
+    }
+
+    // Used to print the instruction just executed
     void PrintOp(const Trace::InstructionTraceInfo& traceInfo,
                  const Debugger::SymbolTable& symbolTable) {
         auto op = DisassembleOp(traceInfo, symbolTable);
@@ -858,8 +875,13 @@ bool Debugger::FrameUpdate(double frameTime, const EmuEvents& emuEvents, const I
             FlushStream(ConsoleStream::Output);
 
         } else {
-            auto prompt =
-                FormattedString<>("$%04x (%s)>", m_cpu->Registers().PC, m_lastCommand.c_str());
+            // Display current instruction as part of the prompt
+            Trace::InstructionTraceInfo traceInfo;
+            Trace::PreOpWriteTraceInfo(traceInfo, m_cpu->Registers(), *m_memoryBus);
+            PrintPreOp(traceInfo, m_symbolTable);
+
+            // Also display the last executed command
+            auto prompt = FormattedString<>(" (%s)>", m_lastCommand.c_str());
             inputCommand = Platform::ConsoleReadLine(prompt);
         }
 
