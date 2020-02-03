@@ -3,6 +3,7 @@
 #include "core/Base.h"
 #include "core/CircularBuffer.h"
 #include "debugger/Breakpoints.h"
+#include "debugger/CallStack.h"
 #include "debugger/SyncProtocol.h"
 #include "debugger/Trace.h"
 #include "emulator/EngineTypes.h"
@@ -33,6 +34,8 @@ private:
     void ResumeFromDebugger();
     void PrintOp(const Trace::InstructionTraceInfo& traceInfo);
     void PrintLastOp();
+    void PrintCallStack();
+    void PostOpUpdateCallstack(uint16_t preOpPC);
     void ExecuteFrameInstructions(double frameTime, const Input& input,
                                   RenderContext& renderContext, AudioContext& audioContext);
     cycles_t ExecuteInstruction(const Input& input, RenderContext& renderContext,
@@ -50,6 +53,7 @@ private:
     std::queue<std::string> m_pendingCommands;
     std::string m_lastCommand;
     Breakpoints m_breakpoints;
+    CallStack m_callStack;
     std::optional<int64_t> m_numInstructionsToExecute = {};
     SymbolTable m_symbolTable; // Address to symbol name
     cycles_t m_cpuCyclesTotal = 0;

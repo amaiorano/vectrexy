@@ -64,6 +64,13 @@ public:
         return deviceInfo.device->Read(address);
     }
 
+    uint16_t Read16(uint16_t address) const {
+        // Big endian
+        auto high = Read(address++);
+        auto low = Read(address);
+        return static_cast<uint16_t>(high) << 8 | static_cast<uint16_t>(low);
+    }
+
     void AddSyncCycles(cycles_t cycles) {
         //@TODO: optimize this so we don't loop through all devices every time we add cycles
         for (auto& deviceInfo : m_devices) {

@@ -1907,6 +1907,6 @@ cycles_t Cpu::ExecuteInstruction(bool irqEnabled, bool firqEnabled) {
     return m_impl->ExecuteInstruction(irqEnabled, firqEnabled);
 }
 
-const CpuRegisters& Cpu::Registers() {
+const CpuRegisters& Cpu::Registers() const {
     return *m_impl;
 }

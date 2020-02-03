@@ -547,6 +547,7 @@ namespace {
                "info reg[isters]                     display register values\n"
                "p[rint] <address>                    display value add address\n"
                "set <address>=<value>                set value at address\n"
+               "bt|backtrace                         display backtrace (call stack)\n"
                "info break                           display breakpoints\n"
                "b[reak] <address>                    set instruction breakpoint at address\n"
                "[ |r|a]watch <address>               set write/read/both watchpoint at address\n"
@@ -631,6 +632,38 @@ namespace {
             // With color disabled, we can now buffer output in large chunks
             setvbuf(stdout, nullptr, _IOFBF, 100 * 1024);
         }
+    }
+
+    // If the opcode at preOpPC is a call instruction, returns the call's return address.
+    // Function is expected to be called after the instruction has executed, thus preOpPC
+    // is the PC before it was executed, and preOpPC != cpu.Registers().PC (except when CWAI was
+    // executed).
+    std::optional<uint16_t> GetCallOpReturnAddress(uint16_t preOpPC, const Cpu& cpu,
+                                                   const MemoryBus& memoryBus) {
+        // For call, we only need to look at the first opcode byte of the op we just executed
+        uint8_t opCode = memoryBus.Read(preOpPC);
+
+        // If it's a call, read the return address off the stack
+        switch (opCode) {
+            // These are all on page 0, and don't collide with any instructions in pages 2 or 3
+        case 0x17: // LBSR
+        case 0x8D: // BSR
+        case 0x9D: // JSR
+        case 0xAD: // JSR
+        case 0xBD: // JSR
+            // Branch and Jump push only the return address on the stack
+            return memoryBus.Read16(cpu.Registers().S);
+
+        case 0x3C: // CWAI
+        case 0x3F: // SWI, SWI2, SWI3 - same opcode on all 3 pages
+            // CWAI and SWI push all registers first, starting with PC
+            return memoryBus.Read16(cpu.Registers().S + 12);
+
+        default:
+            break;
+        }
+
+        return {};
     }
 } // namespace
 
@@ -718,6 +751,7 @@ void Debugger::Reset() {
     m_cpuCyclesLeft = 0;
     m_instructionTraceBuffer.Clear();
     m_currTraceInfo = nullptr;
+    m_callStack.Clear();
 
     // Force ram to zero when running sync protocol for determinism
     if (!m_syncProtocol.IsStandalone()) {
@@ -749,6 +783,53 @@ void Debugger::PrintLastOp() {
         }
     }
 };
+
+void Debugger::PrintCallStack() {
+
+    size_t i = 0;
+    const auto& frames = m_callStack.Frames();
+    for (auto iter = frames.rbegin(); iter != frames.rend(); ++iter, ++i) {
+        if (i == 0) {
+            // Print frame 0 (current PC)
+            auto currAddress = m_cpu->Registers().PC;
+            auto frameAddress = iter->frameAddress;
+            Printf("#%3d $%04x in %s\n", i, currAddress,
+                   FormatAddress(frameAddress, m_symbolTable).c_str());
+
+        } else {
+            // Print frames 1..n
+            auto currAddress = (iter - 1)->calleeAddress;
+            auto frameAddress = iter->frameAddress;
+
+            Printf("#%3d $%04x in %s\n", i, currAddress,
+                   FormatAddress(frameAddress, m_symbolTable).c_str());
+        }
+    }
+}
+
+void Debugger::PostOpUpdateCallstack(uint16_t preOpPC) {
+    // Push initial frame on the first instruction
+    if (m_callStack.Empty()) {
+        m_callStack.Push(StackFrame{preOpPC, preOpPC, static_cast<uint16_t>(0)});
+        return;
+    }
+
+    // Don't push duplicate stack frames during CWAI
+    if (m_callStack.IsLastCalleeAddress(preOpPC))
+        return;
+
+    const uint16_t currOpPC = m_cpu->Registers().PC;
+
+    // Push calls
+    if (auto returnAddress = GetCallOpReturnAddress(preOpPC, *m_cpu, *m_memoryBus)) {
+        m_callStack.Push(StackFrame{preOpPC, currOpPC, *returnAddress});
+
+    }
+    // Pop returns
+    else if (m_callStack.IsLastReturnAddress(currOpPC)) {
+        m_callStack.Pop();
+    }
+}
 
 bool Debugger::FrameUpdate(double frameTime, const EmuEvents& emuEvents, const Input& inputArg,
                            RenderContext& renderContext, AudioContext& audioContext) {
@@ -839,6 +920,9 @@ bool Debugger::FrameUpdate(double frameTime, const EmuEvents& emuEvents, const I
             } else {
                 validCommand = false;
             }
+
+        } else if (tokens[0] == "backtrace" || tokens[0] == "bt") {
+            PrintCallStack();
 
         } else if (tokens[0] == "break" || tokens[0] == "b") {
             validCommand = false;
@@ -1132,10 +1216,13 @@ cycles_t Debugger::ExecuteInstruction(const Input& input, RenderContext& renderC
         }
 
         cycles_t cpuCycles = 0;
+        const uint16_t preOpPC = m_cpu->Registers().PC;
 
         // In case exception is thrown below, we still want to add the current instruction trace
         // info, so wrap the call in a ScopedExit
         auto onExit = MakeScopedExit([&] {
+            PostOpUpdateCallstack(preOpPC);
+
             if (m_traceEnabled) {
 
                 // If the CPU didn't do anything (e.g. waiting for interrupts), we have nothing
