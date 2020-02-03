@@ -572,15 +572,53 @@ namespace {
         if (!fin)
             return false;
 
+        const auto ext = fs::path{file}.extension();
+        const bool isLstFile = ext == ".lst";
+        const bool isAsmFile = ext == ".a09" || ext == ".asm";
+        const bool isMapFile = ext == ".map";
+
         std::string line;
         while (std::getline(fin, line)) {
             auto tokens = Tokenize(line);
-            if (tokens.size() >= 3 && ((tokens[1].find("EQU") != -1) ||
-                                       (tokens[1].find("equ") != -1) || (tokens[1] == ":"))) {
-                auto address = StringToIntegral<uint16_t>(tokens[2]);
-                symbolTable.insert({address, tokens[0]});
+            if (isLstFile) {
+                // AS09 Assembler for M6809 [1.42] lst file by Frank A. Kingswood
+                // NOTE: not the same format as ASxxxx Assembler V05.11 (GCC6809)(Motorola 6809) by
+                // Alan R. Baldwin
+
+                // Format:
+                // Abs_a_b : $f584          62852
+                // OR
+                if (tokens.size() >= 3 && tokens[1] == ":") {
+                    auto address = StringToIntegral<uint16_t>(tokens[2]);
+                    symbolTable.insert({address, tokens[0]});
+                }
+            } else if (isAsmFile) {
+                // Hand-coded asm or assembled file
+
+                // Format:
+                // ScreenW equ 256
+                // OR (using AVOCET ASM09):
+                // REG0     EQU     $C800
+                if (tokens.size() >= 3 &&
+                    ((tokens[1].find("EQU") != -1) || (tokens[1].find("equ") != -1))) {
+                    auto address = StringToIntegral<uint16_t>(tokens[2]);
+                    symbolTable.insert({address, tokens[0]});
+                }
+            } else if (isMapFile) {
+                // ASxxxx Linker V05.11 (GCC6809) .map file
+
+                // Format:
+                // C880  __ZN10VectorList17s_simpleAlloca   vector_list.cpp
+                if (tokens.size() == 3 && fs::path{tokens[2]}.extension() == ".cpp") {
+                    auto address = StringToIntegral<uint16_t>("$" + tokens[0]);
+                    symbolTable.insert({address, tokens[1]});
+                }
+            } else {
+                // Unknown file type
+                return false;
             }
         }
+
         return true;
     }
 
