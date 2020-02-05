@@ -25,21 +25,33 @@ struct Breakpoint {
         return "INVALID";
     }
 
-    Type type = Type::Instruction;
-    uint16_t address = 0;
+    Breakpoint(Type type, uint16_t address)
+        : type(type)
+        , address(address) {}
+
+    Breakpoint& Enabled(bool set = true) {
+        enabled = set;
+        return *this;
+    }
+
+    Breakpoint& Once(bool set = true) {
+        once = set;
+        return *this;
+    }
+
+    const Type type;        // = Type::Instruction;
+    const uint16_t address; // = 0;
     bool enabled = true;
-    bool autoDelete = false;
+    bool once = false;
 };
 
 class Breakpoints {
 public:
     void Reset() { m_breakpoints.clear(); }
 
-    Breakpoint* Add(Breakpoint::Type type, uint16_t address) {
-        auto& bp = m_breakpoints[address];
-        bp.type = type;
-        bp.address = address;
-        return &bp;
+    Breakpoint& Add(Breakpoint::Type type, uint16_t address) {
+        Breakpoint& bp = m_breakpoints.try_emplace(address, type, address).first->second;
+        return bp;
     }
 
     std::optional<Breakpoint> Remove(uint16_t address) {

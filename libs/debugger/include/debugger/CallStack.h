@@ -35,6 +35,12 @@ public:
         return !m_frames.empty() && address == m_frames.back().returnAddress;
     };
 
+    std::optional<uint16_t> GetLastCalleeAddress() const {
+        if (!m_frames.empty())
+            return m_frames.back().calleeAddress;
+        return {};
+    }
+
 private:
     std::vector<StackFrame> m_frames;
 };

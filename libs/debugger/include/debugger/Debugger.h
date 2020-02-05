@@ -30,11 +30,12 @@ public:
     using SymbolTable = std::multimap<uint16_t, std::string>;
 
 private:
-    void BreakIntoDebugger();
-    void ResumeFromDebugger();
+    void BreakIntoDebugger(bool switchFocus = true);
+    void ResumeFromDebugger(bool switchFocus = true);
     void PrintOp(const Trace::InstructionTraceInfo& traceInfo);
     void PrintLastOp();
     void PrintCallStack();
+    void CheckForBreakpoints();
     void PostOpUpdateCallstack(uint16_t preOpPC);
     void ExecuteFrameInstructions(double frameTime, const Input& input,
                                   RenderContext& renderContext, AudioContext& audioContext);
