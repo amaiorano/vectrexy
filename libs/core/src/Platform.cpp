@@ -22,6 +22,16 @@ namespace {
 } // namespace
 
 namespace Platform {
+    void Init() {
+        // Enable VT100 style in current console. This allows us to use codes like "\033[A\033[2K"
+        // to delete current line and bring cursor back to column 0.
+        HANDLE hConsole = ::GetStdHandle(STD_OUTPUT_HANDLE);
+        DWORD mode;
+        ::GetConsoleMode(hConsole, &mode);
+        ::SetConsoleMode(hConsole,
+                         mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING | DISABLE_NEWLINE_AUTO_RETURN);
+    }
+
     void SetFocus(WindowHandle windowHandle) {
         // Global mutex to avoid deadlock when multiple instances attempt to attach thread input
         auto mutex = ::CreateMutex(nullptr, FALSE, "Global\\VectrexySetFocusMutex");
@@ -120,6 +130,8 @@ namespace {
 } // namespace
 
 namespace Platform {
+    void Init() {}
+
     void SetFocus(WindowHandle windowHandle) {}
 
     void SetConsoleFocus() {}

@@ -10,6 +10,9 @@ namespace Platform {
     // Every platform has their own window handle type, so we use std::any and cast internally
     using WindowHandle = std::any;
 
+    // Platform-specific initialization. Call once at start of program.
+    void Init();
+
     void SetFocus(WindowHandle windowHandle);
 
     void SetConsoleFocus();
