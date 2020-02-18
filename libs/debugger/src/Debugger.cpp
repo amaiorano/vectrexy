@@ -654,7 +654,6 @@ namespace {
         case 0x9D: // JSR (page 0)
         case 0xAD: // JSR (page 0)
         case 0xBD: // JSR (page 0)
-        case 0x3C: // CWAI (page 0)
         case 0x3F: // SWI (page 0)
             return true;
 
@@ -676,8 +675,7 @@ namespace {
 
     // If the opcode at preOpPC is a call instruction, returns the call's return address.
     // Function is expected to be called after the instruction has executed, thus preOpPC
-    // is the PC before it was executed, and preOpPC != cpu.Registers().PC (except when CWAI was
-    // executed).
+    // is the PC before it was executed, and preOpPC != cpu.Registers().PC.
     std::optional<uint16_t> GetCallOpReturnAddress(uint16_t preOpPC, const Cpu& cpu,
                                                    const MemoryBus& memoryBus) {
         uint8_t opCode = memoryBus.ReadRaw(preOpPC);
@@ -692,10 +690,9 @@ namespace {
             // Branch and Jump push only the return address on the stack
             return memoryBus.Read16(cpu.Registers().S);
 
-        case 0x3C: // CWAI (page 0)
         case 0x3F: // SWI (page 0)
-            // CWAI and SWI push all registers first, starting with PC
-            return memoryBus.Read16(cpu.Registers().S + 12);
+            // SWI pushes all registers first, starting with PC
+            return memoryBus.Read16(cpu.Registers().S + 10);
 
         case 0x10: // Page 1
         case 0x11: // Page 2
@@ -703,7 +700,7 @@ namespace {
             opCode = memoryBus.ReadRaw(preOpPC + 1);
             switch (opCode) {
             case 0x3F: // SWI2 (page 1) or SWI3 (page 2)
-                return memoryBus.Read16(cpu.Registers().S + 12);
+                return memoryBus.Read16(cpu.Registers().S + 10);
             }
 
         default:
@@ -866,27 +863,42 @@ void Debugger::PrintCallStack() {
     }
 }
 
-void Debugger::PostOpUpdateCallstack(uint16_t preOpPC) {
+void Debugger::PostOpUpdateCallstack(const CpuRegisters& preOpRegisters) {
+    const uint16_t preOpPC = preOpRegisters.PC;
+
     // Push initial frame on the first instruction
     if (m_callStack.Empty()) {
-        m_callStack.Push(StackFrame{0, preOpPC, static_cast<uint16_t>(0)});
+        m_callStack.Push(StackFrame{0, preOpPC, static_cast<uint16_t>(0), preOpRegisters.S});
         return;
     }
-
-    // Don't push duplicate stack frames during CWAI
-    if (m_callStack.IsLastCalleeAddress(preOpPC))
-        return;
 
     const uint16_t currOpPC = m_cpu->Registers().PC;
 
     // Push calls
     if (auto returnAddress = GetCallOpReturnAddress(preOpPC, *m_cpu, *m_memoryBus)) {
-        m_callStack.Push(StackFrame{preOpPC, currOpPC, *returnAddress});
-
+        m_callStack.Push(StackFrame{preOpPC, currOpPC, *returnAddress, preOpRegisters.S});
     }
     // Pop returns
     else if (m_callStack.IsLastReturnAddress(currOpPC)) {
+        // Normal return case
         m_callStack.Pop();
+
+    }
+    // Pop abnormal returns
+    else {
+        // Abnormal return: one or more return addresses were popped off the stack and discarded. We
+        // must detect this, and pop off our stack frames. For example, Bedlam does this.
+        auto isReturnAddressRemovedFromStack = [this] {
+            if (auto topS = m_callStack.LastStackPointer())
+                return topS > 0 && m_cpu->Registers().S >= topS;
+            return false;
+        };
+        // Loop in case multiple return addresses were popped in one instruction (e.g. PULS A,B,X,Y)
+        while (isReturnAddressRemovedFromStack()) {
+            Printf("Detected abnormal stack frame exit at PC=$%04x: %s\n", preOpPC,
+                   m_callStack.Top()->ToString().c_str());
+            m_callStack.Pop();
+        }
     }
 }
 
@@ -946,6 +958,22 @@ bool Debugger::FrameUpdate(double frameTime, const EmuEvents& emuEvents, const I
 
         bool validCommand = true;
 
+        auto Step = [&] {
+            // For step, erase the prompt line. This makes it easier to read the output from
+            // multiple stepped lines, and allows us to output the current instruction at the prompt
+            // without it having it printed twice as we step.
+            Rewind(ConsoleStream::Output);
+            ExecuteInstruction(input, renderContext, audioContext);
+            PrintLastOp();
+            CheckForBreakpoints();
+        };
+
+        auto Continue = [&] {
+            Rewind(ConsoleStream::Output);
+            ExecuteInstruction(input, renderContext, audioContext);
+            ResumeFromDebugger();
+        };
+
         if (tokens.size() == 0) {
             // Don't do anything (no command entered yet)
 
@@ -956,58 +984,60 @@ bool Debugger::FrameUpdate(double frameTime, const EmuEvents& emuEvents, const I
             PrintHelp();
 
         } else if (tokens[0] == "continue" || tokens[0] == "c") {
-            // First 'step' current instruction, otherwise if we have a breakpoint on it we will
-            // end up breaking immediately on it again (we won't actually continue)
-            ExecuteInstruction(input, renderContext, audioContext);
-            ResumeFromDebugger();
+            Continue();
 
         } else if (tokens[0] == "step" || tokens[0] == "s") {
-            // For step, erase the prompt line. This makes it easier to read the output from
-            // multiple stepped lines, and allows us to output the current instruction at the prompt
-            // without it having it printed twice as we step.
-            Rewind(ConsoleStream::Output);
-
-            // "Step into"
-            ExecuteInstruction(input, renderContext, audioContext);
-
-            // Handle optional number of steps parameter
             if (tokens.size() > 1) {
                 m_numInstructionsToExecute = StringToIntegral<int64_t>(tokens[1]) - 1;
-                if (m_numInstructionsToExecute.value() > 0) {
-                    ResumeFromDebugger();
-                }
-            } else {
-                PrintLastOp();
-                CheckForBreakpoints();
             }
+
+            if (m_numInstructionsToExecute > 0)
+                Continue();
+            else
+                Step();
 
         } else if (tokens[0] == "next") {
-            // If the current instruction is call, add a temporary breakpoint on the instruction
-            // immediately following it.
+            // If the instruction we're about to execute is a call, add a temporary conditional
+            // breakpoint on when the callstack returns to its current size.
             const uint16_t PC = m_cpu->Registers().PC;
             if (IsCall(PC, *m_memoryBus)) {
-                auto address = GetNextInstructionAddress(PC, *m_memoryBus);
-                m_breakpoints.Add(Breakpoint::Type::Instruction, address).Once();
-                ResumeFromDebugger(false);
+                size_t stackSizeAtCall = m_callStack.Frames().size();
+                m_conditionalBreakpoints
+                    .Add([this, stackSizeAtCall]() {
+                        if (m_callStack.Frames().size() < stackSizeAtCall) {
+                            Printf("Warning! Function did not return normally.");
+                            return true;
+                        }
+
+                        return m_callStack.Frames().size() == stackSizeAtCall;
+                    })
+                    .Once();
+
+                Continue();
+            } else {
+                Step();
             }
 
-            // Perform a regular step
-            Rewind(ConsoleStream::Output);
-            ExecuteInstruction(input, renderContext, audioContext);
-            PrintLastOp();
-            CheckForBreakpoints();
-
         } else if (tokens[0] == "finish" || tokens[0] == "fin") {
-            // Add a temporary breakpoint on the instruction immediately following the callee
-            // instruction location.
+            // If the instruction we're about to execute is a call, add a temporary conditional
+            // breakpoint on when the callstack stack is 1 less than its current size.
             if (auto calleeAddress = m_callStack.GetLastCalleeAddress()) {
-                // The top frame doesn't have a callee, so we just resume execution.
                 if (IsCall(*calleeAddress, *m_memoryBus)) {
-                    auto address = GetNextInstructionAddress(*calleeAddress, *m_memoryBus);
-                    m_breakpoints.Add(Breakpoint::Type::Instruction, address).Once();
-                    ResumeFromDebugger(false);
+                    size_t stackSizeAtCall = m_callStack.Frames().size();
+                    m_conditionalBreakpoints
+                        .Add([this, stackSizeAtCall]() {
+                            if (m_callStack.Frames().size() < stackSizeAtCall - 1) {
+                                Printf("Warning! Function did not return normally.");
+                                return true;
+                            }
+
+                            return m_callStack.Frames().size() == (stackSizeAtCall - 1);
+                        })
+                        .Once();
+
+                    Continue();
                 } else {
-                    ResumeFromDebugger(true);
+                    Step();
                 }
             }
 
@@ -1015,7 +1045,7 @@ bool Debugger::FrameUpdate(double frameTime, const EmuEvents& emuEvents, const I
             if (tokens.size() > 1) {
                 auto address = StringToIntegral<uint16_t>(tokens[1]);
                 m_breakpoints.Add(Breakpoint::Type::Instruction, address).Once();
-                ResumeFromDebugger();
+                Continue();
             } else {
                 validCommand = false;
             }
@@ -1107,12 +1137,14 @@ bool Debugger::FrameUpdate(double frameTime, const EmuEvents& emuEvents, const I
                 Platform::ScopedConsoleColor scc;
                 for (size_t i = 0; i < m_breakpoints.Num(); ++i) {
                     auto bp = m_breakpoints.GetAtIndex(i);
+                    // TODO: Don't display "once" breakpoints (or add a "hidden" property?)
                     Platform::SetConsoleColor(bp->enabled ? Platform::ConsoleColor::LightGreen
                                                           : Platform::ConsoleColor::LightRed);
                     Printf("%3d: $%04x\t%-20s%s\n", i, bp->address,
                            Breakpoint::TypeToString(bp->type),
                            bp->enabled ? "Enabled" : "Disabled");
                 }
+                // TODO: display conditional breakpoints
             } else {
                 validCommand = false;
             }
@@ -1274,6 +1306,31 @@ void Debugger::CheckForBreakpoints() {
             }
         }
     }
+
+    // Handle conditional breakpoints
+    {
+        bool shouldBreak = false;
+        auto& conditionals = m_conditionalBreakpoints.Breakpoints();
+        for (auto iter = conditionals.begin(); iter != conditionals.end();) {
+            auto& bp = *iter;
+            if (bp.conditionFunc()) {
+                if (bp.once) {
+                    iter = conditionals.erase(iter);
+                } else {
+                    ++iter;
+
+                    // TODO: output something useful, like the condition text.
+                    Printf("Conditional breakpoint hit.\n");
+                }
+                shouldBreak = true;
+            } else {
+                ++iter;
+            }
+        }
+
+        if (shouldBreak)
+            BreakIntoDebugger();
+    }
 }
 
 void Debugger::ExecuteFrameInstructions(double frameTime, const Input& input,
@@ -1317,12 +1374,12 @@ cycles_t Debugger::ExecuteInstruction(const Input& input, RenderContext& renderC
         }
 
         cycles_t cpuCycles = 0;
-        const uint16_t preOpPC = m_cpu->Registers().PC;
+        const auto preOpRegisters = m_cpu->Registers();
 
         // In case exception is thrown below, we still want to add the current instruction trace
         // info, so wrap the call in a ScopedExit
         auto onExit = MakeScopedExit([&] {
-            PostOpUpdateCallstack(preOpPC);
+            PostOpUpdateCallstack(preOpRegisters);
 
             if (m_traceEnabled) {
 

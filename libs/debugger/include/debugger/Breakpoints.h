@@ -1,9 +1,11 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <map>
 #include <optional>
 
+// TODO: rename to LocationBreakpoint
 struct Breakpoint {
     enum class Type {
         Instruction,
@@ -39,8 +41,8 @@ struct Breakpoint {
         return *this;
     }
 
-    const Type type;        // = Type::Instruction;
-    const uint16_t address; // = 0;
+    const Type type;
+    const uint16_t address;
     bool enabled = true;
     bool once = false;
 };
@@ -117,4 +119,34 @@ private:
             std::advance(iter, index);
         return iter;
     }
+};
+
+struct ConditionalBreakpoint {
+    using ConditionFunc = std::function<bool()>;
+
+    ConditionalBreakpoint(ConditionFunc conditionFunc)
+        : conditionFunc(std::move(conditionFunc)) {}
+
+    ConditionalBreakpoint& Once(bool set = true) {
+        once = set;
+        return *this;
+    }
+
+    ConditionFunc conditionFunc;
+    bool once = false;
+};
+
+class ConditionalBreakpoints {
+public:
+    using ConditionFunc = ConditionalBreakpoint::ConditionFunc;
+
+    template <typename Func>
+    ConditionalBreakpoint& Add(Func&& conditionFunc) {
+        return m_conditionalBreakpoints.emplace_back(std::forward<Func>(conditionFunc));
+    }
+
+    std::vector<ConditionalBreakpoint>& Breakpoints() { return m_conditionalBreakpoints; }
+
+private:
+    std::vector<ConditionalBreakpoint> m_conditionalBreakpoints;
 };

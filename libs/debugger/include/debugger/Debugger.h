@@ -36,7 +36,7 @@ private:
     void PrintLastOp();
     void PrintCallStack();
     void CheckForBreakpoints();
-    void PostOpUpdateCallstack(uint16_t preOpPC);
+    void PostOpUpdateCallstack(const CpuRegisters& preOpRegisters);
     void ExecuteFrameInstructions(double frameTime, const Input& input,
                                   RenderContext& renderContext, AudioContext& audioContext);
     cycles_t ExecuteInstruction(const Input& input, RenderContext& renderContext,
@@ -54,6 +54,7 @@ private:
     std::queue<std::string> m_pendingCommands;
     std::string m_lastCommand;
     Breakpoints m_breakpoints;
+    ConditionalBreakpoints m_conditionalBreakpoints;
     CallStack m_callStack;
     std::optional<int64_t> m_numInstructionsToExecute = {};
     SymbolTable m_symbolTable; // Address to symbol name
