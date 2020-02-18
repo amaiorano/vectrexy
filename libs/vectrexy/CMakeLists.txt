@@ -1,5 +1,7 @@
 set(MODULE_NAME vectrexy)
 
+include(${PROJECT_SOURCE_DIR}/cmake/Util.cmake)
+
 file(GLOB_RECURSE SRC_FILES "include/*.*" "src/*.*")
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${SRC_FILES})
 
