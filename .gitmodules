@@ -4,3 +4,6 @@
 [submodule "noc"]
 	path = external/noc/noc
 	url = https://github.com/amaiorano/noc.git
+[submodule "external/cppdap"]
+	path = external/cppdap
+	url = https://github.com/google/cppdap.git

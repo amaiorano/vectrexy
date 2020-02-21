@@ -111,6 +111,7 @@ if(LINUX)
 	add_subdirectory(external/linenoise)
 endif()
 add_subdirectory(external/noc)
+add_subdirectory(external/cppdap)
 
 # Add libs
 add_subdirectory(libs/core)
