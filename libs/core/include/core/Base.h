@@ -112,7 +112,7 @@ struct FormattedString {
 
     const char* Value() const { return buffer; }
 
-    operator const char*() const { return Value(); }
+    operator const char *() const { return Value(); }
 
     char buffer[MaxLength];
 };
@@ -172,7 +172,7 @@ int find_index_of(Container container, const T& value, int index_if_not_found = 
     return index_if_not_found;
 }
 
-// Adapter with a variadic constructor template to forward the arguments, useful for aggregate
+// Adapter with a variafdic constructor template to forward the arguments, useful for aggregate
 // initialization of types via forwarding functions like make_shared.
 // From: https://stackoverflow.com/a/35300172/4039972
 template <class T>

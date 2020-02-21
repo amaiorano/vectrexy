@@ -1,5 +1,6 @@
 #include "core/Base.h"
 #include "core/Platform.h"
+#include "debugger/DapDebugger.h"
 #include "debugger/Debugger.h"
 #include "emulator/Emulator.h"
 #include "engine/EngineClient.h"
@@ -35,6 +36,7 @@ private:
 
         m_emulator.Init(biosRomFile.data());
         m_debugger.Init(engineService, argc, argv, Paths::devDir, m_emulator);
+        // m_dapDebugger.Init(
 
         if (!rom.empty()) {
             LoadRom(rom.c_str());
@@ -59,6 +61,8 @@ private:
             Errorf("Failed to load rom file: %s\n", file);
             return false;
         }
+
+        m_dapDebugger.OnRomLoaded(file);
 
         //@TODO: Show game name in title bar
 
@@ -132,6 +136,7 @@ private:
     std::shared_ptr<IEngineService> m_engineService;
     Emulator m_emulator;
     Debugger m_debugger;
+    DapDebugger m_dapDebugger;
     Overlays m_overlays;
 };
 

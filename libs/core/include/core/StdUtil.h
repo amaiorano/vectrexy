@@ -27,4 +27,27 @@ namespace std_util {
     template <typename T, typename V>
     constexpr size_t variant_type_index_v = variant_type_index<T, V>::value;
 
+    // overloaded creates a type derives from all Ts, and brings in operator() from all of them into
+    // this type.
+    template <typename... Ts>
+    struct overloaded : Ts... {
+        using Ts::operator()...;
+    };
+    template <typename... Ts>
+    overloaded(Ts...) -> overloaded<Ts...>;
+
+    // overloaded factory function
+    template <typename... Ts>
+    auto make_overloaded(Ts... callables) {
+        return overloaded{std::forward<Ts>(callables)...};
+    }
+
+    // Convenience function that creates overloaded instance of input callables, and invokes
+    // std::visit(overloads, variant)
+    template <typename VariantT, typename... Ts>
+    auto visit_overloads(VariantT&& variant, Ts&&... callables) {
+        return std::visit(make_overloaded(std::forward<Ts>(callables)...),
+                          std::forward<VariantT>(variant));
+    }
+
 } // namespace std_util

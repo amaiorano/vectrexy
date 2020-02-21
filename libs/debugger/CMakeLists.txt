@@ -7,6 +7,8 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${SRC_FILES})
 
 add_library(${MODULE_NAME} ${SRC_FILES})
 
+disable_opt_single_files(src/DapDebugger.cpp)
+
 target_include_directories(${MODULE_NAME} PUBLIC "include")
 
 target_link_libraries(${MODULE_NAME}
