@@ -1,5 +1,7 @@
 set(MODULE_NAME sdl_engine)
 
+include(${PROJECT_SOURCE_DIR}/cmake/Util.cmake)
+
 if(NOT USE_SDL_ENGINE)
 	message(FATAL_ERROR "USE_SDL_ENGINE must be enabled to use ${MODULE_NAME}")
 endif()

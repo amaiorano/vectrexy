@@ -84,6 +84,8 @@ public:
     void RegisterClient(IEngineClient& client) { m_client = &client; }
 
     bool Run(int argc, char** argv) {
+        Platform::Init();
+
         if (!EngineUtil::FindAndSetRootPath(fs::path(fs::absolute(argv[0]))))
             return false;
 

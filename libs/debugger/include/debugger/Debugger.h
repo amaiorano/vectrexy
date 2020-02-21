@@ -3,6 +3,7 @@
 #include "core/Base.h"
 #include "core/CircularBuffer.h"
 #include "debugger/Breakpoints.h"
+#include "debugger/CallStack.h"
 #include "debugger/SyncProtocol.h"
 #include "debugger/Trace.h"
 #include "emulator/EngineTypes.h"
@@ -29,10 +30,13 @@ public:
     using SymbolTable = std::multimap<uint16_t, std::string>;
 
 private:
-    void BreakIntoDebugger();
-    void ResumeFromDebugger();
+    void BreakIntoDebugger(bool switchFocus = true);
+    void ResumeFromDebugger(bool switchFocus = true);
     void PrintOp(const Trace::InstructionTraceInfo& traceInfo);
     void PrintLastOp();
+    void PrintCallStack();
+    void CheckForBreakpoints();
+    void PostOpUpdateCallstack(const CpuRegisters& preOpRegisters);
     void ExecuteFrameInstructions(double frameTime, const Input& input,
                                   RenderContext& renderContext, AudioContext& audioContext);
     cycles_t ExecuteInstruction(const Input& input, RenderContext& renderContext,
@@ -50,6 +54,8 @@ private:
     std::queue<std::string> m_pendingCommands;
     std::string m_lastCommand;
     Breakpoints m_breakpoints;
+    ConditionalBreakpoints m_conditionalBreakpoints;
+    CallStack m_callStack;
     std::optional<int64_t> m_numInstructionsToExecute = {};
     SymbolTable m_symbolTable; // Address to symbol name
     cycles_t m_cpuCyclesTotal = 0;

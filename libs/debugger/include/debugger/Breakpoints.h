@@ -1,9 +1,11 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <map>
 #include <optional>
 
+// TODO: rename to LocationBreakpoint
 struct Breakpoint {
     enum class Type {
         Instruction,
@@ -25,21 +27,33 @@ struct Breakpoint {
         return "INVALID";
     }
 
-    Type type = Type::Instruction;
-    uint16_t address = 0;
+    Breakpoint(Type type, uint16_t address)
+        : type(type)
+        , address(address) {}
+
+    Breakpoint& Enabled(bool set = true) {
+        enabled = set;
+        return *this;
+    }
+
+    Breakpoint& Once(bool set = true) {
+        once = set;
+        return *this;
+    }
+
+    const Type type;
+    const uint16_t address;
     bool enabled = true;
-    bool autoDelete = false;
+    bool once = false;
 };
 
 class Breakpoints {
 public:
     void Reset() { m_breakpoints.clear(); }
 
-    Breakpoint* Add(Breakpoint::Type type, uint16_t address) {
-        auto& bp = m_breakpoints[address];
-        bp.type = type;
-        bp.address = address;
-        return &bp;
+    Breakpoint& Add(Breakpoint::Type type, uint16_t address) {
+        Breakpoint& bp = m_breakpoints.try_emplace(address, type, address).first->second;
+        return bp;
     }
 
     std::optional<Breakpoint> Remove(uint16_t address) {
@@ -105,4 +119,34 @@ private:
             std::advance(iter, index);
         return iter;
     }
+};
+
+struct ConditionalBreakpoint {
+    using ConditionFunc = std::function<bool()>;
+
+    ConditionalBreakpoint(ConditionFunc conditionFunc)
+        : conditionFunc(std::move(conditionFunc)) {}
+
+    ConditionalBreakpoint& Once(bool set = true) {
+        once = set;
+        return *this;
+    }
+
+    ConditionFunc conditionFunc;
+    bool once = false;
+};
+
+class ConditionalBreakpoints {
+public:
+    using ConditionFunc = ConditionalBreakpoint::ConditionFunc;
+
+    template <typename Func>
+    ConditionalBreakpoint& Add(Func&& conditionFunc) {
+        return m_conditionalBreakpoints.emplace_back(std::forward<Func>(conditionFunc));
+    }
+
+    std::vector<ConditionalBreakpoint>& Breakpoints() { return m_conditionalBreakpoints; }
+
+private:
+    std::vector<ConditionalBreakpoint> m_conditionalBreakpoints;
 };

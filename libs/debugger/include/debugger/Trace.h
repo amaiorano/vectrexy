@@ -42,7 +42,7 @@ namespace Trace {
         // really know up front how many bytes an op will take because indexed instructions
         // sometimes read an extra operand byte (determined dynamically).
         for (auto& byte : instruction.opBytes)
-            byte = memoryBus.Read(opAddr++);
+            byte = memoryBus.ReadRaw(opAddr++);
 
         int cpuOpPage = 0;
         size_t opCodeIndex = 0;
@@ -63,10 +63,8 @@ namespace Trace {
     inline void PreOpWriteTraceInfo(InstructionTraceInfo& traceInfo,
                                     const CpuRegisters& cpuRegisters,
                                     /*const*/ MemoryBus& memoryBus) {
-        memoryBus.SetCallbacksEnabled(false);
         traceInfo.instruction = ReadInstruction(cpuRegisters.PC, memoryBus);
         traceInfo.preOpCpuRegisters = cpuRegisters;
-        memoryBus.SetCallbacksEnabled(true);
     }
 
     inline void PostOpWriteTraceInfo(InstructionTraceInfo& traceInfo,
