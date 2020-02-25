@@ -939,6 +939,7 @@ bool Debugger::FrameUpdate(double frameTime, const EmuEvents& emuEvents, const I
 
         } else {
             // Display current instruction as part of the prompt
+            Printf("*");
             Trace::InstructionTraceInfo traceInfo;
             Trace::PreOpWriteTraceInfo(traceInfo, m_cpu->Registers(), *m_memoryBus);
             PrintPreOp(traceInfo, m_symbolTable);
@@ -969,7 +970,6 @@ bool Debugger::FrameUpdate(double frameTime, const EmuEvents& emuEvents, const I
         };
 
         auto Continue = [&] {
-            Rewind(ConsoleStream::Output);
             ExecuteInstruction(input, renderContext, audioContext);
             ResumeFromDebugger();
         };
@@ -1262,6 +1262,7 @@ bool Debugger::FrameUpdate(double frameTime, const EmuEvents& emuEvents, const I
                 std::vector<Trace::InstructionTraceInfo> buffer(numLines);
                 auto numInstructions = m_instructionTraceBuffer.PeekBack(buffer.data(), numLines);
                 buffer.resize(numInstructions);
+                Printf("\nTrace (last %d instructions):\n", numLines);
                 for (auto& traceInfo : buffer) {
                     PrintOp(traceInfo);
 
