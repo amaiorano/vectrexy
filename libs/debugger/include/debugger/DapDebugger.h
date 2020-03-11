@@ -33,7 +33,7 @@ private:
     void ParseRst(const fs::path& rstFile);
     void InitDap();
     void WaitDap();
-    enum class Event { BreakpointHit, Stepped };
+    enum class Event { BreakpointHit, Stepped, Paused };
     void OnEvent(Event event);
     void ExecuteFrameInstructions(double frameTime, const Input& input,
                                   RenderContext& renderContext, AudioContext& audioContext);
@@ -53,10 +53,11 @@ private:
     std::atomic<bool> m_paused{false};
 
     enum class RunState {
-        StepAlways,
+        Running,
+        Pausing,
         StepInto,
         StepOver,
         StepOut,
     };
-    std::atomic<RunState> m_runState{RunState::StepAlways};
+    std::atomic<RunState> m_runState{RunState::Running};
 };

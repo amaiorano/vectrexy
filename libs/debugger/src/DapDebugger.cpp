@@ -211,6 +211,8 @@ void DapDebugger::InitDap() {
     m_session->registerHandler([&](const dap::PauseRequest&) {
         // TODO
         // debugger.pause();
+        assert(!m_paused);
+        m_runState = RunState::Pausing;
         return dap::PauseResponse();
     });
 
@@ -220,6 +222,9 @@ void DapDebugger::InitDap() {
     m_session->registerHandler([&](const dap::ContinueRequest&) {
         // TODO
         // debugger.run();
+        assert(m_paused);
+        m_runState = RunState::Running;
+        m_paused = false;
         return dap::ContinueResponse();
     });
 
@@ -368,6 +373,14 @@ void DapDebugger::OnEvent(DapDebugger::Event event) {
         dapEvent.threadId = threadId;
         m_session->send(dapEvent);
     } break;
+
+    case Event::Paused: {
+        // The debugger has been suspended. Inform the client.
+        dap::StoppedEvent dapEvent;
+        dapEvent.reason = "pause";
+        dapEvent.threadId = threadId;
+        m_session->send(dapEvent);
+    } break;
     }
 }
 
@@ -380,7 +393,6 @@ void DapDebugger::ExecuteFrameInstructions(double frameTime, const Input& input,
 
     auto BreakIntoDebugger = [&] {
         m_paused = true;
-        m_runState = RunState::StepAlways;
         m_cpuCyclesLeft = 0;
     };
 
@@ -396,8 +408,18 @@ void DapDebugger::ExecuteFrameInstructions(double frameTime, const Input& input,
         const cycles_t elapsedCycles = ExecuteInstruction(input, renderContext, audioContext);
 
         switch (m_runState) {
-        case RunState::StepAlways:
+        case RunState::Running:
             break;
+
+        case RunState::Pausing: {
+            // Pause on the next valid source location
+            const auto* postLocation = m_debugSymbols.GetSourceLocation(PC());
+            if (postLocation) {
+                BreakIntoDebugger();
+                OnEvent(Event::Paused);
+                return;
+            }
+        } break;
 
         case RunState::StepInto: {
             const auto* postLocation = m_debugSymbols.GetSourceLocation(PC());
