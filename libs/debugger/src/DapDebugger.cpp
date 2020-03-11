@@ -431,73 +431,22 @@ void DapDebugger::ExecuteFrameInstructions(double frameTime, const Input& input,
         } break;
         }
 
-        // m_cpuCyclesTotal += elapsedCycles;
         m_cpuCyclesLeft -= elapsedCycles;
-
-        // if (m_numInstructionsToExecute && (--m_numInstructionsToExecute.value() == 0)) {
-        //    m_numInstructionsToExecute = {};
-        //    BreakIntoDebugger();
-        //}
-
-        // TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
-        // if (m_breakIntoDebugger) {
-        //    m_cpuCyclesLeft = 0;
-        //    break;
-        //}
     }
 }
 
 cycles_t DapDebugger::ExecuteInstruction(const Input& input, RenderContext& renderContext,
                                          AudioContext& audioContext) {
     try {
-        // Trace::InstructionTraceInfo traceInfo;
-        // if (m_traceEnabled) {
-        //    m_currTraceInfo = &traceInfo;
-        //    PreOpWriteTraceInfo(traceInfo, m_cpu->Registers(), *m_memoryBus);
-        //}
-
-        cycles_t cpuCycles = 0;
-
-        // In case exception is thrown below, we still want to add the current instruction trace
-        // info, so wrap the call in a ScopedExit
-        // auto onExit = MakeScopedExit([&] {
-        //    if (m_traceEnabled) {
-
-        //        // If the CPU didn't do anything (e.g. waiting for interrupts), we have
-        //        nothing
-        //        // to log or hash
-        //        Trace::InstructionTraceInfo lastTraceInfo;
-        //        if (m_instructionTraceBuffer.PeekBack(lastTraceInfo)) {
-        //            if (lastTraceInfo.postOpCpuRegisters.PC == m_cpu->Registers().PC) {
-        //                m_currTraceInfo = nullptr;
-        //                return;
-        //            }
-        //        }
-
-        //        PostOpWriteTraceInfo(traceInfo, m_cpu->Registers(), cpuCycles);
-        //        m_instructionTraceBuffer.PushBackMoveFront(traceInfo);
-        //        m_currTraceInfo = nullptr;
-
-        //        // Compute running hash of instruction trace
-        //        if (!m_syncProtocol.IsStandalone())
-        //            m_instructionHash = HashTraceInfo(traceInfo, m_instructionHash);
-
-        //        ++m_numInstructionsExecutedThisFrame;
-        //    }
-        //});
-
-        cpuCycles = m_emulator->ExecuteInstruction(input, renderContext, audioContext);
+        cycles_t cpuCycles = m_emulator->ExecuteInstruction(input, renderContext, audioContext);
         return cpuCycles;
-
     } catch (std::exception& ex) {
         Printf("Exception caught:\n%s\n", ex.what());
-        // PrintLastOp();
     } catch (...) {
         Printf("Unknown exception caught\n");
-        // PrintLastOp();
     }
 
-    // TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!! Send interrupt signal and break
+    // TODO: Send interrupt signal and break
     // BreakIntoDebugger();
 
     return static_cast<cycles_t>(0);
