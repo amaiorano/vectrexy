@@ -110,6 +110,14 @@ namespace Platform {
         ::ShellExecute(nullptr, "open", command, nullptr, nullptr, SW_SHOWNORMAL);
         return true;
     }
+
+    void WaitForDebuggerAttach(bool breakOnAttach) {
+        while (!::IsDebuggerPresent())
+            ::Sleep(100);
+        if (breakOnAttach)
+            ::DebugBreak();
+    }
+
 } // namespace Platform
 
 #elif defined(PLATFORM_LINUX)
@@ -194,6 +202,8 @@ namespace Platform {
         // Parent process
         return true;
     }
+
+    void WaitForDebuggerAttach(bool breakOnAttach) { (void)breakOnAttach; }
 } // namespace Platform
 
 #endif

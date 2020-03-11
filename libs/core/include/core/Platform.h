@@ -66,4 +66,7 @@ namespace Platform {
 
     bool ExecuteShellCommand(const char* command);
 
+    // Block until debugger attaches to process
+    void WaitForDebuggerAttach(bool breakOnAttach = false);
+
 } // namespace Platform
