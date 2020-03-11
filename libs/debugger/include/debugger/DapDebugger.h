@@ -33,13 +33,14 @@ private:
     void ParseRst(const fs::path& rstFile);
     void InitDap();
     void WaitDap();
-    enum class Event { BreakpointHit };
+    enum class Event { BreakpointHit, Stepped };
     void OnEvent(Event event);
     void ExecuteFrameInstructions(double frameTime, const Input& input,
                                   RenderContext& renderContext, AudioContext& audioContext);
     cycles_t ExecuteInstruction(const Input& input, RenderContext& renderContext,
                                 AudioContext& audioContext);
     bool CheckForBreakpoints();
+    uint16_t PC() const;
 
     Emulator* m_emulator{};
     Cpu* m_cpu{};
@@ -50,4 +51,12 @@ private:
     std::unique_ptr<dap::Session> m_session;
     std::atomic<bool> m_errored{false};
     std::atomic<bool> m_paused{false};
+
+    enum class RunState {
+        StepAlways,
+        StepInto,
+        StepOver,
+        StepOut,
+    };
+    std::atomic<RunState> m_runState{RunState::StepAlways};
 };

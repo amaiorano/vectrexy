@@ -144,8 +144,7 @@ void DapDebugger::InitDap() {
 
         dap::StackTraceResponse response;
 
-        uint16_t PC = m_emulator->GetCpu().Registers().PC;
-        if (auto* location = m_debugSymbols.GetSourceLocation(PC)) {
+        if (auto* location = m_debugSymbols.GetSourceLocation(PC())) {
             dap::Source source;
             source.name = fs::path{location->file}.filename().string();
 
@@ -238,6 +237,9 @@ void DapDebugger::InitDap() {
     m_session->registerHandler([&](const dap::StepInRequest&) {
         // TODO
         // debugger.stepForward();
+        assert(m_paused);
+        m_runState = RunState::StepInto;
+        m_paused = false;
         return dap::StepInResponse();
     });
 
@@ -351,13 +353,21 @@ void DapDebugger::WaitDap() {
 
 void DapDebugger::OnEvent(DapDebugger::Event event) {
     switch (event) {
-    case Event::BreakpointHit:
+    case Event::BreakpointHit: {
         // The debugger has hit a breakpoint. Inform the client.
         dap::StoppedEvent dapEvent;
         dapEvent.reason = "breakpoint";
         dapEvent.threadId = threadId;
         m_session->send(dapEvent);
-        break;
+    } break;
+
+    case Event::Stepped: {
+        // The debugger has single-line stepped. Inform the client.
+        dap::StoppedEvent dapEvent;
+        dapEvent.reason = "step";
+        dapEvent.threadId = threadId;
+        m_session->send(dapEvent);
+    } break;
     }
 }
 
@@ -368,19 +378,36 @@ void DapDebugger::ExecuteFrameInstructions(double frameTime, const Input& input,
     const double cpuCyclesThisFrame = Cpu::Hz * frameTime;
     m_cpuCyclesLeft += cpuCyclesThisFrame;
 
+    auto BreakIntoDebugger = [&] {
+        m_paused = true;
+        m_runState = RunState::StepAlways;
+        m_cpuCyclesLeft = 0;
+    };
+
     while (m_cpuCyclesLeft > 0) {
         if (CheckForBreakpoints()) {
-            m_paused = true;
-            m_cpuCyclesLeft = 0;
-            break;
+            BreakIntoDebugger();
+            OnEvent(Event::BreakpointHit);
+            return;
         }
 
-        // if (m_breakIntoDebugger) {
-        //    m_cpuCyclesLeft = 0;
-        //    break;
-        //}
+        const auto* preLocation = m_debugSymbols.GetSourceLocation(PC());
 
         const cycles_t elapsedCycles = ExecuteInstruction(input, renderContext, audioContext);
+
+        switch (m_runState) {
+        case RunState::StepAlways:
+            break;
+
+        case RunState::StepInto: {
+            const auto* postLocation = m_debugSymbols.GetSourceLocation(PC());
+            if ((preLocation && postLocation) && (*preLocation != *postLocation)) {
+                BreakIntoDebugger();
+                OnEvent(Event::Stepped);
+                return;
+            }
+        } break;
+        }
 
         // m_cpuCyclesTotal += elapsedCycles;
         m_cpuCyclesLeft -= elapsedCycles;
@@ -414,7 +441,8 @@ cycles_t DapDebugger::ExecuteInstruction(const Input& input, RenderContext& rend
         // auto onExit = MakeScopedExit([&] {
         //    if (m_traceEnabled) {
 
-        //        // If the CPU didn't do anything (e.g. waiting for interrupts), we have nothing
+        //        // If the CPU didn't do anything (e.g. waiting for interrupts), we have
+        //        nothing
         //        // to log or hash
         //        Trace::InstructionTraceInfo lastTraceInfo;
         //        if (m_instructionTraceBuffer.PeekBack(lastTraceInfo)) {
@@ -454,18 +482,20 @@ cycles_t DapDebugger::ExecuteInstruction(const Input& input, RenderContext& rend
 };
 
 bool DapDebugger::CheckForBreakpoints() {
-    if (auto bp = m_breakpoints.Get(m_cpu->Registers().PC)) {
+    if (auto bp = m_breakpoints.Get(PC())) {
         if (bp->type == Breakpoint::Type::Instruction) {
             if (bp->once) {
-                m_breakpoints.Remove(m_cpu->Registers().PC);
-                OnEvent(Event::BreakpointHit);
+                m_breakpoints.Remove(PC());
                 return true;
             } else if (bp->enabled) {
                 Printf("Breakpoint hit at %04x\n", bp->address);
-                OnEvent(Event::BreakpointHit);
                 return true;
             }
         }
     }
     return false;
+}
+
+uint16_t DapDebugger::PC() const {
+    return m_cpu->Registers().PC;
 }

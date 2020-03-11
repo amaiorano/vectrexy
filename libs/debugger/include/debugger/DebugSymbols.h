@@ -7,8 +7,10 @@
 #include <unordered_map>
 
 struct SourceLocation {
-    bool operator==(SourceLocation& rhs) { return file == rhs.file && line == rhs.line; }
-    bool operator!=(SourceLocation& rhs) { return !(*this == rhs); }
+    bool operator==(const SourceLocation& rhs) const {
+        return file == rhs.file && line == rhs.line;
+    }
+    bool operator!=(const SourceLocation& rhs) const { return !(*this == rhs); }
 
     // TODO: expensive to store the same file string for multiple entries. Make a table of file
     // names, and store a index or pointer to it.
@@ -50,6 +52,7 @@ public:
 
 private:
     // Store source location info for every possible address
+    // Address -> Source Location
     std::array<SourceLocation, 64 * 1024> m_sourceLocations;
 
     std::unordered_map<std::string, Symbol> m_symbols;
