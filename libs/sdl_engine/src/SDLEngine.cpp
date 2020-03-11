@@ -23,6 +23,11 @@
 #include <fstream>
 #include <iostream>
 
+#ifdef PLATFORM_WINDOWS
+#include <fcntl.h> // _O_BINARY
+#include <io.h>    // _setmode
+#endif
+
 // Include SDL_syswm.h for SDL_GetWindowWMInfo
 // This includes windows.h on Windows platforms, we have to do the usual dance of disabling certain
 // warnings and undef'ing certain macros
@@ -84,10 +89,27 @@ public:
     void RegisterClient(IEngineClient& client) { m_client = &client; }
 
     bool Run(int argc, char** argv) {
-        Platform::Init();
+        const auto args = std::vector<std::string_view>(argv + 1, argv + argc);
 
         if (!EngineUtil::FindAndSetRootPath(fs::path(fs::absolute(argv[0]))))
+        {
+            Errorf("Failed to find and set root path\n");
             return false;
+        }
+
+        if (contains(args, "-dap")) {
+            // TODO: move to DapDebugger or Platform
+#ifdef PLATFORM_WINDOWS
+            // Change stdin and stdout from text mode to binary mode.
+            // This ensures sequences of \r\n are not changed to \n.
+            _setmode(_fileno(stdin), _O_BINARY);
+            _setmode(_fileno(stdout), _O_BINARY);
+#endif
+            // DAP uses stdin/stdout to communicate, so route all our printing to a file
+            FILE* fs = fopen("print_stream.txt", "w+"); // Leak it for now
+            SetStream(ConsoleStream::Output, fs);
+            SetStream(ConsoleStream::Error, fs);
+        }
 
         // Create standard directories
         fs::create_directories(Paths::overlaysDir);
@@ -209,7 +231,7 @@ public:
         m_audioDriver.Initialize();
         m_audioDriver.SetVolume(m_options.Get<float>("volume"));
 
-        if (!m_client->Init(engineService, m_options.Get<std::string>("biosRomFile"), argc, argv)) {
+        if (!m_client->Init(args, engineService, m_options.Get<std::string>("biosRomFile"))) {
             return false;
         }
 

@@ -22,7 +22,7 @@ namespace {
 } // namespace
 
 namespace Platform {
-    void Init() {
+    void InitConsole() {
         // Enable VT100 style in current console. This allows us to use codes like "\033[A\033[2K"
         // to delete current line and bring cursor back to column 0.
         HANDLE hConsole = ::GetStdHandle(STD_OUTPUT_HANDLE);
@@ -130,7 +130,7 @@ namespace {
 } // namespace
 
 namespace Platform {
-    void Init() {}
+    void InitConsole() {}
 
     void SetFocus(WindowHandle windowHandle) {}
 

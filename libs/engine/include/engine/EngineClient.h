@@ -10,8 +10,9 @@ struct EmuContext {
 
 class IEngineClient {
 public:
-    virtual bool Init(std::shared_ptr<IEngineService>& engineService, std::string_view biosRomFile,
-                      int argc, char** argv) = 0;
+    virtual bool Init(const std::vector<std::string_view>& args,
+                      std::shared_ptr<IEngineService>& engineService,
+                      std::string_view biosRomFile) = 0;
 
     virtual bool FrameUpdate(double frameTime, const EmuContext& emuContext, const Input& input,
                              RenderContext& renderContext, AudioContext& audioContext) = 0;

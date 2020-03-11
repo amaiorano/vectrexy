@@ -721,23 +721,22 @@ namespace {
 
 } // namespace
 
-void Debugger::Init(std::shared_ptr<IEngineService>& engineService, int argc, char** argv,
-                    fs::path devDir, Emulator& emulator) {
+void Debugger::Init(const std::vector<std::string_view>& args,
+                    std::shared_ptr<IEngineService>& engineService, fs::path devDir,
+                    Emulator& emulator) {
     m_engineService = engineService;
 
-    for (int i = 1; i < argc; ++i) {
-        std::string arg = argv[i];
-        if (arg == "-server") {
-            m_syncProtocol.InitServer();
-        } else if (arg == "-client") {
-            m_syncProtocol.InitClient();
-        }
-    }
+    if (contains(args, "-server"))
+        m_syncProtocol.InitServer();
+    else if (contains(args, "-client"))
+        m_syncProtocol.InitClient();
 
     m_devDir = std::move(devDir);
     m_emulator = &emulator;
     m_memoryBus = &emulator.GetMemoryBus();
     m_cpu = &emulator.GetCpu();
+
+    Platform::InitConsole();
 
     Platform::SetConsoleCtrlHandler([this] {
         BreakIntoDebugger();

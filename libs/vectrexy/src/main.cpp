@@ -20,23 +20,34 @@ using Engine = SDLEngine;
 
 class EngineClient final : public IEngineClient {
 private:
-    bool Init(std::shared_ptr<IEngineService>& engineService, std::string_view biosRomFile,
-              int argc, char** argv) override {
+    bool Init(const std::vector<std::string_view>& args,
+              std::shared_ptr<IEngineService>& engineService,
+              std::string_view biosRomFile) override {
         m_engineService = engineService;
 
         m_overlays.LoadOverlays(Paths::overlaysDir);
 
         //@TODO: Clean this up
         std::string rom = "";
-        for (int i = 1; i < argc; ++i) {
-            std::string arg = argv[i];
+        for (auto& arg : args) {
             if (arg[0] != '-')
                 rom = arg;
         }
 
+        //@TODO: polymorphic IDebugger base class
+        if (contains(args, "-dap")) {
+            m_dapDebugger = std::make_unique<DapDebugger>();
+        } else {
+            m_debugger = std::make_unique<Debugger>();
+        }
+
         m_emulator.Init(biosRomFile.data());
-        m_debugger.Init(engineService, argc, argv, Paths::devDir, m_emulator);
-        // m_dapDebugger.Init(
+
+        if (m_debugger)
+            m_debugger->Init(args, engineService, Paths::devDir, m_emulator);
+
+        if (m_dapDebugger)
+            m_dapDebugger->Init(m_emulator);
 
         if (!rom.empty()) {
             LoadRom(rom.c_str());
@@ -52,7 +63,10 @@ private:
 
     void Reset() {
         m_emulator.Reset();
-        m_debugger.Reset();
+        if (m_debugger)
+            m_debugger->Reset();
+        if (m_dapDebugger)
+            m_dapDebugger->Reset();
         ErrorHandler::Reset();
     }
 
@@ -62,7 +76,8 @@ private:
             return false;
         }
 
-        m_dapDebugger.OnRomLoaded(file);
+        if (m_dapDebugger)
+            m_dapDebugger->OnRomLoaded(file);
 
         //@TODO: Show game name in title bar
 
@@ -123,8 +138,16 @@ private:
             }
         }
 
-        bool keepGoing =
-            m_debugger.FrameUpdate(frameTime, emuEvents, input, renderContext, audioContext);
+        bool keepGoing = false;
+        if (m_debugger) {
+            keepGoing =
+                m_debugger->FrameUpdate(frameTime, emuEvents, input, renderContext, audioContext);
+        }
+
+        if (m_dapDebugger) {
+            keepGoing = m_dapDebugger->FrameUpdate(frameTime, emuEvents, input, renderContext,
+                                                   audioContext);
+        }
 
         m_emulator.FrameUpdate(frameTime);
 
@@ -135,8 +158,8 @@ private:
 
     std::shared_ptr<IEngineService> m_engineService;
     Emulator m_emulator;
-    Debugger m_debugger;
-    DapDebugger m_dapDebugger;
+    std::unique_ptr<Debugger> m_debugger;
+    std::unique_ptr<DapDebugger> m_dapDebugger;
     Overlays m_overlays;
 };
 
