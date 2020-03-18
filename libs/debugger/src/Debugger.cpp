@@ -5,6 +5,7 @@
 #include "core/RegexUtil.h"
 #include "core/Stream.h"
 #include "core/StringUtil.h"
+#include "debugger/DebuggerUtil.h"
 #include "emulator/Cpu.h"
 #include "emulator/CpuHelpers.h"
 #include "emulator/CpuOpCodes.h"
@@ -673,43 +674,6 @@ namespace {
         return false;
     }
 
-    // If the opcode at preOpPC is a call instruction, returns the call's return address.
-    // Function is expected to be called after the instruction has executed, thus preOpPC
-    // is the PC before it was executed, and preOpPC != cpu.Registers().PC.
-    std::optional<uint16_t> GetCallOpReturnAddress(uint16_t preOpPC, const Cpu& cpu,
-                                                   const MemoryBus& memoryBus) {
-        uint8_t opCode = memoryBus.ReadRaw(preOpPC);
-
-        // If it's a call, read the return address off the stack
-        switch (opCode) {
-        case 0x17: // LBSR (page 0)
-        case 0x8D: // BSR (page 0)
-        case 0x9D: // JSR (page 0)
-        case 0xAD: // JSR (page 0)
-        case 0xBD: // JSR (page 0)
-            // Branch and Jump push only the return address on the stack
-            return memoryBus.Read16(cpu.Registers().S);
-
-        case 0x3F: // SWI (page 0)
-            // SWI pushes all registers first, starting with PC
-            return memoryBus.Read16(cpu.Registers().S + 10);
-
-        case 0x10: // Page 1
-        case 0x11: // Page 2
-            // Read page 1/2 op code
-            opCode = memoryBus.ReadRaw(preOpPC + 1);
-            switch (opCode) {
-            case 0x3F: // SWI2 (page 1) or SWI3 (page 2)
-                return memoryBus.Read16(cpu.Registers().S + 10);
-            }
-
-        default:
-            break;
-        }
-
-        return {};
-    }
-
     // Returns the address of instruction immediately following PC in memory. Note that if the
     // instruction at PC is a call, it does not return the call target location, but rather where
     // the call would return to.
@@ -863,42 +827,7 @@ void Debugger::PrintCallStack() {
 }
 
 void Debugger::PostOpUpdateCallstack(const CpuRegisters& preOpRegisters) {
-    const uint16_t preOpPC = preOpRegisters.PC;
-
-    // Push initial frame on the first instruction
-    if (m_callStack.Empty()) {
-        m_callStack.Push(StackFrame{0, preOpPC, static_cast<uint16_t>(0), preOpRegisters.S});
-        return;
-    }
-
-    const uint16_t currOpPC = m_cpu->Registers().PC;
-
-    // Push calls
-    if (auto returnAddress = GetCallOpReturnAddress(preOpPC, *m_cpu, *m_memoryBus)) {
-        m_callStack.Push(StackFrame{preOpPC, currOpPC, *returnAddress, preOpRegisters.S});
-    }
-    // Pop returns
-    else if (m_callStack.IsLastReturnAddress(currOpPC)) {
-        // Normal return case
-        m_callStack.Pop();
-
-    }
-    // Pop abnormal returns
-    else {
-        // Abnormal return: one or more return addresses were popped off the stack and discarded. We
-        // must detect this, and pop off our stack frames. For example, Bedlam does this.
-        auto isReturnAddressRemovedFromStack = [this] {
-            if (auto topS = m_callStack.LastStackPointer())
-                return topS > 0 && m_cpu->Registers().S >= topS;
-            return false;
-        };
-        // Loop in case multiple return addresses were popped in one instruction (e.g. PULS A,B,X,Y)
-        while (isReturnAddressRemovedFromStack()) {
-            Printf("Detected abnormal stack frame exit at PC=$%04x: %s\n", preOpPC,
-                   m_callStack.Top()->ToString().c_str());
-            m_callStack.Pop();
-        }
-    }
+    DebuggerUtil::PostOpUpdateCallstack(m_callStack, preOpRegisters, *m_cpu, *m_memoryBus);
 }
 
 bool Debugger::FrameUpdate(double frameTime, const EmuEvents& emuEvents, const Input& inputArg,

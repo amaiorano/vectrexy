@@ -1,4 +1,5 @@
 #include "debugger/DapDebugger.h"
+#include "debugger/DebuggerUtil.h"
 #include "debugger/RstParser.h"
 #include "emulator/Cpu.h"
 #include "emulator/Emulator.h"
@@ -48,7 +49,12 @@ DapDebugger::~DapDebugger() = default;
 void DapDebugger::Init(Emulator& emulator) {
     m_emulator = &emulator;
     m_cpu = &m_emulator->GetCpu();
+    m_memoryBus = &emulator.GetMemoryBus();
     InitDap();
+}
+
+void DapDebugger::Reset() {
+    m_callStack.Clear();
 }
 
 void DapDebugger::OnRomLoaded(const char* file) {
@@ -144,19 +150,31 @@ void DapDebugger::InitDap() {
 
         dap::StackTraceResponse response;
 
-        if (auto* location = m_debugSymbols.GetSourceLocation(PC())) {
-            dap::Source source;
-            source.name = fs::path{location->file}.filename().string();
-
-            auto rootPath = fs::path{"E:/DATA/code/active/vectrex-pong"};
-            source.path = (rootPath / location->file).make_preferred().string();
+        size_t i = 0;
+        const auto& frames = m_callStack.Frames();
+        for (auto iter = frames.rbegin(); iter != frames.rend(); ++iter, ++i) {
 
             dap::StackFrame frame;
-            frame.line = location->line;
             frame.column = 1;
-            frame.name = "Frame 0"; // TODO: get from call stack
-            frame.id = 0;           // TODO: use unique id from call stack
-            frame.source = source;
+            frame.id = iter->frameAddress;
+
+            // TODO: Look up function name of frameAddress and set it here if found
+            frame.name = FormattedString<>("0x%04x()", iter->frameAddress);
+
+            auto currAddress = (i == 0) ? m_cpu->Registers().PC : (iter - 1)->calleeAddress;
+
+            if (auto* location = m_debugSymbols.GetSourceLocation(currAddress)) {
+                // TODO: get the root path from the rom file
+                auto rootPath = fs::path{"E:/DATA/code/active/vectrex-pong"};
+
+                dap::Source source;
+                source.name = fs::path{location->file}.filename().string();
+                source.path = (rootPath / location->file).make_preferred().string();
+
+                frame.source = source;
+                frame.line = location->line;
+                frame.name += FormattedString<>(" Line %d", location->line);
+            }
 
             response.stackFrames.push_back(frame);
         }
@@ -438,6 +456,14 @@ void DapDebugger::ExecuteFrameInstructions(double frameTime, const Input& input,
 cycles_t DapDebugger::ExecuteInstruction(const Input& input, RenderContext& renderContext,
                                          AudioContext& audioContext) {
     try {
+
+        const auto preOpRegisters = m_cpu->Registers();
+
+        // In case exception is thrown, make sure to run certain things
+        auto onExit = MakeScopedExit([&] {
+            DebuggerUtil::PostOpUpdateCallstack(m_callStack, preOpRegisters, *m_cpu, *m_memoryBus);
+        });
+
         cycles_t cpuCycles = m_emulator->ExecuteInstruction(input, renderContext, audioContext);
         return cpuCycles;
     } catch (std::exception& ex) {

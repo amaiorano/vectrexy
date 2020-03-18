@@ -4,6 +4,7 @@
 #include "core/ConsoleOutput.h"
 #include "core/FileSystem.h"
 #include "debugger/Breakpoints.h"
+#include "debugger/CallStack.h"
 #include "debugger/DebugSymbols.h"
 #include "emulator/EngineTypes.h"
 
@@ -11,6 +12,7 @@
 
 class Cpu;
 class Emulator;
+class MemoryBus;
 
 namespace dap {
     class Session;
@@ -22,7 +24,7 @@ public:
     ~DapDebugger();
 
     void Init(Emulator& emulator);
-    void Reset() {}
+    void Reset();
 
     void OnRomLoaded(const char* file);
 
@@ -44,7 +46,9 @@ private:
 
     Emulator* m_emulator{};
     Cpu* m_cpu{};
+    MemoryBus* m_memoryBus{};
     Breakpoints m_breakpoints;
+    CallStack m_callStack;
     DebugSymbols m_debugSymbols;
     double m_cpuCyclesLeft = 0;
 

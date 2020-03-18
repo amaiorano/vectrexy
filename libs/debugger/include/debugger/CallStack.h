@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/Base.h"
+#include <optional>
 #include <vector>
 
 class StackFrame {
