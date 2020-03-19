@@ -40,11 +40,20 @@ public:
         return nullptr;
     }
 
-    void AddSymbol(Symbol symbol) { m_symbols.try_emplace(symbol.name, symbol); }
+    void AddSymbol(Symbol symbol) { m_symbolsByAddress.try_emplace(symbol.address, symbol); }
 
-    const Symbol* GetSymbol(const std::string& name) const {
-        auto iter = m_symbols.find(name);
-        if (iter != m_symbols.end()) {
+    const Symbol* GetSymbolByName(const std::string& name) const {
+        // Find the first symbol with the input name. There may be more than one.
+        for (auto& [address, symbol] : m_symbolsByAddress) {
+            if (symbol.name == name)
+                return &symbol;
+        }
+        return {};
+    }
+
+    const Symbol* GetSymbolByAddress(uint16_t address) const {
+        auto iter = m_symbolsByAddress.find(address);
+        if (iter != m_symbolsByAddress.end()) {
             return &iter->second;
         }
         return {};
@@ -55,5 +64,8 @@ private:
     // Address -> Source Location
     std::array<SourceLocation, 64 * 1024> m_sourceLocations;
 
-    std::unordered_map<std::string, Symbol> m_symbols;
+    // Address -> Symbol
+    // Note that multiple addresses may map to the same symbol name,
+    // i.e. constants from headers included from multiple cpp files
+    std::unordered_map<uint16_t, Symbol> m_symbolsByAddress;
 };

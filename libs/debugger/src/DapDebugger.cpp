@@ -158,8 +158,12 @@ void DapDebugger::InitDap() {
             frame.column = 1;
             frame.id = iter->frameAddress;
 
-            // TODO: Look up function name of frameAddress and set it here if found
-            frame.name = FormattedString<>("0x%04x()", iter->frameAddress);
+            // Show the function name, if available, or its address otherwise
+            if (auto* symbol = m_debugSymbols.GetSymbolByAddress(iter->frameAddress)) {
+                frame.name = symbol->name;
+            } else {
+                frame.name = FormattedString<>("0x%04x()", iter->frameAddress);
+            }
 
             auto currAddress = (i == 0) ? m_cpu->Registers().PC : (iter - 1)->calleeAddress;
 
@@ -345,7 +349,7 @@ void DapDebugger::InitDap() {
 
 void DapDebugger::WaitDap() {
     // Set breakpoint on main function
-    auto* mainSymbol = m_debugSymbols.GetSymbol("_main");
+    auto* mainSymbol = m_debugSymbols.GetSymbolByName("main()");
     ASSERT(mainSymbol);
     if (mainSymbol) {
         m_breakpoints.Add(Breakpoint::Type::Instruction, mainSymbol->address).Once();
