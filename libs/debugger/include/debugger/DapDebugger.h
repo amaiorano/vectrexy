@@ -47,7 +47,9 @@ private:
     Emulator* m_emulator{};
     Cpu* m_cpu{};
     MemoryBus* m_memoryBus{};
-    Breakpoints m_breakpoints;
+    fs::path m_sourceRoot;
+    Breakpoints m_internalBreakpoints;
+    Breakpoints m_userBreakpoints;
     CallStack m_callStack;
     DebugSymbols m_debugSymbols;
     double m_cpuCyclesLeft = 0;

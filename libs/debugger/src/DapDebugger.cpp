@@ -58,11 +58,11 @@ void DapDebugger::Reset() {
 }
 
 void DapDebugger::OnRomLoaded(const char* file) {
-    // Collect .rst files in the same folder as the rom file
-    fs::path rstDir = fs::path{file}.remove_filename();
+    m_sourceRoot = fs::path{file}.remove_filename().generic_string();
 
+    // Collect .rst files in the same folder as the rom file
     std::vector<fs::path> rstFiles;
-    for (auto& d : fs::directory_iterator(rstDir)) {
+    for (auto& d : fs::directory_iterator(m_sourceRoot)) {
         if (d.path().extension() == ".rst") {
             rstFiles.push_back(d.path());
         }
@@ -168,12 +168,9 @@ void DapDebugger::InitDap() {
             auto currAddress = (i == 0) ? m_cpu->Registers().PC : (iter - 1)->calleeAddress;
 
             if (auto* location = m_debugSymbols.GetSourceLocation(currAddress)) {
-                // TODO: get the root path from the rom file
-                auto rootPath = fs::path{"E:/DATA/code/active/vectrex-pong"};
-
                 dap::Source source;
                 source.name = fs::path{location->file}.filename().string();
-                source.path = (rootPath / location->file).make_preferred().string();
+                source.path = (m_sourceRoot / location->file).make_preferred().string();
 
                 frame.source = source;
                 frame.line = location->line;
@@ -282,20 +279,64 @@ void DapDebugger::InitDap() {
     // of line breakpoints for a specific source file.
     // This example debugger only exposes a single source file.
     // https://microsoft.github.io/debug-adapter-protocol/specification#Requests_SetBreakpoints
-    m_session->registerHandler([&](const dap::SetBreakpointsRequest& /*request*/) {
+    m_session->registerHandler([&](const dap::SetBreakpointsRequest& request) {
+        (void)request;
+
+        auto addVerifiedBreakpoint = [](dap::SetBreakpointsResponse& response) {
+            dap::Breakpoint bp;
+            bp.verified = true;
+            response.breakpoints.push_back(bp);
+        };
+
+        auto addUnverifiedBreakpoint = [](dap::SetBreakpointsResponse& response,
+                                          std::string message) {
+            dap::Breakpoint bp;
+            bp.verified = false;
+            bp.message = message;
+            response.breakpoints.push_back(bp);
+        };
+
         dap::SetBreakpointsResponse response;
 
-        // auto breakpoints = request.breakpoints.value({});
-        // if (request.source.sourceReference.value(0) == sourceReferenceId) {
-        //    debugger.clearBreakpoints();
-        //    response.breakpoints.resize(breakpoints.size());
-        //    for (size_t i = 0; i < breakpoints.size(); i++) {
-        //        debugger.addBreakpoint(breakpoints[i].line);
-        //        response.breakpoints[i].verified = breakpoints[i].line < numSourceLines;
-        //    }
-        //} else {
-        //    response.breakpoints.resize(breakpoints.size());
-        //}
+        // Start by clearing all breakpoints. The protocol is that every time a breakpoint is added
+        // or removed, all enabled breakpoints will be sent in this request.
+        m_userBreakpoints.RemoveAll();
+
+        const auto breakpoints = request.breakpoints.value({});
+        if (breakpoints.empty()) {
+            return response;
+        }
+
+        const auto sourcePath = request.source.path;
+        if (!sourcePath) {
+            for (std::size_t i = 0; i < breakpoints.size(); ++i) {
+                addUnverifiedBreakpoint(response, "No source file provided");
+            }
+            return response;
+        }
+
+        const auto spath = fs::path{*sourcePath}.generic_string();
+        const auto sroot = m_sourceRoot.string();
+
+        if (auto index = spath.find(sroot); index == std::string::npos || index != 0) {
+            for (std::size_t i = 0; i < breakpoints.size(); ++i) {
+                addUnverifiedBreakpoint(response, "File is not under source root");
+            }
+            return response;
+        }
+
+        const std::string filePath = spath.substr(sroot.size());
+
+        for (auto& bp : breakpoints) {
+            const auto location = SourceLocation{filePath, static_cast<uint32_t>(bp.line)};
+            if (auto address = m_debugSymbols.GetAddressBySourceLocation(location)) {
+
+                m_userBreakpoints.Add(Breakpoint::Type::Instruction, *address);
+                addVerifiedBreakpoint(response);
+            } else {
+                addUnverifiedBreakpoint(response, "Source location not found in debug info");
+            }
+        }
 
         return response;
     });
@@ -352,7 +393,7 @@ void DapDebugger::WaitDap() {
     auto* mainSymbol = m_debugSymbols.GetSymbolByName("main()");
     ASSERT(mainSymbol);
     if (mainSymbol) {
-        m_breakpoints.Add(Breakpoint::Type::Instruction, mainSymbol->address).Once();
+        m_internalBreakpoints.Add(Breakpoint::Type::Instruction, mainSymbol->address).Once();
     }
 
     // All the handlers we care about have now been registered.
@@ -419,15 +460,19 @@ void DapDebugger::ExecuteFrameInstructions(double frameTime, const Input& input,
     };
 
     while (m_cpuCyclesLeft > 0) {
+        const auto* preLocation = m_debugSymbols.GetSourceLocation(PC());
+
+        const cycles_t elapsedCycles = ExecuteInstruction(input, renderContext, audioContext);
+
+        // NOTE: We check for breakpoints after executing an instruction so that stepping while on
+        // an instruction breakpoint doesn't keep hitting that breakpoint. But this means there's no
+        // way to set a breakpoint on the very first instruction that will get executed. Fix this by
+        // remembering the last PC, and only processing breakpoints if the current != last PC.
         if (CheckForBreakpoints()) {
             BreakIntoDebugger();
             OnEvent(Event::BreakpointHit);
             return;
         }
-
-        const auto* preLocation = m_debugSymbols.GetSourceLocation(PC());
-
-        const cycles_t elapsedCycles = ExecuteInstruction(input, renderContext, audioContext);
 
         switch (m_runState) {
         case RunState::Running:
@@ -483,16 +528,26 @@ cycles_t DapDebugger::ExecuteInstruction(const Input& input, RenderContext& rend
 };
 
 bool DapDebugger::CheckForBreakpoints() {
-    if (auto bp = m_breakpoints.Get(PC())) {
-        if (bp->type == Breakpoint::Type::Instruction) {
-            if (bp->once) {
-                m_breakpoints.Remove(PC());
-                return true;
-            } else if (bp->enabled) {
-                Printf("Breakpoint hit at %04x\n", bp->address);
-                return true;
+    auto check = [&](Breakpoints& breakpoints) {
+        if (auto bp = breakpoints.Get(PC())) {
+            if (bp->type == Breakpoint::Type::Instruction) {
+                if (bp->once) {
+                    breakpoints.Remove(PC());
+                    return true;
+                } else if (bp->enabled) {
+                    Printf("Breakpoint hit at %04x\n", bp->address);
+                    return true;
+                }
             }
         }
+        return false;
+    };
+
+    if (check(m_internalBreakpoints)) {
+        return true;
+    }
+    if (check(m_userBreakpoints)) {
+        return true;
     }
     return false;
 }

@@ -91,8 +91,7 @@ public:
     bool Run(int argc, char** argv) {
         const auto args = std::vector<std::string_view>(argv + 1, argv + argc);
 
-        if (!EngineUtil::FindAndSetRootPath(fs::path(fs::absolute(argv[0]))))
-        {
+        if (!EngineUtil::FindAndSetRootPath(fs::path(fs::absolute(argv[0])))) {
             Errorf("Failed to find and set root path\n");
             return false;
         }
