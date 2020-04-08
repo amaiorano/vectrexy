@@ -3,6 +3,7 @@
 #include "core/Base.h"
 #include "core/ConsoleOutput.h"
 #include "core/FileSystem.h"
+#include "core/TsQueue.h"
 #include "debugger/Breakpoints.h"
 #include "debugger/CallStack.h"
 #include "debugger/DebugSymbols.h"
@@ -58,19 +59,15 @@ private:
 
     std::unique_ptr<dap::Session> m_session;
     std::atomic<bool> m_errored{false};
-    std::atomic<bool> m_paused{false};
 
-    enum class TargetState {
-        Running,
-        Pausing,
-        StepInto,
+    enum class DebuggerRequest {
+        Pause,
+        Continue,
         StepOver,
+        StepInto,
         StepOut,
-        Paused,
-
-        Invalid,
     };
-    std::atomic<TargetState> m_targetState{TargetState::Running};
+    TsQueue<DebuggerRequest> m_requestQueue;
 
     struct Running {};
     struct Pausing {};

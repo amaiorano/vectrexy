@@ -83,9 +83,7 @@ bool DapDebugger::FrameUpdate(double frameTime, const EmuEvents& emuEvents, cons
     if (m_errored)
         return false;
 
-    if (!m_paused) {
-        ExecuteFrameInstructions(frameTime, input, renderContext, audioContext);
-    }
+    ExecuteFrameInstructions(frameTime, input, renderContext, audioContext);
 
     return true;
 }
@@ -229,10 +227,8 @@ void DapDebugger::InitDap() {
     // threads.
     // https://microsoft.github.io/debug-adapter-protocol/specification#Requests_Pause
     m_session->registerHandler([&](const dap::PauseRequest&) {
-        // TODO
-        // debugger.pause();
-        assert(!m_paused);
-        m_targetState = TargetState::Pausing;
+        m_requestQueue.push(DebuggerRequest::Pause);
+        // TODO: wait for event
         return dap::PauseResponse();
     });
 
@@ -240,11 +236,8 @@ void DapDebugger::InitDap() {
     // all threads.
     // https://microsoft.github.io/debug-adapter-protocol/specification#Requests_Continue
     m_session->registerHandler([&](const dap::ContinueRequest&) {
-        // TODO
-        // debugger.run();
-        assert(m_paused);
-        m_targetState = TargetState::Running;
-        m_paused = false;
+        m_requestQueue.push(DebuggerRequest::Continue);
+        // TODO: wait for event
         return dap::ContinueResponse();
     });
 
@@ -252,22 +245,16 @@ void DapDebugger::InitDap() {
     // thread.
     // https://microsoft.github.io/debug-adapter-protocol/specification#Requests_Next
     m_session->registerHandler([&](const dap::NextRequest&) {
-        // TODO
-        // debugger.stepForward();
-        assert(m_paused);
-        m_targetState = TargetState::StepOver;
-        m_paused = false;
+        m_requestQueue.push(DebuggerRequest::StepOver);
+        // TODO: wait for event
         return dap::NextResponse();
     });
 
     // The StepIn request instructs the debugger to step-in for a specific thread.
     // https://microsoft.github.io/debug-adapter-protocol/specification#Requests_StepIn
     m_session->registerHandler([&](const dap::StepInRequest&) {
-        // TODO
-        // debugger.stepForward();
-        assert(m_paused);
-        m_targetState = TargetState::StepInto;
-        m_paused = false;
+        m_requestQueue.push(DebuggerRequest::StepInto);
+        // TODO: wait for event
         return dap::StepInResponse();
     });
 
@@ -275,10 +262,8 @@ void DapDebugger::InitDap() {
     // thread.
     // https://microsoft.github.io/debug-adapter-protocol/specification#Requests_StepOut
     m_session->registerHandler([&](const dap::StepOutRequest&) {
-        // TODO
-        assert(m_paused);
-        m_targetState = TargetState::StepOut;
-        m_paused = false;
+        m_requestQueue.push(DebuggerRequest::StepOut);
+        // TODO: wait for event
         return dap::StepOutResponse();
     });
 
@@ -288,6 +273,8 @@ void DapDebugger::InitDap() {
     // https://microsoft.github.io/debug-adapter-protocol/specification#Requests_SetBreakpoints
     m_session->registerHandler([&](const dap::SetBreakpointsRequest& request) {
         (void)request;
+
+        // TODO: request a Pause, then wait for it on a condition variable (event)
 
         auto addVerifiedBreakpoint = [](dap::SetBreakpointsResponse& response) {
             dap::Breakpoint bp;
@@ -462,66 +449,59 @@ void DapDebugger::ExecuteFrameInstructions(double frameTime, const Input& input,
     const double cpuCyclesThisFrame = Cpu::Hz * frameTime;
     m_cpuCyclesLeft += cpuCyclesThisFrame;
 
-    auto BreakIntoDebugger = [&] {
-        m_paused = true;
-        m_cpuCyclesLeft = 0;
-    };
-
     auto DoExecuteInstruction = [&] {
         const cycles_t elapsedCycles = ExecuteInstruction(input, renderContext, audioContext);
         m_cpuCyclesLeft -= elapsedCycles;
     };
 
-    while (m_cpuCyclesLeft > 0) {
-
-        // If there's a transition to make, makes it and returns true
-        auto checkForTransition = [&](TargetState currState,
-                                      TargetState currState2 = TargetState::Invalid) {
-            if (m_targetState == currState || m_targetState == currState2)
-                return false;
-            switch (m_targetState) {
-            case TargetState::Running:
-                m_state = Running{};
-                break;
-            case TargetState::Pausing:
+    // If there's a transition to make, makes it and returns true
+    auto CheckForTransition = [&]() -> bool {
+        if (auto request = m_requestQueue.pop()) {
+            switch (*request) {
+            case DebuggerRequest::Pause:
                 m_state = Pausing{};
                 break;
-            case TargetState::StepInto:
-                m_state = StepInto{};
+            case DebuggerRequest::Continue:
+                m_state = Running{};
                 break;
-            case TargetState::StepOver:
+            case DebuggerRequest::StepOver:
                 m_state = StepOver{};
                 break;
-            case TargetState::StepOut:
-                m_state = StepOut{};
+            case DebuggerRequest::StepInto:
+                m_state = StepInto{};
                 break;
-            case TargetState::Paused:
-                m_state = Paused{};
+            case DebuggerRequest::StepOut:
+                m_state = StepOut{};
                 break;
             }
             return true;
-        };
+        }
+        return false;
+    };
 
+    auto BreakIntoDebugger = [&](Event event) {
+        m_cpuCyclesLeft = 0;
+        m_state = Paused{};
+        OnEvent(event);
+    };
+
+    while (m_cpuCyclesLeft > 0) {
         std_util::visit_overloads(
             m_state,
 
             [&](Running&) {
-                if (checkForTransition(TargetState::Running))
+                if (CheckForTransition())
                     return;
 
                 DoExecuteInstruction();
 
                 if (CheckForBreakpoints()) {
-                    BreakIntoDebugger();
-                    // TODO: Find a better way to handle state transitions
-                    m_targetState = TargetState::Paused;
-                    m_state = Paused{};
-                    OnEvent(Event::BreakpointHit);
+                    BreakIntoDebugger(Event::BreakpointHit);
                 }
             },
 
             [&](Pausing&) {
-                if (checkForTransition(TargetState::Pausing))
+                if (CheckForTransition())
                     return;
 
                 DoExecuteInstruction();
@@ -529,16 +509,12 @@ void DapDebugger::ExecuteFrameInstructions(double frameTime, const Input& input,
                 // Pause on the next valid source location
                 const auto* postLocation = m_debugSymbols.GetSourceLocation(PC());
                 if (postLocation) {
-                    BreakIntoDebugger();
-                    // TODO: Find a better way to handle state transitions
-                    m_targetState = TargetState::Paused;
-                    m_state = Paused{};
-                    OnEvent(Event::Paused);
+                    BreakIntoDebugger(Event::Paused);
                 }
             },
 
             [&](StepInto& st) {
-                if (checkForTransition(TargetState::StepInto))
+                if (CheckForTransition())
                     return;
 
                 if (st.entry) {
@@ -555,16 +531,12 @@ void DapDebugger::ExecuteFrameInstructions(double frameTime, const Input& input,
 
                 // Break as soon as we hit a new source location
                 if (*currSourceLocation != st.initialSourceLocation) {
-                    BreakIntoDebugger();
-                    // TODO: Find a better way to handle state transitions
-                    m_targetState = TargetState::Paused;
-                    m_state = Paused{};
-                    OnEvent(Event::Stepped);
+                    BreakIntoDebugger(Event::Stepped);
                 }
             },
 
             [&](StepOverOrOut& st) {
-                if (checkForTransition(TargetState::StepOver, TargetState::StepOut))
+                if (CheckForTransition())
                     return;
 
                 if (st.entry) {
@@ -580,11 +552,7 @@ void DapDebugger::ExecuteFrameInstructions(double frameTime, const Input& input,
                 DoExecuteInstruction();
 
                 if (CheckForBreakpoints()) {
-                    BreakIntoDebugger();
-                    // TODO: Find a better way to handle state transitions
-                    m_targetState = TargetState::Paused;
-                    m_state = Paused{};
-                    OnEvent(Event::BreakpointHit);
+                    BreakIntoDebugger(Event::BreakpointHit);
                     return;
                 }
 
@@ -634,11 +602,7 @@ void DapDebugger::ExecuteFrameInstructions(double frameTime, const Input& input,
                 }
 
                 if (shouldBreak) {
-                    BreakIntoDebugger();
-                    // TODO: Find a better way to handle state transitions
-                    m_targetState = TargetState::Paused;
-                    m_state = Paused{};
-                    OnEvent(Event::Stepped);
+                    BreakIntoDebugger(Event::Stepped);
                 }
             },
 
@@ -662,11 +626,7 @@ void DapDebugger::ExecuteFrameInstructions(double frameTime, const Input& input,
                     DoExecuteInstruction();
 
                     if (CheckForBreakpoints()) {
-                        BreakIntoDebugger();
-                        // TODO: Find a better way to handle state transitions
-                        m_targetState = TargetState::Paused;
-                        m_state = Paused{};
-                        OnEvent(Event::BreakpointHit);
+                        BreakIntoDebugger(Event::BreakpointHit);
                         return;
                     }
 
@@ -681,16 +641,12 @@ void DapDebugger::ExecuteFrameInstructions(double frameTime, const Input& input,
                 }
 
                 if (shouldBreak) {
-                    BreakIntoDebugger();
-                    // TODO: Find a better way to handle state transitions
-                    m_targetState = TargetState::Paused;
-                    m_state = Paused{};
-                    OnEvent(Event::Stepped);
+                    BreakIntoDebugger(Event::Stepped);
                 }
             },
 
             [&](Paused&) {
-                if (checkForTransition(TargetState::Paused))
+                if (CheckForTransition())
                     return;
             }
 
@@ -718,7 +674,6 @@ cycles_t DapDebugger::ExecuteInstruction(const Input& input, RenderContext& rend
     }
 
     // TODO: Send interrupt signal and break
-    // BreakIntoDebugger();
 
     return static_cast<cycles_t>(0);
 };
