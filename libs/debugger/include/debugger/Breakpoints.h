@@ -147,6 +147,8 @@ public:
 
     std::vector<ConditionalBreakpoint>& Breakpoints() { return m_conditionalBreakpoints; }
 
+    void RemoveAll() { m_conditionalBreakpoints.clear(); }
+
 private:
     std::vector<ConditionalBreakpoint> m_conditionalBreakpoints;
 };

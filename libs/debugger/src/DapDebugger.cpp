@@ -1,4 +1,5 @@
 #include "debugger/DapDebugger.h"
+#include "core/StdUtil.h"
 #include "debugger/DebuggerUtil.h"
 #include "debugger/RstParser.h"
 #include "emulator/Cpu.h"
@@ -231,7 +232,7 @@ void DapDebugger::InitDap() {
         // TODO
         // debugger.pause();
         assert(!m_paused);
-        m_runState = RunState::Pausing;
+        m_targetState = TargetState::Pausing;
         return dap::PauseResponse();
     });
 
@@ -242,7 +243,7 @@ void DapDebugger::InitDap() {
         // TODO
         // debugger.run();
         assert(m_paused);
-        m_runState = RunState::Running;
+        m_targetState = TargetState::Running;
         m_paused = false;
         return dap::ContinueResponse();
     });
@@ -253,6 +254,9 @@ void DapDebugger::InitDap() {
     m_session->registerHandler([&](const dap::NextRequest&) {
         // TODO
         // debugger.stepForward();
+        assert(m_paused);
+        m_targetState = TargetState::StepOver;
+        m_paused = false;
         return dap::NextResponse();
     });
 
@@ -262,7 +266,7 @@ void DapDebugger::InitDap() {
         // TODO
         // debugger.stepForward();
         assert(m_paused);
-        m_runState = RunState::StepInto;
+        m_targetState = TargetState::StepInto;
         m_paused = false;
         return dap::StepInResponse();
     });
@@ -272,6 +276,9 @@ void DapDebugger::InitDap() {
     // https://microsoft.github.io/debug-adapter-protocol/specification#Requests_StepOut
     m_session->registerHandler([&](const dap::StepOutRequest&) {
         // TODO
+        assert(m_paused);
+        m_targetState = TargetState::StepOut;
+        m_paused = false;
         return dap::StepOutResponse();
     });
 
@@ -298,6 +305,7 @@ void DapDebugger::InitDap() {
 
         dap::SetBreakpointsResponse response;
 
+        // TODO: Clear only the breakpoints for the current file!
         // Start by clearing all breakpoints. The protocol is that every time a breakpoint is added
         // or removed, all enabled breakpoints will be sent in this request.
         m_userBreakpoints.RemoveAll();
@@ -459,46 +467,234 @@ void DapDebugger::ExecuteFrameInstructions(double frameTime, const Input& input,
         m_cpuCyclesLeft = 0;
     };
 
-    while (m_cpuCyclesLeft > 0) {
-        const auto* preLocation = m_debugSymbols.GetSourceLocation(PC());
-
+    auto DoExecuteInstruction = [&] {
         const cycles_t elapsedCycles = ExecuteInstruction(input, renderContext, audioContext);
-
-        // NOTE: We check for breakpoints after executing an instruction so that stepping while on
-        // an instruction breakpoint doesn't keep hitting that breakpoint. But this means there's no
-        // way to set a breakpoint on the very first instruction that will get executed. Fix this by
-        // remembering the last PC, and only processing breakpoints if the current != last PC.
-        if (CheckForBreakpoints()) {
-            BreakIntoDebugger();
-            OnEvent(Event::BreakpointHit);
-            return;
-        }
-
-        switch (m_runState) {
-        case RunState::Running:
-            break;
-
-        case RunState::Pausing: {
-            // Pause on the next valid source location
-            const auto* postLocation = m_debugSymbols.GetSourceLocation(PC());
-            if (postLocation) {
-                BreakIntoDebugger();
-                OnEvent(Event::Paused);
-                return;
-            }
-        } break;
-
-        case RunState::StepInto: {
-            const auto* postLocation = m_debugSymbols.GetSourceLocation(PC());
-            if ((preLocation && postLocation) && (*preLocation != *postLocation)) {
-                BreakIntoDebugger();
-                OnEvent(Event::Stepped);
-                return;
-            }
-        } break;
-        }
-
         m_cpuCyclesLeft -= elapsedCycles;
+    };
+
+    while (m_cpuCyclesLeft > 0) {
+
+        // If there's a transition to make, makes it and returns true
+        auto checkForTransition = [&](TargetState currState,
+                                      TargetState currState2 = TargetState::Invalid) {
+            if (m_targetState == currState || m_targetState == currState2)
+                return false;
+            switch (m_targetState) {
+            case TargetState::Running:
+                m_state = Running{};
+                break;
+            case TargetState::Pausing:
+                m_state = Pausing{};
+                break;
+            case TargetState::StepInto:
+                m_state = StepInto{};
+                break;
+            case TargetState::StepOver:
+                m_state = StepOver{};
+                break;
+            case TargetState::StepOut:
+                m_state = StepOut{};
+                break;
+            case TargetState::Paused:
+                m_state = Paused{};
+                break;
+            }
+            return true;
+        };
+
+        std_util::visit_overloads(
+            m_state,
+
+            [&](Running&) {
+                if (checkForTransition(TargetState::Running))
+                    return;
+
+                DoExecuteInstruction();
+
+                if (CheckForBreakpoints()) {
+                    BreakIntoDebugger();
+                    // TODO: Find a better way to handle state transitions
+                    m_targetState = TargetState::Paused;
+                    m_state = Paused{};
+                    OnEvent(Event::BreakpointHit);
+                }
+            },
+
+            [&](Pausing&) {
+                if (checkForTransition(TargetState::Pausing))
+                    return;
+
+                DoExecuteInstruction();
+
+                // Pause on the next valid source location
+                const auto* postLocation = m_debugSymbols.GetSourceLocation(PC());
+                if (postLocation) {
+                    BreakIntoDebugger();
+                    // TODO: Find a better way to handle state transitions
+                    m_targetState = TargetState::Paused;
+                    m_state = Paused{};
+                    OnEvent(Event::Paused);
+                }
+            },
+
+            [&](StepInto& st) {
+                if (checkForTransition(TargetState::StepInto))
+                    return;
+
+                if (st.entry) {
+                    st.entry = false;
+                    ASSERT(m_debugSymbols.GetSourceLocation(PC()));
+                    st.initialSourceLocation = *m_debugSymbols.GetSourceLocation(PC());
+                }
+
+                DoExecuteInstruction();
+                const auto* currSourceLocation = m_debugSymbols.GetSourceLocation(PC());
+
+                if (!currSourceLocation)
+                    return;
+
+                // Break as soon as we hit a new source location
+                if (*currSourceLocation != st.initialSourceLocation) {
+                    BreakIntoDebugger();
+                    // TODO: Find a better way to handle state transitions
+                    m_targetState = TargetState::Paused;
+                    m_state = Paused{};
+                    OnEvent(Event::Stepped);
+                }
+            },
+
+            [&](StepOverOrOut& st) {
+                if (checkForTransition(TargetState::StepOver, TargetState::StepOut))
+                    return;
+
+                if (st.entry) {
+                    st.entry = false;
+                    ASSERT(m_debugSymbols.GetSourceLocation(PC()));
+                    st.initialSourceLocation = *m_debugSymbols.GetSourceLocation(PC());
+                    st.initialStackDepth = m_callStack.Frames().size();
+                }
+
+                // Get source location of parent frame
+                const auto calleeAddress = m_callStack.GetLastCalleeAddress();
+
+                DoExecuteInstruction();
+
+                if (CheckForBreakpoints()) {
+                    BreakIntoDebugger();
+                    // TODO: Find a better way to handle state transitions
+                    m_targetState = TargetState::Paused;
+                    m_state = Paused{};
+                    OnEvent(Event::BreakpointHit);
+                    return;
+                }
+
+                const size_t currStackDepth = m_callStack.Frames().size();
+
+                bool shouldBreak = false;
+
+                // For step over or out, if our stack depth is smaller than the initial (i.e.
+                // returned from a function), we break.
+                if (currStackDepth < st.initialStackDepth) {
+
+                    if (calleeAddress) {
+                        const auto* currSourceLocation = m_debugSymbols.GetSourceLocation(PC());
+                        const auto calleeSourceLocation =
+                            m_debugSymbols.GetSourceLocation(*calleeAddress);
+
+                        // TODO: is this right?
+                        if (!currSourceLocation || !calleeSourceLocation)
+                            return;
+
+                        // If we've stepped out onto an instruction of the calling source location,
+                        // then "finish" the step out. Otherwise, we're at a new SourceLocation
+                        // already, so just break.
+                        if (*currSourceLocation == *calleeSourceLocation) {
+                            m_state = FinishStepOut{};
+                            return;
+                        }
+                    }
+
+                    shouldBreak = true;
+
+                } else if (st.isStepOver) {
+                    // For step over, as soon as we've changed source location, and are back at the
+                    // original stack depth, we break.
+
+                    const auto* currSourceLocation = m_debugSymbols.GetSourceLocation(PC());
+                    if (!currSourceLocation)
+                        return;
+
+                    const bool sourceLocationChanged =
+                        *currSourceLocation != st.initialSourceLocation;
+                    const bool sameStackDepth = currStackDepth == st.initialStackDepth;
+
+                    if (sourceLocationChanged && sameStackDepth) {
+                        shouldBreak = true;
+                    }
+                }
+
+                if (shouldBreak) {
+                    BreakIntoDebugger();
+                    // TODO: Find a better way to handle state transitions
+                    m_targetState = TargetState::Paused;
+                    m_state = Paused{};
+                    OnEvent(Event::Stepped);
+                }
+            },
+
+            [&](FinishStepOut& st) {
+                if (st.entry) {
+                    st.entry = false;
+                    ASSERT(m_debugSymbols.GetSourceLocation(PC()));
+                    st.initialSourceLocation = *m_debugSymbols.GetSourceLocation(PC());
+                }
+
+                // Break as soon as source location changes or we are at another call instruction.
+                // The latter will happen if a given SourceLocation makes multiple calls, in which
+                // case, we want to stay on this same line so that the user can step into or over.
+
+                bool shouldBreak = false;
+
+                if (DebuggerUtil::IsCall(PC(), *m_memoryBus)) {
+                    shouldBreak = true;
+
+                } else {
+                    DoExecuteInstruction();
+
+                    if (CheckForBreakpoints()) {
+                        BreakIntoDebugger();
+                        // TODO: Find a better way to handle state transitions
+                        m_targetState = TargetState::Paused;
+                        m_state = Paused{};
+                        OnEvent(Event::BreakpointHit);
+                        return;
+                    }
+
+                    const auto* currSourceLocation = m_debugSymbols.GetSourceLocation(PC());
+                    if (!currSourceLocation)
+                        return;
+
+                    const bool sourceLocationChanged =
+                        *currSourceLocation != st.initialSourceLocation;
+
+                    shouldBreak = sourceLocationChanged;
+                }
+
+                if (shouldBreak) {
+                    BreakIntoDebugger();
+                    // TODO: Find a better way to handle state transitions
+                    m_targetState = TargetState::Paused;
+                    m_state = Paused{};
+                    OnEvent(Event::Stepped);
+                }
+            },
+
+            [&](Paused&) {
+                if (checkForTransition(TargetState::Paused))
+                    return;
+            }
+
+        );
     }
 }
 
@@ -549,6 +745,32 @@ bool DapDebugger::CheckForBreakpoints() {
     if (check(m_userBreakpoints)) {
         return true;
     }
+
+    // Handle conditional breakpoints
+    {
+        bool shouldBreak = false;
+        auto& conditionals = m_internalConditionalBreakpoints.Breakpoints();
+        for (auto iter = conditionals.begin(); iter != conditionals.end();) {
+            auto& bp = *iter;
+            if (bp.conditionFunc()) {
+                if (bp.once) {
+                    iter = conditionals.erase(iter);
+                } else {
+                    ++iter;
+
+                    // TODO: output something useful, like the condition text.
+                    Printf("Conditional breakpoint hit.\n");
+                }
+                shouldBreak = true;
+            } else {
+                ++iter;
+            }
+        }
+
+        if (shouldBreak)
+            return true;
+    }
+
     return false;
 }
 

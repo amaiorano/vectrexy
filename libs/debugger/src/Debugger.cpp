@@ -645,35 +645,6 @@ namespace {
         }
     }
 
-    // Returns true if instruction at PC is a call instruction
-    bool IsCall(uint16_t PC, const MemoryBus& memoryBus) {
-        uint8_t opCode = memoryBus.ReadRaw(PC);
-
-        switch (opCode) {
-        case 0x17: // LBSR (page 0)
-        case 0x8D: // BSR (page 0)
-        case 0x9D: // JSR (page 0)
-        case 0xAD: // JSR (page 0)
-        case 0xBD: // JSR (page 0)
-        case 0x3F: // SWI (page 0)
-            return true;
-
-        case 0x10: // Page 1
-        case 0x11: // Page 2
-            // Read page 1/2 op code
-            opCode = memoryBus.ReadRaw(PC + 1);
-            switch (opCode) {
-            case 0x3F: // SWI2 (page 1) or SWI3 (page 2)
-                return true;
-            }
-
-        default:
-            break;
-        }
-
-        return false;
-    }
-
     // Returns the address of instruction immediately following PC in memory. Note that if the
     // instruction at PC is a call, it does not return the call target location, but rather where
     // the call would return to.
@@ -928,7 +899,7 @@ bool Debugger::FrameUpdate(double frameTime, const EmuEvents& emuEvents, const I
             // If the instruction we're about to execute is a call, add a temporary conditional
             // breakpoint on when the callstack returns to its current size.
             const uint16_t PC = m_cpu->Registers().PC;
-            if (IsCall(PC, *m_memoryBus)) {
+            if (DebuggerUtil::IsCall(PC, *m_memoryBus)) {
                 size_t stackSizeAtCall = m_callStack.Frames().size();
                 m_conditionalBreakpoints
                     .Add([this, stackSizeAtCall]() {
@@ -950,7 +921,7 @@ bool Debugger::FrameUpdate(double frameTime, const EmuEvents& emuEvents, const I
             // If the instruction we're about to execute is a call, add a temporary conditional
             // breakpoint on when the callstack stack is 1 less than its current size.
             if (auto calleeAddress = m_callStack.GetLastCalleeAddress()) {
-                if (IsCall(*calleeAddress, *m_memoryBus)) {
+                if (DebuggerUtil::IsCall(*calleeAddress, *m_memoryBus)) {
                     size_t stackSizeAtCall = m_callStack.Frames().size();
                     m_conditionalBreakpoints
                         .Add([this, stackSizeAtCall]() {

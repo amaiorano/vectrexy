@@ -9,6 +9,7 @@
 #include "emulator/EngineTypes.h"
 
 #include <atomic>
+#include <variant>
 
 class Cpu;
 class Emulator;
@@ -50,6 +51,7 @@ private:
     fs::path m_sourceRoot;
     Breakpoints m_internalBreakpoints;
     Breakpoints m_userBreakpoints;
+    ConditionalBreakpoints m_internalConditionalBreakpoints;
     CallStack m_callStack;
     DebugSymbols m_debugSymbols;
     double m_cpuCyclesLeft = 0;
@@ -58,12 +60,41 @@ private:
     std::atomic<bool> m_errored{false};
     std::atomic<bool> m_paused{false};
 
-    enum class RunState {
+    enum class TargetState {
         Running,
         Pausing,
         StepInto,
         StepOver,
         StepOut,
+        Paused,
+
+        Invalid,
     };
-    std::atomic<RunState> m_runState{RunState::Running};
+    std::atomic<TargetState> m_targetState{TargetState::Running};
+
+    struct Running {};
+    struct Pausing {};
+    struct StepInto {
+        bool entry = true;
+        SourceLocation initialSourceLocation{};
+    };
+    struct StepOverOrOut {
+        bool isStepOver = false;
+        bool entry = true;
+        SourceLocation initialSourceLocation{};
+        size_t initialStackDepth{};
+    };
+    struct StepOver : StepOverOrOut {
+        StepOver() { isStepOver = true; }
+    };
+    struct StepOut : StepOverOrOut {
+        StepOut() { isStepOver = false; }
+    };
+    struct FinishStepOut {
+        bool entry = true;
+        SourceLocation initialSourceLocation{};
+    };
+    struct Paused {};
+    std::variant<Running, Pausing, StepInto, StepOver, StepOut, Paused, FinishStepOut> m_state{
+        Running{}};
 };

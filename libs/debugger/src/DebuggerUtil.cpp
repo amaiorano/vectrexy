@@ -88,4 +88,32 @@ namespace DebuggerUtil {
         }
     }
 
+    bool IsCall(uint16_t PC, const MemoryBus& memoryBus) {
+        uint8_t opCode = memoryBus.ReadRaw(PC);
+
+        switch (opCode) {
+        case 0x17: // LBSR (page 0)
+        case 0x8D: // BSR (page 0)
+        case 0x9D: // JSR (page 0)
+        case 0xAD: // JSR (page 0)
+        case 0xBD: // JSR (page 0)
+        case 0x3F: // SWI (page 0)
+            return true;
+
+        case 0x10: // Page 1
+        case 0x11: // Page 2
+            // Read page 1/2 op code
+            opCode = memoryBus.ReadRaw(PC + 1);
+            switch (opCode) {
+            case 0x3F: // SWI2 (page 1) or SWI3 (page 2)
+                return true;
+            }
+
+        default:
+            break;
+        }
+
+        return false;
+    }
+
 } // namespace DebuggerUtil
