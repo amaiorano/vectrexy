@@ -101,7 +101,6 @@ void DapDebugger::InitDap() {
     });
 
     // The Threads request queries the debugger's list of active threads.
-    // This example debugger only exposes a single thread.
     // https://microsoft.github.io/debug-adapter-protocol/specification#Requests_Threads
     m_session->registerHandler([&](const dap::ThreadsRequest&) {
         dap::ThreadsResponse response;
@@ -112,15 +111,15 @@ void DapDebugger::InitDap() {
         return response;
     });
 
-    // The StackTrace request reports the stack frames (call stack) for a given
-    // thread. This example debugger only exposes a single stack frame for the
-    // single thread.
+    // The StackTrace request reports the stack frames (call stack) for a given thread.
     // https://microsoft.github.io/debug-adapter-protocol/specification#Requests_StackTrace
     m_session->registerHandler([&](const dap::StackTraceRequest& request)
                                    -> dap::ResponseOrError<dap::StackTraceResponse> {
         if (request.threadId != DAP_THREAD_ID) {
             return dap::Error("Unknown threadId '%d'", int(request.threadId));
         }
+
+        auto lock = std::lock_guard{m_frameMutex};
 
         dap::StackTraceResponse response;
 
@@ -244,7 +243,7 @@ void DapDebugger::InitDap() {
     m_session->registerHandler([&](const dap::SetBreakpointsRequest& request) {
         (void)request;
 
-        // TODO: lock mutex
+        auto lock = std::lock_guard{m_frameMutex};
 
         auto addVerifiedBreakpoint = [](dap::SetBreakpointsResponse& response) {
             dap::Breakpoint bp;
@@ -415,6 +414,9 @@ void DapDebugger::OnEvent(DapDebugger::Event event) {
 void DapDebugger::ExecuteFrameInstructions(double frameTime, const Input& input,
                                            RenderContext& renderContext,
                                            AudioContext& audioContext) {
+
+    auto lock = std::lock_guard{m_frameMutex};
+
     // Execute as many instructions that can fit in this time slice (plus one more at most)
     const double cpuCyclesThisFrame = Cpu::Hz * frameTime;
     m_cpuCyclesLeft += cpuCyclesThisFrame;
@@ -450,7 +452,6 @@ void DapDebugger::ExecuteFrameInstructions(double frameTime, const Input& input,
     };
 
     auto BreakIntoDebugger = [&](Event event) {
-        m_cpuCyclesLeft = 0;
         m_state = Paused{};
         OnEvent(event);
     };
@@ -616,6 +617,8 @@ void DapDebugger::ExecuteFrameInstructions(double frameTime, const Input& input,
             },
 
             [&](Paused&) {
+                m_cpuCyclesLeft = 0;
+
                 if (CheckForTransition())
                     return;
             }

@@ -11,6 +11,7 @@
 #include "emulator/EngineTypes.h"
 
 #include <atomic>
+#include <mutex>
 #include <variant>
 
 class Cpu;
@@ -63,6 +64,7 @@ private:
     TsEvent m_configuredEvent;
     std::shared_ptr<dap::Writer> m_dapLog;
     std::atomic<bool> m_errored{false};
+    std::mutex m_frameMutex;
 
     enum class DebuggerRequest {
         Pause,
