@@ -261,15 +261,7 @@ void DapDebugger::InitDap() {
 
         dap::SetBreakpointsResponse response;
 
-        // TODO: Clear only the breakpoints for the current file!
-        // Start by clearing all breakpoints. The protocol is that every time a breakpoint is added
-        // or removed, all enabled breakpoints will be sent in this request.
-        m_userBreakpoints.RemoveAll();
-
         const auto breakpoints = request.breakpoints.value({});
-        if (breakpoints.empty()) {
-            return response;
-        }
 
         const auto sourcePath = request.source.path;
         if (!sourcePath) {
@@ -291,6 +283,14 @@ void DapDebugger::InitDap() {
 
         const std::string filePath = spath.substr(sroot.size());
 
+        // Remove all breakpoints for the current file
+        m_userBreakpoints.RemoveAllIf([&](Breakpoint& bp) {
+            auto location = m_debugSymbols.GetSourceLocation(bp.address);
+            ASSERT(location);
+            return location->file == filePath;
+        });
+
+        // Add new breakpoints for current file
         for (auto& bp : breakpoints) {
             const auto location = SourceLocation{filePath, static_cast<uint32_t>(bp.line)};
             if (auto address = m_debugSymbols.GetAddressBySourceLocation(location)) {
