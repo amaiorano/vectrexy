@@ -5,7 +5,6 @@
 #include <queue>
 
 // Thread-safe queue
-
 template <typename T>
 class TsQueue {
 public:

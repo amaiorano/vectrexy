@@ -3,6 +3,7 @@
 #include "core/Base.h"
 #include "core/ConsoleOutput.h"
 #include "core/FileSystem.h"
+#include "core/TsEvent.h"
 #include "core/TsQueue.h"
 #include "debugger/Breakpoints.h"
 #include "debugger/CallStack.h"
@@ -18,7 +19,8 @@ class MemoryBus;
 
 namespace dap {
     class Session;
-}
+    class Writer;
+} // namespace dap
 
 class DapDebugger {
 public:
@@ -58,6 +60,8 @@ private:
     double m_cpuCyclesLeft = 0;
 
     std::unique_ptr<dap::Session> m_session;
+    TsEvent m_configuredEvent;
+    std::shared_ptr<dap::Writer> m_dapLog;
     std::atomic<bool> m_errored{false};
 
     enum class DebuggerRequest {
@@ -68,6 +72,7 @@ private:
         StepOut,
     };
     TsQueue<DebuggerRequest> m_requestQueue;
+    TsEvent m_pausedEvent;
 
     struct Running {};
     struct Pausing {};
@@ -92,6 +97,7 @@ private:
         SourceLocation initialSourceLocation{};
     };
     struct Paused {};
+
     std::variant<Running, Pausing, StepInto, StepOver, StepOut, Paused, FinishStepOut> m_state{
         Running{}};
 };

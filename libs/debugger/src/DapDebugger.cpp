@@ -14,34 +14,8 @@
 #include <mutex>
 
 namespace {
-    const dap::integer threadId = 100;
-
-    // Event provides a basic wait and signal synchronization primitive.
-    class Event {
-    public:
-        // wait() blocks until the event is fired.
-        void wait() {
-            std::unique_lock<std::mutex> lock(mutex);
-            cv.wait(lock, [&] { return fired; });
-        }
-
-        // fire() sets signals the event, and unblocks any calls to wait().
-        void fire() {
-            std::unique_lock<std::mutex> lock(mutex);
-            fired = true;
-            cv.notify_all();
-        }
-
-    private:
-        std::mutex mutex;
-        std::condition_variable cv;
-        bool fired = false;
-    };
-
-    // Move to member
-    Event g_configured;
-    std::shared_ptr<dap::Writer> g_log = dap::file("dap_log.txt");
-
+    // We only have one main thread, so use a constant id
+    const dap::integer DAP_THREAD_ID = 100;
 } // namespace
 
 DapDebugger::DapDebugger() = default;
@@ -95,14 +69,15 @@ void DapDebugger::ParseRst(const fs::path& rstFile) {
 
 void DapDebugger::InitDap() {
     m_session = dap::Session::create();
+    m_dapLog = dap::file("dap_log.txt");
 
     // Handle errors reported by the Session. These errors include protocol
     // parsing errors and receiving messages with no handler.
     m_session->onError([&](const char* msg) {
         Printf("dap::Session error: %s\n", msg);
-        if (g_log) {
-            dap::writef(g_log, "dap::Session error: %s\n", msg);
-            g_log->close();
+        if (m_dapLog) {
+            dap::writef(m_dapLog, "dap::Session error: %s\n", msg);
+            m_dapLog->close();
         }
         m_errored = true;
     });
@@ -131,7 +106,7 @@ void DapDebugger::InitDap() {
     m_session->registerHandler([&](const dap::ThreadsRequest&) {
         dap::ThreadsResponse response;
         dap::Thread thread;
-        thread.id = threadId;
+        thread.id = DAP_THREAD_ID;
         thread.name = "MainThread";
         response.threads.push_back(thread);
         return response;
@@ -143,7 +118,7 @@ void DapDebugger::InitDap() {
     // https://microsoft.github.io/debug-adapter-protocol/specification#Requests_StackTrace
     m_session->registerHandler([&](const dap::StackTraceRequest& request)
                                    -> dap::ResponseOrError<dap::StackTraceResponse> {
-        if (request.threadId != threadId) {
+        if (request.threadId != DAP_THREAD_ID) {
             return dap::Error("Unknown threadId '%d'", int(request.threadId));
         }
 
@@ -228,7 +203,6 @@ void DapDebugger::InitDap() {
     // https://microsoft.github.io/debug-adapter-protocol/specification#Requests_Pause
     m_session->registerHandler([&](const dap::PauseRequest&) {
         m_requestQueue.push(DebuggerRequest::Pause);
-        // TODO: wait for event
         return dap::PauseResponse();
     });
 
@@ -237,7 +211,6 @@ void DapDebugger::InitDap() {
     // https://microsoft.github.io/debug-adapter-protocol/specification#Requests_Continue
     m_session->registerHandler([&](const dap::ContinueRequest&) {
         m_requestQueue.push(DebuggerRequest::Continue);
-        // TODO: wait for event
         return dap::ContinueResponse();
     });
 
@@ -246,7 +219,6 @@ void DapDebugger::InitDap() {
     // https://microsoft.github.io/debug-adapter-protocol/specification#Requests_Next
     m_session->registerHandler([&](const dap::NextRequest&) {
         m_requestQueue.push(DebuggerRequest::StepOver);
-        // TODO: wait for event
         return dap::NextResponse();
     });
 
@@ -254,7 +226,6 @@ void DapDebugger::InitDap() {
     // https://microsoft.github.io/debug-adapter-protocol/specification#Requests_StepIn
     m_session->registerHandler([&](const dap::StepInRequest&) {
         m_requestQueue.push(DebuggerRequest::StepInto);
-        // TODO: wait for event
         return dap::StepInResponse();
     });
 
@@ -263,7 +234,6 @@ void DapDebugger::InitDap() {
     // https://microsoft.github.io/debug-adapter-protocol/specification#Requests_StepOut
     m_session->registerHandler([&](const dap::StepOutRequest&) {
         m_requestQueue.push(DebuggerRequest::StepOut);
-        // TODO: wait for event
         return dap::StepOutResponse();
     });
 
@@ -274,7 +244,7 @@ void DapDebugger::InitDap() {
     m_session->registerHandler([&](const dap::SetBreakpointsRequest& request) {
         (void)request;
 
-        // TODO: request a Pause, then wait for it on a condition variable (event)
+        // TODO: lock mutex
 
         auto addVerifiedBreakpoint = [](dap::SetBreakpointsResponse& response) {
             dap::Breakpoint bp;
@@ -378,7 +348,7 @@ void DapDebugger::InitDap() {
     // This example debugger uses this request to 'start' the debugger.
     // https://microsoft.github.io/debug-adapter-protocol/specification#Requests_ConfigurationDone
     m_session->registerHandler([&](const dap::ConfigurationDoneRequest&) {
-        g_configured.fire();
+        m_configuredEvent.fire();
         return dap::ConfigurationDoneResponse();
     });
 }
@@ -398,19 +368,19 @@ void DapDebugger::WaitDap() {
     std::shared_ptr<dap::Reader> in = dap::file(stdin, false);
     std::shared_ptr<dap::Writer> out = dap::file(stdout, false);
 
-    if (g_log) {
-        m_session->bind(spy(in, g_log), spy(out, g_log));
+    if (m_dapLog) {
+        m_session->bind(spy(in, m_dapLog), spy(out, m_dapLog));
     } else {
         m_session->bind(in, out);
     }
 
     // Wait for the ConfigurationDone request to be made.
-    g_configured.wait();
+    m_configuredEvent.wait();
 
     // Broadcast the existance of the single thread to the client.
     dap::ThreadEvent threadStartedEvent;
     threadStartedEvent.reason = "started";
-    threadStartedEvent.threadId = threadId;
+    threadStartedEvent.threadId = DAP_THREAD_ID;
     m_session->send(threadStartedEvent);
 }
 
@@ -420,7 +390,7 @@ void DapDebugger::OnEvent(DapDebugger::Event event) {
         // The debugger has hit a breakpoint. Inform the client.
         dap::StoppedEvent dapEvent;
         dapEvent.reason = "breakpoint";
-        dapEvent.threadId = threadId;
+        dapEvent.threadId = DAP_THREAD_ID;
         m_session->send(dapEvent);
     } break;
 
@@ -428,7 +398,7 @@ void DapDebugger::OnEvent(DapDebugger::Event event) {
         // The debugger has single-line stepped. Inform the client.
         dap::StoppedEvent dapEvent;
         dapEvent.reason = "step";
-        dapEvent.threadId = threadId;
+        dapEvent.threadId = DAP_THREAD_ID;
         m_session->send(dapEvent);
     } break;
 
@@ -436,7 +406,7 @@ void DapDebugger::OnEvent(DapDebugger::Event event) {
         // The debugger has been suspended. Inform the client.
         dap::StoppedEvent dapEvent;
         dapEvent.reason = "pause";
-        dapEvent.threadId = threadId;
+        dapEvent.threadId = DAP_THREAD_ID;
         m_session->send(dapEvent);
     } break;
     }
