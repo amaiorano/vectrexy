@@ -1,5 +1,6 @@
 #include "debugger/DapDebugger.h"
 #include "core/StdUtil.h"
+#include "core/StringUtil.h"
 #include "debugger/DebuggerUtil.h"
 #include "debugger/RstParser.h"
 #include "emulator/Cpu.h"
@@ -16,6 +17,22 @@
 namespace {
     // We only have one main thread, so use a constant id
     const dap::integer DAP_THREAD_ID = 100;
+
+    // Constructs filesystem::path from the input string.
+    // The only difference with the standard path constructor is that on Windows, it makes sure to
+    // lower the case of the driver letter (if any). This allows for path comparisons to work as
+    // expected, so that "C:\a\b\c" == "c:\a\b\c".
+    fs::path MakePath(const std::string& s) {
+        auto p = fs::path{s};
+#if defined(PLATFORM_WINDOWS)
+        if (p.has_root_name()) {
+            auto rn = StringUtil::ToLower(p.root_name().string());
+            p = rn + s.substr(rn.size());
+        }
+#endif
+        return p;
+    };
+
 } // namespace
 
 DapDebugger::DapDebugger() = default;
@@ -33,7 +50,7 @@ void DapDebugger::Reset() {
 }
 
 void DapDebugger::OnRomLoaded(const char* file) {
-    m_sourceRoot = fs::path{file}.remove_filename().generic_string();
+    m_sourceRoot = MakePath(file).remove_filename().generic_string();
 
     // Collect .rst files in the same folder as the rom file
     std::vector<fs::path> rstFiles;
@@ -271,7 +288,7 @@ void DapDebugger::InitDap() {
             return response;
         }
 
-        const auto spath = fs::path{*sourcePath}.generic_string();
+        const auto spath = MakePath(*sourcePath).generic_string();
         const auto sroot = m_sourceRoot.string();
 
         if (auto index = spath.find(sroot); index == std::string::npos || index != 0) {
