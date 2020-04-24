@@ -55,15 +55,25 @@ bool RstParser::Parse(const fs::path& rstFile) {
     const std::regex instructionRe(
         R"([[:space:]]*([0-9|A-F][0-9|A-F][0-9|A-F][0-9|A-F])[[:space:]]*.*\[..\].*)");
 
-    auto hextoi = [](const std::string& s) {
+    auto hexToU16 = [](const std::string& s) {
         return checked_static_cast<uint16_t>(std::stoi(s, {}, 16));
+    };
+
+    auto decToU16 = [](const std::string& s) {
+        return checked_static_cast<uint16_t>(std::stoi(s, {}, 10));
     };
 
     constexpr auto N_FUN = 36;   // 0x24 Function name
     constexpr auto N_SLINE = 68; // 0x44 Line number in text segment
+    constexpr auto N_LSYM = 128; // 0x80 Local variable or type definition
     constexpr auto N_SOL = 132;  // 0x84 Name of include file
 
     std::unordered_map<std::string, uint16_t> labelToAddress;
+    std::unordered_map<std::string, std::shared_ptr<Type>> typeIdToType;
+
+    std::unique_ptr<Function> currFunction;
+    std::unique_ptr<Scope> currScope;
+    std::vector<Variable> currVariables;
 
     std::string line;
     bool reparseCurrLine = false;
@@ -76,7 +86,7 @@ bool RstParser::Parse(const fs::path& rstFile) {
                 // Label line
                 std::smatch match;
                 if (std::regex_match(line, match, labelRe)) {
-                    const uint16_t address = hextoi(match[1]);
+                    const uint16_t address = hexToU16(match[1]);
                     const std::string label = match[2];
                     labelToAddress[label] = address;
                 }
@@ -91,7 +101,7 @@ bool RstParser::Parse(const fs::path& rstFile) {
                     }
 
                     // Function name
-                    if (type == N_FUN) {
+                    else if (type == N_FUN) {
                         // TODO: N_FUN is either a function name or text segment variable (e.g.
                         // const variable). We know by looking at '#' in "name:#type". For now,
                         // ignore it.
@@ -119,6 +129,84 @@ bool RstParser::Parse(const fs::path& rstFile) {
                         m_debugSymbols->AddSymbol(Symbol{funcName, funcAddress});
                     }
 
+                    // Local variable or type definition
+                    else if (type == N_LSYM) {
+                        const std::string lsymString = match[1];
+                        const std::string lsymValue = match[5];
+
+                        // Type definitions:
+                        // "int:t7"
+                        // "char:t13=r13;0;255;"
+
+                        // Local variables:
+                        // "a:7"
+
+                        // 1: type/variable name
+                        // 2: 't' for type, or nothing if variable declaration
+                        // 3: type def/ref #
+                        // 4: type range, or nothing (full match)
+                        //  5: type-def # that this is a range of (can be self-referential)
+                        //  6: lower-bound of range (if > upper-bound, is size in bytes)
+                        //  7: upper-bound of range
+                        const std::regex lsymRe(
+                            R"((.*):([t]*)([0-9]+)(=[rR]([0-9]+);([0-9]+);([0-9]+);|))");
+
+                        std::smatch lsymMatch;
+                        if (std::regex_match(lsymString, lsymMatch, lsymRe)) {
+                            const bool isType = !lsymMatch[2].str().empty();
+
+                            // Type definition
+                            if (isType) {
+                                ASSERT(lsymMatch[2].str() == "t");
+
+                                const auto typeName = lsymMatch[1].str();
+                                const auto typeDefId = lsymMatch[3].str();
+                                // TODO: look at range info
+
+                                // TODO: handle other types
+                                if (typeName != "int")
+                                    return;
+
+                                PrimitiveType pt;
+                                pt.name = typeName;
+                                pt.isSigned = true;
+                                pt.byteSize = 1;
+
+                                auto t = std::make_shared<Type>(pt);
+                                typeIdToType[typeDefId] = t;
+
+                                m_debugSymbols->AddType(t);
+                            }
+                            // Variable declaration
+                            else {
+                                const auto varName = lsymMatch[1].str();
+                                const auto typeRefId = lsymMatch[3].str();
+
+                                // Note that the "value" part (the last number) of the stabs for
+                                // L_SYM local variables is the stack offset in bytes.
+                                // Ex:
+                                //
+                                // 101 ;	.stabs	"c:7",128,0,0,1
+                                const auto stackOffset = lsymValue;
+
+                                auto iter = typeIdToType.find(typeRefId);
+                                if (iter != typeIdToType.end()) {
+                                    Variable v;
+                                    v.name = varName;
+                                    v.m_type = iter->second;
+                                    v.stackOffset = decToU16(stackOffset);
+
+                                    currVariables.push_back(std::move(v));
+
+                                } else {
+                                    Printf("Warning! Type not found for variable '%s' (type-ref "
+                                           "id: '%s')\n",
+                                           varName.c_str(), typeRefId.c_str());
+                                    return;
+                                }
+                            }
+                        }
+                    }
                 }
 
                 // Stab dot (stabd) directive
@@ -134,7 +222,7 @@ bool RstParser::Parse(const fs::path& rstFile) {
                 std::smatch match;
                 // Collect source locations while we match instruction lines
                 if (std::regex_match(line, match, instructionRe)) {
-                    uint16_t address = hextoi(match[1]);
+                    uint16_t address = hexToU16(match[1]);
                     m_debugSymbols->AddSourceLocation(address, {st.sourceFile, st.lineNum});
 
                 }
