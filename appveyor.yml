@@ -1,7 +1,13 @@
 version: '{branch}-{build}'
-image: Visual Studio 2017
+image: Visual Studio 2019
 configuration: RelWithDebInfo
 clone_folder: C:\projects\vectrexy\
+
+branches:
+  only:
+    # - master
+    # Build all branches
+    - /.*/
 
 init:
 - cmd: 
@@ -57,25 +63,22 @@ cache:
 
 install:
 - cmd: |
-    echo Update vcpkg until AppVeyor image contains latest sdl2-net fixes
-    pushd C:\Tools\vcpkg && git pull && .\bootstrap-vcpkg.bat && popd
-
     echo Installing dependencies
-
+    
     rem vcpkg removed x86-windows-static.cmake, so add it back
-    if not exist c:\Tools\vcpkg\triplets\x86-windows-static.cmake (
-        echo.set(VCPKG_TARGET_ARCHITECTURE x86)>> c:\Tools\vcpkg\triplets\x86-windows-static.cmake
-        echo.set(VCPKG_CRT_LINKAGE static)>> c:\Tools\vcpkg\triplets\x86-windows-static.cmake
-        echo.set(VCPKG_LIBRARY_LINKAGE static)>> c:\Tools\vcpkg\triplets\x86-windows-static.cmake
-	)
+    if exist c:\Tools\vcpkg\triplets\x86-windows-static.cmake goto PATCHED_CMAKE
+    echo.set(VCPKG_TARGET_ARCHITECTURE x86)>> c:\Tools\vcpkg\triplets\x86-windows-static.cmake
+    echo.set(VCPKG_CRT_LINKAGE static)>> c:\Tools\vcpkg\triplets\x86-windows-static.cmake
+    echo.set(VCPKG_LIBRARY_LINKAGE static)>> c:\Tools\vcpkg\triplets\x86-windows-static.cmake
+    :PATCHED_CMAKE
     
     rem Only build release libs to save time. We inject a new line first since some cmake files don't end with one.
     echo.>> c:\Tools\vcpkg\triplets\%VCPKG_TRIPLET%.cmake
     echo.set(VCPKG_BUILD_TYPE release)>> c:\Tools\vcpkg\triplets\%VCPKG_TRIPLET%.cmake
-
+    
     vcpkg install sdl2:%VCPKG_TRIPLET% sdl2-net:%VCPKG_TRIPLET% glew:%VCPKG_TRIPLET% glm:%VCPKG_TRIPLET% stb:%VCPKG_TRIPLET% imgui:%VCPKG_TRIPLET%
     
-    echo Generating vectrexy sln    
+    echo Generating vectrexy sln
     cd /d c:\projects\vectrexy
     mkdir build && cd build
     cmake -G "%VS_CONFIG%" -DCMAKE_TOOLCHAIN_FILE=C:/Tools/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=%VCPKG_TRIPLET% %CMAKE_EXTRA_ARGS% ..
