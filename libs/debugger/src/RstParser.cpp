@@ -1,8 +1,8 @@
-#include "Debugger/RstParser.h"
-#include "Debugger/DebugSymbols.h"
+#include "debugger/RstParser.h"
 #include "core/Base.h"
 #include "core/ConsoleOutput.h"
 #include "core/StdUtil.h"
+#include "debugger/DebugSymbols.h"
 
 #include <fstream>
 #include <regex>

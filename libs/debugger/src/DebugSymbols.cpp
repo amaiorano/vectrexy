@@ -1,4 +1,4 @@
-#include "Debugger/DebugSymbols.h"
+#include "debugger/DebugSymbols.h"
 #include <cassert>
 
 void DebugSymbols::AddSourceLocation(uint16_t address, SourceLocation location) {
