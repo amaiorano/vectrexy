@@ -2,10 +2,6 @@ set(MODULE_NAME sdl_engine)
 
 include(${PROJECT_SOURCE_DIR}/cmake/Util.cmake)
 
-if(NOT USE_SDL_ENGINE)
-	message(FATAL_ERROR "USE_SDL_ENGINE must be enabled to use ${MODULE_NAME}")
-endif()
-
 # Force linking against GLEW static libs, even when BUILD_SHARED_LIBS is ON
 set(GLEW_USE_STATIC_LIBS ON)
 find_package(GLEW CONFIG REQUIRED)

@@ -1,4 +1,5 @@
 #include "null_engine/NullEngine.h"
+#include "core/ConsoleOutput.h"
 #include "engine/EngineUtil.h"
 #include "engine/Paths.h"
 
@@ -11,8 +12,12 @@ void NullEngine::RegisterClient(IEngineClient& client) {
 }
 
 bool NullEngine::Run(int argc, char** argv) {
-    if (!EngineUtil::FindAndSetRootPath(fs::path(fs::absolute(argv[0]))))
+    const auto args = std::vector<std::string_view>(argv + 1, argv + argc);
+
+    if (!EngineUtil::FindAndSetRootPath(fs::path(fs::absolute(argv[0])))) {
+        Errorf("Failed to find and set root path\n");
         return false;
+    }
 
     std::shared_ptr<IEngineService> engineService =
         std::make_shared<aggregate_adapter<IEngineService>>(
@@ -23,7 +28,7 @@ bool NullEngine::Run(int argc, char** argv) {
             // ResetOverlay
             [](const char* /*file*/) {});
 
-    if (!g_client->Init(engineService, Paths::biosRomFile.string(), argc, argv)) {
+    if (!g_client->Init(args, engineService, Paths::biosRomFile.string())) {
         return false;
     }
 
