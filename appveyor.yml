@@ -60,7 +60,14 @@ install:
     echo Update vcpkg until AppVeyor image contains latest sdl2-net fixes
     pushd C:\Tools\vcpkg && git pull && .\bootstrap-vcpkg.bat && popd
 
-    echo Installing dependencies    
+    echo Installing dependencies
+
+    rem vcpkg removed x86-windows-static.cmake, so add it back
+    if not exist c:\Tools\vcpkg\triplets\x86-windows-static.cmake (
+        echo.set(VCPKG_TARGET_ARCHITECTURE x86)>> c:\Tools\vcpkg\triplets\x86-windows-static.cmake
+        echo.set(VCPKG_CRT_LINKAGE static)>> c:\Tools\vcpkg\triplets\x86-windows-static.cmake
+        echo.set(VCPKG_LIBRARY_LINKAGE static)>> c:\Tools\vcpkg\triplets\x86-windows-static.cmake
+	)
     
     rem Only build release libs to save time. We inject a new line first since some cmake files don't end with one.
     echo.>> c:\Tools\vcpkg\triplets\%VCPKG_TRIPLET%.cmake
@@ -75,7 +82,7 @@ install:
     cd ..
 
 build:
-  project: C:\projects\vectrexy\
+  project: C:\projects\vectrexy\build\vectrexy.sln
   parallel: true
   verbosity: minimal
 
