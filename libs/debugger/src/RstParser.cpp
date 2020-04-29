@@ -49,6 +49,12 @@ bool RstParser::Parse(const fs::path& rstFile) {
     //    206;.stabd	68, 0, 61
     const std::regex stabdRe(R"(.*\.stabd[[:space:]]*(.*),[[:space:]]*(.*),[[:space:]]*(.*))");
 
+    // Match stabn (number) directive
+    // Captures: 1:type, 2:other, 3:desc, 4:value
+    //    869;.stabn	192, 0, 0, LBB8
+    const std::regex stabnRe(
+        R"(.*\.stabn[[:space:]]*(.*),[[:space:]]*(.*),[[:space:]]*(.*),[[:space:]]*(.*))");
+
     // Match an instruction line
     // Capture: 1:address
     //   072B AE E4         [ 5]  126 	ldx	,s	; tmp33, dest
@@ -63,16 +69,18 @@ bool RstParser::Parse(const fs::path& rstFile) {
         return checked_static_cast<uint16_t>(std::stoi(s, {}, 10));
     };
 
-    constexpr auto N_FUN = 36;   // 0x24 Function name
-    constexpr auto N_SLINE = 68; // 0x44 Line number in text segment
-    constexpr auto N_LSYM = 128; // 0x80 Local variable or type definition
-    constexpr auto N_SOL = 132;  // 0x84 Name of include file
+    constexpr auto N_FUN = 36;    // 0x24 Function name
+    constexpr auto N_SLINE = 68;  // 0x44 Line number in text segment
+    constexpr auto N_LSYM = 128;  // 0x80 Local variable or type definition
+    constexpr auto N_SOL = 132;   // 0x84 Name of include file
+    constexpr auto N_LBRAC = 192; // 0xC0 Left brace (open scope)
+    constexpr auto N_RBRAC = 224; // 0xE0 Right brace (close scope)
 
     std::unordered_map<std::string, uint16_t> labelToAddress;
     std::unordered_map<std::string, std::shared_ptr<Type>> typeIdToType;
 
-    std::unique_ptr<Function> currFunction;
-    std::unique_ptr<Scope> currScope;
+    std::shared_ptr<Function> currFunction;
+    std::shared_ptr<Scope> currScope{};
     std::vector<Variable> currVariables;
 
     std::string line;
@@ -80,15 +88,24 @@ bool RstParser::Parse(const fs::path& rstFile) {
     while (reparseCurrLine || std::getline(fin, line)) {
         reparseCurrLine = false;
 
+        auto parseLabelLine = [&](const std::string& line) -> bool {
+            std::smatch match;
+            if (std::regex_match(line, match, labelRe)) {
+                const uint16_t address = hexToU16(match[1]);
+                const std::string label = match[2];
+                labelToAddress[label] = address;
+                return true;
+            }
+            return false;
+        };
+
         std_util::visit_overloads(
             state,
             [&](ParseDirectives& st) {
-                // Label line
                 std::smatch match;
-                if (std::regex_match(line, match, labelRe)) {
-                    const uint16_t address = hexToU16(match[1]);
-                    const std::string label = match[2];
-                    labelToAddress[label] = address;
+
+                // Label line
+                if (parseLabelLine(line)) {
                 }
 
                 // Stab string (stabs) directive
@@ -127,6 +144,11 @@ bool RstParser::Parse(const fs::path& rstFile) {
                         }
                         const uint16_t funcAddress = iter->second;
                         m_debugSymbols->AddSymbol(Symbol{funcName, funcAddress});
+
+                        // Note that currFunction may still point to the last one we parsed at this
+                        // point. This happens if the function has no scopes (no local variables).
+                        ASSERT(!currScope);
+                        currFunction = std::make_shared<Function>(funcName, funcAddress);
                     }
 
                     // Local variable or type definition
@@ -193,7 +215,7 @@ bool RstParser::Parse(const fs::path& rstFile) {
                                 if (iter != typeIdToType.end()) {
                                     Variable v;
                                     v.name = varName;
-                                    v.m_type = iter->second;
+                                    v.type = iter->second;
                                     v.stackOffset = decToU16(stackOffset);
 
                                     currVariables.push_back(std::move(v));
@@ -211,17 +233,75 @@ bool RstParser::Parse(const fs::path& rstFile) {
 
                 // Stab dot (stabd) directive
                 else if (std::regex_match(line, match, stabdRe)) {
-                    if (std::stoi(match[1]) == N_SLINE) {
+                    const int type = std::stoi(match[1]);
+
+                    if (type == N_SLINE) {
                         uint32_t lineNum = stoi(match[3]);
                         state = ParseLineInstructions{st.sourceFile, lineNum};
+                    }
+                }
+
+                // Stab number (stabn) directive
+                else if (std::regex_match(line, match, stabnRe)) {
+                    const int type = std::stoi(match[1]);
+                    const std::string value = match[4];
+
+                    if (type == N_LBRAC) {
+                        // Create a scope and transfer all variable declarations we've collected so
+                        // far
+                        auto scope = std::make_shared<Scope>();
+                        scope->variables = std::move(currVariables);
+
+                        const std::string label = value;
+                        auto iter = labelToAddress.find(label);
+                        if (iter == labelToAddress.end()) {
+                            FAIL_MSG("Warning! label not found: %s\n", label.c_str());
+                        }
+                        const uint16_t scopeStartAddress = iter->second;
+                        scope->range.first = scopeStartAddress;
+
+                        // Make current
+                        if (currScope) {
+                            currScope->AddChild(scope);
+                        }
+                        currScope = scope;
+
+                        // Add the first scope to the function
+                        if (!currFunction->scope) {
+                            currFunction->scope = scope;
+                        }
+
+                    } else if (type == N_RBRAC) {
+                        // Set the end address for the closing scope
+                        const std::string label = value;
+                        auto iter = labelToAddress.find(label);
+                        if (iter == labelToAddress.end()) {
+                            FAIL_MSG("Warning! label not found: %s\n", label.c_str());
+                        }
+                        const uint16_t scopeEndAddress = iter->second;
+                        currScope->range.second = scopeEndAddress;
+
+                        // Set current scope to parent
+                        ASSERT(currScope);
+                        currScope = currScope->Parent();
+
+                        // On the last closing scope, we're done defining the current function
+                        if (!currScope) {
+                            m_debugSymbols->AddFunction(std::move(currFunction));
+                        }
                     }
                 }
             },
 
             [&](ParseLineInstructions& st) {
                 std::smatch match;
+
+                // Label line
+                if (parseLabelLine(line)) {
+                }
+
                 // Collect source locations while we match instruction lines
-                if (std::regex_match(line, match, instructionRe)) {
+                else if (std::regex_match(line, match, instructionRe)) {
                     uint16_t address = hexToU16(match[1]);
                     m_debugSymbols->AddSourceLocation(address, {st.sourceFile, st.lineNum});
 

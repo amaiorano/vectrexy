@@ -146,7 +146,7 @@ void DapDebugger::InitDap() {
 
             dap::StackFrame frame;
             frame.column = 1;
-            frame.id = iter->frameAddress;
+            frame.id = static_cast<int>(frames.size() - i - 1); // Store callstack index
 
             // Show the function name, if available, or its address otherwise
             if (auto* symbol = m_debugSymbols.GetSymbolByAddress(iter->frameAddress)) {
@@ -174,45 +174,73 @@ void DapDebugger::InitDap() {
     });
 
     // The Scopes request reports all the scopes of the given stack frame.
-    // This example debugger only exposes a single 'Locals' scope for the single
-    // frame.
     // https://microsoft.github.io/debug-adapter-protocol/specification#Requests_Scopes
     m_session->registerHandler(
-        [&](const dap::ScopesRequest & /*request*/) -> dap::ResponseOrError<dap::ScopesResponse> {
-            // if (request.frameId != frameId) {
-            //   return dap::Error("Unknown frameId '%d'", int(request.frameId));
-            // }
-
-            // dap::Scope scope;
-            // scope.name = "Locals";
-            // scope.presentationHint = "locals";
-            // scope.variablesReference = variablesReferenceId;
+        [&](const dap::ScopesRequest& request) -> dap::ResponseOrError<dap::ScopesResponse> {
+            auto lock = std::lock_guard{m_frameMutex};
 
             dap::ScopesResponse response;
-            // response.scopes.push_back(scope);
+
+            // ScopesRequest::frameId corresponds to the StackFrame::id we set in StackTraceRequest
+            size_t callStackIndex = static_cast<size_t>(request.frameId);
+
+            auto frame = m_callStack.Frames()[callStackIndex];
+            if (auto function = m_debugSymbols.GetFunctionByAddress(frame.frameAddress)) {
+                dap::Scope dapScope;
+                dapScope.name = "Locals";
+                dapScope.presentationHint = "locals";
+                dapScope.variablesReference = static_cast<int>(callStackIndex);
+                response.scopes.push_back(dapScope);
+            }
+
             return response;
         });
 
     // The Variables request reports all the variables for the given scope.
-    // This example debugger only exposes a single 'currentLine' variable for the
-    // single 'Locals' scope.
     // https://microsoft.github.io/debug-adapter-protocol/specification#Requests_Variables
-    // m_session->registerHandler([&](const dap::VariablesRequest& request)
-    //                              -> dap::ResponseOrError<dap::VariablesResponse> {
-    //   if (request.variablesReference != variablesReferenceId) {
-    //     return dap::Error("Unknown variablesReference '%d'",
-    //                       int(request.variablesReference));
-    //   }
+    m_session->registerHandler(
+        [&](const dap::VariablesRequest& request) -> dap::ResponseOrError<dap::VariablesResponse> {
+            auto lock = std::lock_guard{m_frameMutex};
 
-    //   dap::Variable currentLineVar;
-    //   currentLineVar.name = "currentLine";
-    //   currentLineVar.value = std::to_string(debugger.currentLine());
-    //   currentLineVar.type = "int";
+            dap::VariablesResponse response;
 
-    //   dap::VariablesResponse response;
-    //   response.variables.push_back(currentLineVar);
-    //   return response;
-    // });
+            const auto& frames = m_callStack.Frames();
+
+            // VariablesRequest::variablesReference corresponds to Scope::variablesReference we set
+            // in ScopesRequest
+            size_t callStackIndex = static_cast<size_t>(request.variablesReference);
+            const auto frame = frames[callStackIndex];
+
+            const bool atTop = (callStackIndex + 1) == m_callStack.Frames().size();
+            const uint16_t currAddress = atTop ? PC() : frames[callStackIndex + 1].calleeAddress;
+            const uint16_t stackAddress =
+                atTop ? m_cpu->Registers().S : frames[callStackIndex + 1].stackPointer;
+
+            if (auto function = m_debugSymbols.GetFunctionByAddress(frame.frameAddress)) {
+                // Collect variables from all scopes that encompass currAddress
+                Traverse(function->scope, [&](const std::shared_ptr<const Scope>& scope) {
+                    // Skip scopes that do not contains the current address
+                    if (!scope->Contains(currAddress))
+                        return;
+
+                    for (auto& var : scope->variables) {
+                        uint16_t varAddress = stackAddress + var.stackOffset;
+
+                        // HACK: assume 'int' (signed char, really)
+                        uint8_t value = m_memoryBus->Read(varAddress);
+                        std::string displayValue = std::to_string(static_cast<int>(value));
+
+                        dap::Variable dapVar;
+                        dapVar.name = var.name;
+                        dapVar.value = displayValue;
+                        dapVar.type = "int"; // TODO: get name of type from var->type
+                        response.variables.push_back(dapVar);
+                    }
+                });
+            }
+
+            return response;
+        });
 
     // The Pause request instructs the debugger to pause execution of one or all
     // threads.

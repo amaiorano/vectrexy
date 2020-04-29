@@ -39,19 +39,55 @@ using Type = std::variant<PrimitiveType>;
 
 struct Variable {
     std::string name;
-    std::shared_ptr<Type> m_type;
+    std::shared_ptr<Type> type;
     uint16_t stackOffset; // bytes
 };
 
-struct Scope {
+struct Scope : std::enable_shared_from_this<Scope> {
+    std::shared_ptr<Scope> Parent() {
+        if (parent) {
+            return parent->shared_from_this();
+        }
+        return {};
+    }
+
+    void AddChild(std::shared_ptr<Scope> child) {
+        child->parent = this;
+        children.push_back(std::move(child));
+    }
+
+    // Returns true if this scope contains/encompasses the input address
+    bool Contains(uint16_t address) const {
+        return address >= range.first && address < range.second;
+    }
+
     Scope* parent{};
-    std::vector<std::unique_ptr<Scope>> children;
+    std::vector<std::shared_ptr<Scope>> children;
     std::vector<Variable> variables;
+    std::pair<uint16_t, uint16_t> range; // [first address, last address[
 };
 
+// TODO: Create a TreeNode base, and move this into it
+template <typename Callback>
+void Traverse(std::shared_ptr<const Scope> node, Callback callback) {
+    if (node) {
+        callback(node);
+        for (auto& c : node->children) {
+            Traverse(c, callback);
+        }
+    }
+}
+
 struct Function {
+    Function(std::string name, uint16_t address)
+        : name(std::move(name))
+        , address(address) {}
+
     std::string name;
-    std::unique_ptr<Scope> scope;
+    uint16_t address{};
+
+    // May be nullptr if this function has no variables
+    std::shared_ptr<Scope> scope;
 };
 
 struct Symbol {
@@ -69,6 +105,17 @@ public:
     const Symbol* GetSymbolByName(const std::string& name) const;
     const Symbol* GetSymbolByAddress(uint16_t address) const;
 
+    void AddFunction(std::shared_ptr<Function> function) {
+        // TODO: Handle if function already exists at this address
+        m_addressToFunction[function->address] = function;
+    }
+    std::shared_ptr<const Function> GetFunctionByAddress(uint16_t address) const {
+        auto iter = m_addressToFunction.find(address);
+        if (iter != m_addressToFunction.end())
+            return iter->second;
+        return {};
+    }
+
     void AddType(std::shared_ptr<Type> type) { m_types.push_back(std::move(type)); }
 
 private:
@@ -84,5 +131,6 @@ private:
     // Source Location -> first address of instruction for this location
     std::unordered_map<SourceLocation, uint16_t> m_locationToAddress;
 
+    std::unordered_map<uint16_t, std::shared_ptr<Function>> m_addressToFunction;
     std::vector<std::shared_ptr<Type>> m_types;
 };
