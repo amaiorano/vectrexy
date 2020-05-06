@@ -30,7 +30,10 @@ namespace std {
 } // namespace std
 
 struct PrimitiveType {
+    enum class Format { Int, Char, Float };
+
     std::string name;
+    Format format{};
     size_t byteSize{};
     bool isSigned{};
 };

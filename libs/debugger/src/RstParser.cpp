@@ -171,10 +171,38 @@ bool RstParser::Parse(const fs::path& rstFile) {
                         //  6: lower-bound of range (if > upper-bound, is size in bytes)
                         //  7: upper-bound of range
                         const std::regex lsymRe(
-                            R"((.*):([t]*)([0-9]+)(=[rR]([0-9]+);([0-9]+);([0-9]+);|))");
+                            R"((.*):([t]*)([0-9]+)(=[rR]([0-9]+);((?:-|)[0-9]+);((?:-|)[0-9]+);|))");
 
                         std::smatch lsymMatch;
                         if (std::regex_match(lsymString, lsymMatch, lsymRe)) {
+
+                            auto addType = [&](const std::string& typeDefId,
+                                               const std::string& typeName, bool isSigned,
+                                               size_t byteSize) {
+                                printf("\n");
+
+                                PrimitiveType pt;
+                                pt.name = typeName;
+                                pt.isSigned = isSigned;
+                                pt.byteSize = byteSize;
+
+                                // Figure out the format type
+                                if (typeName.find("float") != std::string::npos ||
+                                    typeName.find("double") != std::string::npos) {
+                                    pt.format = PrimitiveType::Format::Float;
+                                } else if (typeName.find("char") != std::string::npos &&
+                                           byteSize == 1) {
+                                    pt.format = PrimitiveType::Format::Char;
+                                } else {
+                                    pt.format = PrimitiveType::Format::Int;
+                                }
+
+                                auto t = std::make_shared<Type>(pt);
+                                typeIdToType[typeDefId] = t;
+
+                                m_debugSymbols->AddType(t);
+                            };
+
                             const bool isType = !lsymMatch[2].str().empty();
 
                             // Type definition
@@ -183,21 +211,63 @@ bool RstParser::Parse(const fs::path& rstFile) {
 
                                 const auto typeName = lsymMatch[1].str();
                                 const auto typeDefId = lsymMatch[3].str();
-                                // TODO: look at range info
 
-                                // TODO: handle other types
-                                if (typeName != "int")
-                                    return;
+                                const bool hasRange = !lsymMatch[4].str().empty();
 
-                                PrimitiveType pt;
-                                pt.name = typeName;
-                                pt.isSigned = true;
-                                pt.byteSize = 1;
+                                if (!hasRange) {
+                                    // If it's an alias for an existing type, just skip it. We will
+                                    // always display the first type, not the alias type name. E.g.
+                                    // 'signed' is an alias for 'int', 'unsigned long' is an alias
+                                    // for 'unsigned long int'.
+                                    if (typeIdToType.find(typeDefId) != typeIdToType.end())
+                                        return;
 
-                                auto t = std::make_shared<Type>(pt);
-                                typeIdToType[typeDefId] = t;
+                                    // TODO: handle 'bool' which is an enum type (handle enum types,
+                                    // basically)
 
-                                m_debugSymbols->AddType(t);
+                                    // Since no range is given, we are expected to just know the
+                                    // type. Match on the types we've seen so far in stabs that
+                                    // don't specify a range.
+                                    if (typeName == "int") {
+                                        // TODO: byte size if 1 or 2, depending on if -mint8 was
+                                        // passed or not. Need to figure that out, or have the user
+                                        // tell us.
+                                        addType(typeDefId, typeName, true, 1);
+                                    } else if (typeName == "void") {
+                                        addType(typeDefId, typeName, false, 0);
+                                    }
+                                } else {
+                                    // Ignore the type-def # that this is a range of because it's
+                                    // not actually helpful. For example, 'float' is apparently a
+                                    // range of type 'int'. Let's just use it to determine the byte
+                                    // size and sign.
+                                    const auto lowerBound = std::stoll(lsymMatch[6]);
+                                    const auto upperBound = std::stoll(lsymMatch[7]);
+
+                                    if (lowerBound <= upperBound) {
+                                        bool isSigned = lowerBound < 0;
+
+                                        auto numBits = static_cast<size_t>(
+                                            ::log2(upperBound - lowerBound + 1));
+
+                                        // HACK: sometimes the range will be something like [0,127],
+                                        // instead of [-128,127]. For these cases, let's assume it's
+                                        // signed, and increase number of bits until it's a valid
+                                        // 8-bit multiple.
+                                        if (numBits % 8 != 0) {
+                                            isSigned = true;
+                                            while (numBits % 8 != 0)
+                                                ++numBits;
+                                        }
+
+                                        addType(typeDefId, typeName, isSigned, numBits / 8);
+                                    } else {
+                                        // Special case where lowerBound specifies the number of
+                                        // bytes
+                                        addType(typeDefId, typeName, true,
+                                                static_cast<size_t>(lowerBound));
+                                    }
+                                }
                             }
                             // Variable declaration
                             else {

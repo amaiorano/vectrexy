@@ -226,14 +226,95 @@ void DapDebugger::InitDap() {
                     for (auto& var : scope->variables) {
                         uint16_t varAddress = stackAddress + var.stackOffset;
 
-                        // HACK: assume 'int' (signed char, really)
-                        uint8_t value = m_memoryBus->Read(varAddress);
-                        std::string displayValue = std::to_string(static_cast<int>(value));
+                        std::string displayValue;
+                        std::string displayType;
+
+                        const Type type = *var.type;
+                        if (auto primType = std::get_if<PrimitiveType>(&type)) {
+                            // buffer to store value, at most 8 bytes
+                            char value[8];
+
+                            ASSERT(primType->byteSize <= std::size(value));
+
+                            displayType = primType->name;
+
+                            // TODO: endian-dependent
+                            for (size_t i = primType->byteSize; i-- > 0;) {
+                                value[i] = m_memoryBus->Read(varAddress++);
+                            }
+
+                            switch (primType->format) {
+                            case PrimitiveType::Format::Int: {
+                                switch (primType->byteSize) {
+                                case 1: {
+                                    uint8_t v;
+                                    std::memcpy(&v, value, sizeof(v));
+                                    displayValue = primType->isSigned
+                                                       ? std::to_string(static_cast<int8_t>(v))
+                                                       : std::to_string(v);
+                                } break;
+                                case 2: {
+                                    uint16_t v;
+                                    std::memcpy(&v, value, sizeof(v));
+                                    displayValue = primType->isSigned
+                                                       ? std::to_string(static_cast<int16_t>(v))
+                                                       : std::to_string(v);
+                                } break;
+                                case 4: {
+                                    uint32_t v;
+                                    std::memcpy(&v, value, sizeof(v));
+                                    displayValue = primType->isSigned
+                                                       ? std::to_string(static_cast<int32_t>(v))
+                                                       : std::to_string(v);
+                                } break;
+                                case 8: {
+                                    uint64_t v;
+                                    std::memcpy(&v, value, sizeof(v));
+                                    displayValue = primType->isSigned
+                                                       ? std::to_string(static_cast<int64_t>(v))
+                                                       : std::to_string(v);
+                                } break;
+                                default:
+                                    FAIL_MSG("Unexpected byte size");
+                                    break;
+                                }
+                            } break;
+
+                            case PrimitiveType::Format::Char: {
+                                ASSERT(primType->byteSize == 1);
+                                uint8_t v;
+                                std::memcpy(&v, value, sizeof(v));
+                                displayValue = primType->isSigned
+                                                   ? std::to_string(static_cast<int8_t>(v))
+                                                   : std::to_string(v);
+                            } break;
+
+                            case PrimitiveType::Format::Float: {
+                                switch (primType->byteSize) {
+                                case 4: {
+                                    float v;
+                                    static_assert(sizeof(v) == 4);
+                                    std::memcpy(&v, value, sizeof(v));
+                                    displayValue = std::to_string(v);
+                                } break;
+                                case 8: {
+                                    double v;
+                                    static_assert(sizeof(v) == 8);
+                                    std::memcpy(&v, value, sizeof(v));
+                                    displayValue = std::to_string(v);
+                                }
+                                default:
+                                    FAIL_MSG("Unexpected byte size");
+                                    break;
+                                }
+                            } break;
+                            } // switch
+                        }
 
                         dap::Variable dapVar;
                         dapVar.name = var.name;
                         dapVar.value = displayValue;
-                        dapVar.type = "int"; // TODO: get name of type from var->type
+                        dapVar.type = displayType;
                         response.variables.push_back(dapVar);
                     }
                 });
@@ -241,6 +322,12 @@ void DapDebugger::InitDap() {
 
             return response;
         });
+
+    m_session->registerHandler([&](const dap::EvaluateRequest&) {
+        // TODO: implement to support "watch" values
+        dap::EvaluateResponse response;
+        return response;
+    });
 
     // The Pause request instructs the debugger to pause execution of one or all
     // threads.
