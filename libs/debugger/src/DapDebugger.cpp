@@ -229,8 +229,7 @@ void DapDebugger::InitDap() {
                         std::string displayValue;
                         std::string displayType;
 
-                        const Type type = *var.type;
-                        if (auto primType = std::get_if<PrimitiveType>(&type)) {
+                        if (auto primType = std::dynamic_pointer_cast<PrimitiveType>(var.type)) {
                             // buffer to store value, at most 8 bytes
                             char value[8];
 
@@ -309,6 +308,14 @@ void DapDebugger::InitDap() {
                                 }
                             } break;
                             } // switch
+                        } else if (auto indirectType =
+                                       std::dynamic_pointer_cast<IndirectType>(var.type)) {
+
+                            // Get the value of the pointed-to address
+                            uint16_t valueAddress = m_memoryBus->Read16(varAddress);
+                            // TODO: read and display value at valueAddress
+                            displayValue = FormattedString("0x%04x", valueAddress);
+                            displayType = indirectType->name;
                         }
 
                         dap::Variable dapVar;

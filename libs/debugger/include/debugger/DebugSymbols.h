@@ -29,16 +29,21 @@ namespace std {
     };
 } // namespace std
 
-struct PrimitiveType {
-    enum class Format { Int, Char, Float };
-
+struct Type {
+    virtual ~Type() = default;
     std::string name;
+};
+
+struct PrimitiveType : Type {
+    enum class Format { Int, Char, Float };
     Format format{};
     size_t byteSize{};
     bool isSigned{};
 };
 
-using Type = std::variant<PrimitiveType>;
+struct IndirectType : Type {
+    std::shared_ptr<Type> type;
+};
 
 struct Variable {
     std::string name;

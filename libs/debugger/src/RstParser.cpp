@@ -153,16 +153,62 @@ bool RstParser::Parse(const fs::path& rstFile) {
 
                     // Local variable or type definition
                     else if (type == N_LSYM) {
+                        auto addPrimitiveType = [&](const std::string& typeDefId,
+                                                    const std::string& typeName, bool isSigned,
+                                                    size_t byteSize) -> std::shared_ptr<Type> {
+                            auto t = std::make_shared<PrimitiveType>();
+                            t->name = typeName;
+                            t->isSigned = isSigned;
+                            t->byteSize = byteSize;
+
+                            // Figure out the format type
+                            if (typeName.find("float") != std::string::npos ||
+                                typeName.find("double") != std::string::npos) {
+                                t->format = PrimitiveType::Format::Float;
+                            } else if (typeName.find("char") != std::string::npos &&
+                                       byteSize == 1) {
+                                t->format = PrimitiveType::Format::Char;
+                            } else {
+                                t->format = PrimitiveType::Format::Int;
+                            }
+
+                            typeIdToType[typeDefId] = t;
+                            m_debugSymbols->AddType(t);
+                            return t;
+                        };
+
+                        auto addIndirectType =
+                            [&](const std::string& typeDefId,
+                                std::shared_ptr<Type> type) -> std::shared_ptr<Type> {
+                            auto t = std::make_shared<IndirectType>();
+                            t->name = type->name + "*";
+                            t->type = std::move(type);
+
+                            typeIdToType[typeDefId] = t;
+                            m_debugSymbols->AddType(t);
+                            return t;
+                        };
+
+                        auto addVariable = [&](std::string name, std::shared_ptr<Type> type,
+                                               uint16_t stackOffset) {
+                            Variable v;
+                            v.name = std::move(name);
+                            v.type = std::move(type);
+                            v.stackOffset = stackOffset;
+
+                            currVariables.push_back(std::move(v));
+                        };
+
                         const std::string lsymString = match[1];
                         const std::string lsymValue = match[5];
 
                         // Type definitions:
                         // "int:t7"
                         // "char:t13=r13;0;255;"
-
+                        //
                         // Local variables:
                         // "a:7"
-
+                        //
                         // 1: type/variable name
                         // 2: 't' for type, or nothing if variable declaration
                         // 3: type def/ref #
@@ -173,36 +219,19 @@ bool RstParser::Parse(const fs::path& rstFile) {
                         const std::regex lsymRe(
                             R"((.*):([t]*)([0-9]+)(=[rR]([0-9]+);((?:-|)[0-9]+);((?:-|)[0-9]+);|))");
 
+                        // Pointers are both type definitions AND variable declarations:
+                        // "p:25=*7"
+                        //
+                        // 1: variable name
+                        // 2: type def #
+                        // 3: type ref # that this is a pointer to
+                        //
+                        // Note: stabs outputs exactly the same data for references. We cannot
+                        // easily distinguish them.
+                        const std::regex lsymPointerRe(R"((.*):([0-9]+)=\*([0-9]+))");
+
                         std::smatch lsymMatch;
                         if (std::regex_match(lsymString, lsymMatch, lsymRe)) {
-
-                            auto addType = [&](const std::string& typeDefId,
-                                               const std::string& typeName, bool isSigned,
-                                               size_t byteSize) {
-                                printf("\n");
-
-                                PrimitiveType pt;
-                                pt.name = typeName;
-                                pt.isSigned = isSigned;
-                                pt.byteSize = byteSize;
-
-                                // Figure out the format type
-                                if (typeName.find("float") != std::string::npos ||
-                                    typeName.find("double") != std::string::npos) {
-                                    pt.format = PrimitiveType::Format::Float;
-                                } else if (typeName.find("char") != std::string::npos &&
-                                           byteSize == 1) {
-                                    pt.format = PrimitiveType::Format::Char;
-                                } else {
-                                    pt.format = PrimitiveType::Format::Int;
-                                }
-
-                                auto t = std::make_shared<Type>(pt);
-                                typeIdToType[typeDefId] = t;
-
-                                m_debugSymbols->AddType(t);
-                            };
-
                             const bool isType = !lsymMatch[2].str().empty();
 
                             // Type definition
@@ -232,9 +261,9 @@ bool RstParser::Parse(const fs::path& rstFile) {
                                         // TODO: byte size if 1 or 2, depending on if -mint8 was
                                         // passed or not. Need to figure that out, or have the user
                                         // tell us.
-                                        addType(typeDefId, typeName, true, 1);
+                                        addPrimitiveType(typeDefId, typeName, true, 1);
                                     } else if (typeName == "void") {
-                                        addType(typeDefId, typeName, false, 0);
+                                        addPrimitiveType(typeDefId, typeName, false, 0);
                                     }
                                 } else {
                                     // Ignore the type-def # that this is a range of because it's
@@ -260,12 +289,13 @@ bool RstParser::Parse(const fs::path& rstFile) {
                                                 ++numBits;
                                         }
 
-                                        addType(typeDefId, typeName, isSigned, numBits / 8);
+                                        addPrimitiveType(typeDefId, typeName, isSigned,
+                                                         numBits / 8);
                                     } else {
                                         // Special case where lowerBound specifies the number of
                                         // bytes
-                                        addType(typeDefId, typeName, true,
-                                                static_cast<size_t>(lowerBound));
+                                        addPrimitiveType(typeDefId, typeName, true,
+                                                         static_cast<size_t>(lowerBound));
                                     }
                                 }
                             }
@@ -282,21 +312,35 @@ bool RstParser::Parse(const fs::path& rstFile) {
                                 const auto stackOffset = lsymValue;
 
                                 auto iter = typeIdToType.find(typeRefId);
-                                if (iter != typeIdToType.end()) {
-                                    Variable v;
-                                    v.name = varName;
-                                    v.type = iter->second;
-                                    v.stackOffset = decToU16(stackOffset);
-
-                                    currVariables.push_back(std::move(v));
-
-                                } else {
+                                if (iter == typeIdToType.end()) {
                                     Printf("Warning! Type not found for variable '%s' (type-ref "
                                            "id: '%s')\n",
                                            varName.c_str(), typeRefId.c_str());
                                     return;
+                                } else {
+                                    addVariable(varName, iter->second, decToU16(stackOffset));
                                 }
                             }
+                        }
+                        // Pointer type definition AND variable declaration
+                        else if (std::regex_match(lsymString, lsymMatch, lsymPointerRe)) {
+                            const auto varName = lsymMatch[1].str();
+                            const auto typeDefId = lsymMatch[2].str();
+                            const auto typeRefId = lsymMatch[3].str();
+
+                            // Find the type that this is a pointer to and create a new type for it
+                            auto iter = typeIdToType.find(typeRefId);
+                            if (iter == typeIdToType.end()) {
+                                Printf("Warning! Type not found for variable '%s' (type-ref id: "
+                                       "'%s')\n",
+                                       varName.c_str(), typeRefId.c_str());
+                                return;
+                            }
+
+                            const auto stackOffset = lsymValue;
+
+                            auto indirectType = addIndirectType(typeDefId, iter->second);
+                            addVariable(varName, indirectType, decToU16(stackOffset));
                         }
                     }
                 }
