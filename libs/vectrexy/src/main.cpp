@@ -47,7 +47,7 @@ private:
             m_debugger->Init(args, engineService, Paths::devDir, m_emulator);
 
         if (m_dapDebugger)
-            m_dapDebugger->Init(m_emulator);
+            m_dapDebugger->Init(Paths::devDir, m_emulator);
 
         if (!rom.empty()) {
             LoadRom(rom.c_str());

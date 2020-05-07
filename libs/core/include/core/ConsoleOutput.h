@@ -6,6 +6,7 @@
 namespace internal {
     inline FILE* g_printStream = stdout;
     inline FILE* g_errorStream = stderr;
+    inline bool g_autoFlushStream = false;
 } // namespace internal
 
 enum class ConsoleStream { Output, Error };
@@ -29,19 +30,29 @@ inline void SetStream(ConsoleStream type, FILE* stream) {
     }
 }
 
+inline void SetStreamAutoFlush(bool enable) {
+    internal::g_autoFlushStream = enable;
+}
+
 template <typename... Args>
 void Consolef(ConsoleStream type, const char* format, Args... args) {
     fprintf(GetStream(type), format, args...);
+    if (internal::g_autoFlushStream)
+        fflush(GetStream(type));
 }
 
 template <typename... Args>
 void Printf(const char* format, Args... args) {
     fprintf(GetStream(ConsoleStream::Output), format, args...);
+    if (internal::g_autoFlushStream)
+        fflush(GetStream(ConsoleStream::Output));
 }
 
 template <typename... Args>
 void Errorf(const char* format, Args... args) {
     fprintf(GetStream(ConsoleStream::Error), format, args...);
+    if (internal::g_autoFlushStream)
+        fflush(GetStream(ConsoleStream::Error));
 }
 
 // After calling Rewind, the next print will overwrite the current line

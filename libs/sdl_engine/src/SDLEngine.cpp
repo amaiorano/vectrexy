@@ -108,6 +108,12 @@ public:
             return false;
         }
 
+        // Create standard directories
+        fs::create_directories(Paths::overlaysDir);
+        fs::create_directories(Paths::romsDir);
+        fs::create_directories(Paths::userDir);
+        fs::create_directories(Paths::devDir);
+
         if (contains(args, "-dap")) {
             // TODO: move to DapDebugger or Platform
 #ifdef PLATFORM_WINDOWS
@@ -117,16 +123,12 @@ public:
             _setmode(_fileno(stdout), _O_BINARY);
 #endif
             // DAP uses stdin/stdout to communicate, so route all our printing to a file
-            FILE* fs = fopen("print_stream.txt", "w+"); // Leak it for now
+            FILE* fs = fopen((Paths::devDir / "print_stream.txt").string().c_str(),
+                             "w+"); // Leak it for now
             SetStream(ConsoleStream::Output, fs);
             SetStream(ConsoleStream::Error, fs);
+            SetStreamAutoFlush(true);
         }
-
-        // Create standard directories
-        fs::create_directories(Paths::overlaysDir);
-        fs::create_directories(Paths::romsDir);
-        fs::create_directories(Paths::userDir);
-        fs::create_directories(Paths::devDir);
 
         std::shared_ptr<IEngineService> engineService =
             std::make_shared<aggregate_adapter<IEngineService>>(

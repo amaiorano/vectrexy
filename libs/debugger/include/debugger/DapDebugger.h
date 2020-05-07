@@ -28,7 +28,7 @@ public:
     DapDebugger();
     ~DapDebugger();
 
-    void Init(Emulator& emulator);
+    void Init(fs::path devDir, Emulator& emulator);
     void Reset();
 
     void OnRomLoaded(const char* file);
@@ -49,6 +49,7 @@ private:
     bool CheckForBreakpoints();
     uint16_t PC() const;
 
+    fs::path m_devDir;
     Emulator* m_emulator{};
     Cpu* m_cpu{};
     MemoryBus* m_memoryBus{};

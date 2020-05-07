@@ -38,7 +38,8 @@ namespace {
 DapDebugger::DapDebugger() = default;
 DapDebugger::~DapDebugger() = default;
 
-void DapDebugger::Init(Emulator& emulator) {
+void DapDebugger::Init(fs::path devDir, Emulator& emulator) {
+    m_devDir = std::move(devDir);
     m_emulator = &emulator;
     m_cpu = &m_emulator->GetCpu();
     m_memoryBus = &emulator.GetMemoryBus();
@@ -86,7 +87,7 @@ void DapDebugger::ParseRst(const fs::path& rstFile) {
 
 void DapDebugger::InitDap() {
     m_session = dap::Session::create();
-    m_dapLog = dap::file("dap_log.txt");
+    m_dapLog = dap::file((m_devDir / "dap_log.txt").string().c_str());
 
     // Handle errors reported by the Session. These errors include protocol
     // parsing errors and receiving messages with no handler.
