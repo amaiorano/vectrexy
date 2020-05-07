@@ -112,8 +112,19 @@ namespace Platform {
     }
 
     void WaitForDebuggerAttach(bool breakOnAttach) {
+        if (::IsDebuggerPresent())
+            return;
+
+        int msgboxID = ::MessageBox(nullptr, "Wait for debugger to attach?", "Attach Debugger",
+                                    MB_ICONEXCLAMATION | MB_YESNO);
+
+        if (msgboxID == IDNO) {
+            return;
+        }
+
         while (!::IsDebuggerPresent())
             ::Sleep(100);
+
         if (breakOnAttach)
             ::DebugBreak();
     }
