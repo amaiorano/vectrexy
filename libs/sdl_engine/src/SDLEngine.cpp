@@ -82,6 +82,18 @@ namespace {
         }
         return 1.f;
     }
+
+    void SetVSyncEnabled(bool enabled) {
+        enum SwapInterval : int { NoVSync = 0, VSync = 1, AdaptiveVSync = -1 };
+        if (enabled) {
+            // Prefer adaptive if available
+            if (SDL_GL_SetSwapInterval(SwapInterval::AdaptiveVSync) == -1) {
+                SDL_GL_SetSwapInterval(SwapInterval::VSync);
+            }
+        } else {
+            SDL_GL_SetSwapInterval(SwapInterval::NoVSync);
+        }
+    }
 } // namespace
 
 class SDLEngineImpl {
@@ -149,6 +161,7 @@ public:
         m_options.Add<float>("imguiFontScale", GetDefaultImguiFontScale());
         m_options.Add<std::string>("lastOpenedFile", {});
         m_options.Add<float>("volume", 0.5f);
+        m_options.Add<bool>("vsync", false);
         m_inputManager.AddOptions(m_options);
         m_options.SetFilePath(Paths::optionsFile);
         m_options.Load();
@@ -209,11 +222,7 @@ public:
             return false;
         }
 
-        // TODO: Expose as option
-        enum SwapInterval : int { NoVSync = 0, VSync = 1, AdaptiveVSync = -1 };
-        if (SDL_GL_SetSwapInterval(SwapInterval::AdaptiveVSync) == -1) {
-            SDL_GL_SetSwapInterval(SwapInterval::VSync);
-        }
+        SetVSyncEnabled(m_options.Get<bool>("vsync"));
 
 #ifdef DEBUG_UI_ENABLED
         Gui::EnabledWindows[Gui::Window::Debug] = m_options.Get<bool>("imguiDebugWindow");
@@ -486,6 +495,15 @@ private:
                     if (ImGui::Combo("Bios", &index, items.data(), (int)items.size())) {
                         emuEvents.push_back({EmuEvent::OpenBiosRomFile{biosFiles[index]}});
                     }
+                }
+
+                ImGui::Separator();
+                ImGui::Text("Display");
+                static bool vsync = m_options.Get<bool>("vsync");
+                ImGui::Checkbox("VSync", &vsync);
+                if (vsync != m_options.Get<bool>("vsync")) {
+                    SetVSyncEnabled(vsync);
+                    m_options.Set("vsync", vsync);
                 }
 
                 ImGui::Separator();
