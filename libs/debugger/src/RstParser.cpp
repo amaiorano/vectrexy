@@ -9,6 +9,162 @@
 #include <string>
 #include <variant>
 
+namespace {
+    struct MatchBase {
+        MatchBase(const char* re, const std::string& s)
+            : m_re(re) {
+            m_matched = std::regex_match(s, m_match, m_re);
+        }
+
+        operator bool() const { return m_matched; }
+
+    protected:
+        std::regex m_re;
+        std::smatch m_match;
+        bool m_matched{};
+    };
+
+    // Match a label line
+    // Captures: 1:address, 2:label
+    //   086C                     354 Lscope3:
+    struct LabelMatch : MatchBase {
+        LabelMatch(const std::string& s)
+            : MatchBase(
+                  R"([[:space:]]*([0-9|A-F][0-9|A-F][0-9|A-F][0-9|A-F])[[:space:]]+.*[[:space:]]+(.*):$)",
+                  s) {}
+        std::string Address() const { return m_match[1].str(); }
+        std::string Label() const { return m_match[2].str(); }
+    };
+
+    // Match any stab directive
+    struct StabMatch : MatchBase {
+        StabMatch(const std::string& s)
+            : MatchBase(R"(.*\.stab.*)", s) {}
+    };
+
+    // Match stabs (string) directive
+    // Captures: 1:string, 2:type, 3:other, 4:desc, 5:value
+    //    204 ;	.stabs	"src/vectrexy.h",132,0,0,Ltext2
+    struct StabStringMatch : MatchBase {
+        StabStringMatch(const std::string& s)
+            : MatchBase(
+                  R"(.*\.stabs[[:space:]]*\"(.*)\",[[:space:]]*(.*),[[:space:]]*(.*),[[:space:]]*(.*),[[:space:]]*(.*))",
+                  s) {}
+        std::string String() const { return m_match[1].str(); }
+        std::string Type() const { return m_match[2].str(); }
+        std::string Other() const { return m_match[3].str(); }
+        std::string Desc() const { return m_match[4].str(); }
+        std::string Value() const { return m_match[5].str(); }
+    };
+
+    // Match stabd (dot) directive
+    // Captures: 1:type, 2:other, 3:desc
+    //    206;.stabd	68, 0, 61
+    struct StabDotMatch : MatchBase {
+        StabDotMatch(const std::string& s)
+            : MatchBase(R"(.*\.stabd[[:space:]]*(.*),[[:space:]]*(.*),[[:space:]]*(.*))", s) {}
+        std::string Type() const { return m_match[1].str(); }
+        std::string Other() const { return m_match[2].str(); }
+        std::string Desc() const { return m_match[3].str(); }
+    };
+
+    // Match stabn (number) directive
+    // Captures: 1:type, 2:other, 3:desc, 4:value
+    //    869;.stabn	192, 0, 0, LBB8
+    struct StabNumberMatch : MatchBase {
+        StabNumberMatch(const std::string& s)
+            : MatchBase(
+                  R"(.*\.stabn[[:space:]]*(.*),[[:space:]]*(.*),[[:space:]]*(.*),[[:space:]]*(.*))",
+                  s) {}
+        std::string Type() const { return m_match[1].str(); }
+        std::string Other() const { return m_match[2].str(); }
+        std::string Desc() const { return m_match[3].str(); }
+        std::string Value() const { return m_match[4].str(); }
+    };
+
+    // Match an instruction line
+    // Capture: 1:address
+    //   072B AE E4         [ 5]  126 	ldx	,s	; tmp33, dest
+    struct InstructionMatch : MatchBase {
+        InstructionMatch(const std::string& s)
+            : MatchBase(
+                  R"([[:space:]]*([0-9|A-F][0-9|A-F][0-9|A-F][0-9|A-F])[[:space:]]*.*\[..\].*)",
+                  s) {}
+        std::string Address() const { return m_match[1].str(); }
+    };
+
+    // Match stabs type string for N_LSYM: type definitions or variable declarations
+    // Type definitions:
+    // "int:t7"
+    // "char:t13=r13;0;255;"
+    //
+    // Local variables:
+    // "a:7"
+    //
+    // 1: type/variable name
+    // 2: 't' for type, or nothing if variable declaration
+    // 3: type def/ref #
+    // 4: type range, or nothing (full match)
+    //  5: type-def # that this is a range of (can be self-referential)
+    //  6: lower-bound of range (if > upper-bound, is size in bytes)
+    //  7: upper-bound of range
+    struct LSymMatch : MatchBase {
+        LSymMatch(const std::string& s)
+            : MatchBase(R"((.*):([t]*)([0-9]+)(=[rR]([0-9]+);((?:-|)[0-9]+);((?:-|)[0-9]+);|))",
+                        s) {}
+
+        // If false, this is a variable declaration
+        bool IsTypeDef() const { return m_match[2].str() == "t"; }
+
+        // Type definition interface
+        std::string TypeName() const { return m_match[1].str(); }
+        std::string TypeDefId() const { return m_match[3].str(); }
+        bool HasRange() const { return !m_match[4].str().empty(); }
+        std::string RangeTypeDefNum() const { return m_match[5].str(); }
+        std::string RangeLowerBound() const { return m_match[6].str(); }
+        std::string RangeUpperBound() const { return m_match[7].str(); }
+
+        // Variable declaration interface
+        std::string VarName() const { return m_match[1].str(); }
+        std::string VarTypeRefId() const { return m_match[3].str(); }
+    };
+
+    // Match stabs type string for N_LSYM: pointer type definitions and variable declarations
+    // Pointers are both type definitions AND variable declarations:
+    // "p:25=*7"
+    //
+    // 1: variable name
+    // 2: type def #
+    // 3: type ref # that this is a pointer to
+    //
+    // Note: stabs outputs exactly the same data for references. We cannot
+    // easily distinguish them.
+    struct LSymPointerMatch : MatchBase {
+        LSymPointerMatch(const std::string& s)
+            : MatchBase(R"((.*):([0-9]+)=\*([0-9]+))", s) {}
+
+        std::string VarName() const { return m_match[1].str(); }
+        std::string TypeDefId() const { return m_match[2].str(); }
+        std::string TypeRefId() const { return m_match[3].str(); }
+    };
+
+    uint16_t HexToU16(const std::string& s) {
+        return checked_static_cast<uint16_t>(std::stoi(s, {}, 16));
+    }
+
+    uint16_t DecToU16(const std::string& s) {
+        return checked_static_cast<uint16_t>(std::stoi(s, {}, 10));
+    }
+
+    constexpr auto N_FUN = 36;    // 0x24 Function name
+    constexpr auto N_SLINE = 68;  // 0x44 Line number in text segment
+    constexpr auto N_LSYM = 128;  // 0x80 Local variable or type definition
+    constexpr auto N_SOL = 132;   // 0x84 Name of include file
+    constexpr auto N_LBRAC = 192; // 0xC0 Left brace (open scope)
+    constexpr auto N_RBRAC = 224; // 0xE0 Right brace (close scope)
+
+} // namespace
+
 RstParser::RstParser(DebugSymbols& debugSymbols)
     : m_debugSymbols(&debugSymbols) {}
 
@@ -29,53 +185,6 @@ bool RstParser::Parse(const fs::path& rstFile) {
     if (!fin)
         return false;
 
-    // Match a label line
-    // Captures: 1:address, 2:label
-    //   086C                     354 Lscope3:
-    const std::regex labelRe(
-        R"([[:space:]]*([0-9|A-F][0-9|A-F][0-9|A-F][0-9|A-F])[[:space:]]+.*[[:space:]]+(.*):$)");
-
-    // Match any stab directive
-    const std::regex stabRe(R"(.*\.stab.*)");
-
-    // Match stabs (string) directive
-    // Captures: 1:string, 2:type, 3:other, 4:desc, 5:value
-    //    204 ;	.stabs	"src/vectrexy.h",132,0,0,Ltext2
-    const std::regex stabsRe(
-        R"(.*\.stabs[[:space:]]*\"(.*)\",[[:space:]]*(.*),[[:space:]]*(.*),[[:space:]]*(.*),[[:space:]]*(.*))");
-
-    // Match stabd (dot) directive
-    // Captures: 1:type, 2:other, 3:desc
-    //    206;.stabd	68, 0, 61
-    const std::regex stabdRe(R"(.*\.stabd[[:space:]]*(.*),[[:space:]]*(.*),[[:space:]]*(.*))");
-
-    // Match stabn (number) directive
-    // Captures: 1:type, 2:other, 3:desc, 4:value
-    //    869;.stabn	192, 0, 0, LBB8
-    const std::regex stabnRe(
-        R"(.*\.stabn[[:space:]]*(.*),[[:space:]]*(.*),[[:space:]]*(.*),[[:space:]]*(.*))");
-
-    // Match an instruction line
-    // Capture: 1:address
-    //   072B AE E4         [ 5]  126 	ldx	,s	; tmp33, dest
-    const std::regex instructionRe(
-        R"([[:space:]]*([0-9|A-F][0-9|A-F][0-9|A-F][0-9|A-F])[[:space:]]*.*\[..\].*)");
-
-    auto hexToU16 = [](const std::string& s) {
-        return checked_static_cast<uint16_t>(std::stoi(s, {}, 16));
-    };
-
-    auto decToU16 = [](const std::string& s) {
-        return checked_static_cast<uint16_t>(std::stoi(s, {}, 10));
-    };
-
-    constexpr auto N_FUN = 36;    // 0x24 Function name
-    constexpr auto N_SLINE = 68;  // 0x44 Line number in text segment
-    constexpr auto N_LSYM = 128;  // 0x80 Local variable or type definition
-    constexpr auto N_SOL = 132;   // 0x84 Name of include file
-    constexpr auto N_LBRAC = 192; // 0xC0 Left brace (open scope)
-    constexpr auto N_RBRAC = 224; // 0xE0 Right brace (close scope)
-
     std::unordered_map<std::string, uint16_t> labelToAddress;
     std::unordered_map<std::string, std::shared_ptr<Type>> typeIdToType;
 
@@ -89,11 +198,8 @@ bool RstParser::Parse(const fs::path& rstFile) {
         reparseCurrLine = false;
 
         auto parseLabelLine = [&](const std::string& line) -> bool {
-            std::smatch match;
-            if (std::regex_match(line, match, labelRe)) {
-                const uint16_t address = hexToU16(match[1]);
-                const std::string label = match[2];
-                labelToAddress[label] = address;
+            if (auto label = LabelMatch(line)) {
+                labelToAddress[label.Label()] = HexToU16(label.Address());
                 return true;
             }
             return false;
@@ -102,19 +208,17 @@ bool RstParser::Parse(const fs::path& rstFile) {
         std_util::visit_overloads(
             state,
             [&](ParseDirectives& st) {
-                std::smatch match;
-
                 // Label line
                 if (parseLabelLine(line)) {
                 }
 
                 // Stab string (stabs) directive
-                else if (std::regex_match(line, match, stabsRe)) {
-                    const int type = std::stoi(match[2]);
+                else if (auto stabs = StabStringMatch(line)) {
+                    const int type = std::stoi(stabs.Type());
 
                     // Source file name
                     if (type == N_SOL) {
-                        st.sourceFile = match[1].str();
+                        st.sourceFile = stabs.String();
                     }
 
                     // Function name
@@ -134,8 +238,8 @@ bool RstParser::Parse(const fs::path& rstFile) {
                             return name;
                         };
 
-                        const std::string funcName = fixupFuncName(match[1].str()); // Function name
-                        const std::string label = match[5].str();                   // Label name
+                        const std::string funcName = fixupFuncName(stabs.String()); // Function name
+                        const std::string label = stabs.Value();                    // Label name
 
                         auto iter = labelToAddress.find(label);
                         if (iter == labelToAddress.end()) {
@@ -199,49 +303,15 @@ bool RstParser::Parse(const fs::path& rstFile) {
                             currVariables.push_back(std::move(v));
                         };
 
-                        const std::string lsymString = match[1];
-                        const std::string lsymValue = match[5];
+                        const std::string lsymString = stabs.String();
+                        const std::string lsymValue = stabs.Value();
 
-                        // Type definitions:
-                        // "int:t7"
-                        // "char:t13=r13;0;255;"
-                        //
-                        // Local variables:
-                        // "a:7"
-                        //
-                        // 1: type/variable name
-                        // 2: 't' for type, or nothing if variable declaration
-                        // 3: type def/ref #
-                        // 4: type range, or nothing (full match)
-                        //  5: type-def # that this is a range of (can be self-referential)
-                        //  6: lower-bound of range (if > upper-bound, is size in bytes)
-                        //  7: upper-bound of range
-                        const std::regex lsymRe(
-                            R"((.*):([t]*)([0-9]+)(=[rR]([0-9]+);((?:-|)[0-9]+);((?:-|)[0-9]+);|))");
-
-                        // Pointers are both type definitions AND variable declarations:
-                        // "p:25=*7"
-                        //
-                        // 1: variable name
-                        // 2: type def #
-                        // 3: type ref # that this is a pointer to
-                        //
-                        // Note: stabs outputs exactly the same data for references. We cannot
-                        // easily distinguish them.
-                        const std::regex lsymPointerRe(R"((.*):([0-9]+)=\*([0-9]+))");
-
-                        std::smatch lsymMatch;
-                        if (std::regex_match(lsymString, lsymMatch, lsymRe)) {
-                            const bool isType = !lsymMatch[2].str().empty();
-
+                        if (auto lsym = LSymMatch(lsymString)) {
                             // Type definition
-                            if (isType) {
-                                ASSERT(lsymMatch[2].str() == "t");
-
-                                const auto typeName = lsymMatch[1].str();
-                                const auto typeDefId = lsymMatch[3].str();
-
-                                const bool hasRange = !lsymMatch[4].str().empty();
+                            if (lsym.IsTypeDef()) {
+                                const auto typeName = lsym.TypeName();
+                                const auto typeDefId = lsym.TypeDefId();
+                                const bool hasRange = lsym.HasRange();
 
                                 if (!hasRange) {
                                     // If it's an alias for an existing type, just skip it. We will
@@ -270,8 +340,8 @@ bool RstParser::Parse(const fs::path& rstFile) {
                                     // not actually helpful. For example, 'float' is apparently a
                                     // range of type 'int'. Let's just use it to determine the byte
                                     // size and sign.
-                                    const auto lowerBound = std::stoll(lsymMatch[6]);
-                                    const auto upperBound = std::stoll(lsymMatch[7]);
+                                    const auto lowerBound = std::stoll(lsym.RangeLowerBound());
+                                    const auto upperBound = std::stoll(lsym.RangeUpperBound());
 
                                     if (lowerBound <= upperBound) {
                                         bool isSigned = lowerBound < 0;
@@ -301,13 +371,12 @@ bool RstParser::Parse(const fs::path& rstFile) {
                             }
                             // Variable declaration
                             else {
-                                const auto varName = lsymMatch[1].str();
-                                const auto typeRefId = lsymMatch[3].str();
+                                const auto varName = lsym.VarName();
+                                const auto typeRefId = lsym.VarTypeRefId();
 
                                 // Note that the "value" part (the last number) of the stabs for
                                 // L_SYM local variables is the stack offset in bytes.
                                 // Ex:
-                                //
                                 // 101 ;	.stabs	"c:7",128,0,0,1
                                 const auto stackOffset = lsymValue;
 
@@ -318,15 +387,15 @@ bool RstParser::Parse(const fs::path& rstFile) {
                                            varName.c_str(), typeRefId.c_str());
                                     return;
                                 } else {
-                                    addVariable(varName, iter->second, decToU16(stackOffset));
+                                    addVariable(varName, iter->second, DecToU16(stackOffset));
                                 }
                             }
                         }
                         // Pointer type definition AND variable declaration
-                        else if (std::regex_match(lsymString, lsymMatch, lsymPointerRe)) {
-                            const auto varName = lsymMatch[1].str();
-                            const auto typeDefId = lsymMatch[2].str();
-                            const auto typeRefId = lsymMatch[3].str();
+                        else if (auto lsymPointer = LSymPointerMatch(lsymString)) {
+                            const auto varName = lsymPointer.VarName();
+                            const auto typeDefId = lsymPointer.TypeDefId();
+                            const auto typeRefId = lsymPointer.TypeRefId();
 
                             // Find the type that this is a pointer to and create a new type for it
                             auto iter = typeIdToType.find(typeRefId);
@@ -340,25 +409,25 @@ bool RstParser::Parse(const fs::path& rstFile) {
                             const auto stackOffset = lsymValue;
 
                             auto indirectType = addIndirectType(typeDefId, iter->second);
-                            addVariable(varName, indirectType, decToU16(stackOffset));
+                            addVariable(varName, indirectType, DecToU16(stackOffset));
                         }
                     }
                 }
 
                 // Stab dot (stabd) directive
-                else if (std::regex_match(line, match, stabdRe)) {
-                    const int type = std::stoi(match[1]);
+                else if (auto stabd = StabDotMatch(line)) {
+                    const int type = std::stoi(stabd.Type());
 
                     if (type == N_SLINE) {
-                        uint32_t lineNum = stoi(match[3]);
+                        uint32_t lineNum = stoi(stabd.Desc());
                         state = ParseLineInstructions{st.sourceFile, lineNum};
                     }
                 }
 
                 // Stab number (stabn) directive
-                else if (std::regex_match(line, match, stabnRe)) {
-                    const int type = std::stoi(match[1]);
-                    const std::string value = match[4];
+                else if (auto stabn = StabNumberMatch(line)) {
+                    const int type = std::stoi(stabn.Type());
+                    const std::string value = stabn.Value();
 
                     if (type == N_LBRAC) {
                         // Create a scope and transfer all variable declarations we've collected so
@@ -408,20 +477,18 @@ bool RstParser::Parse(const fs::path& rstFile) {
             },
 
             [&](ParseLineInstructions& st) {
-                std::smatch match;
-
                 // Label line
                 if (parseLabelLine(line)) {
                 }
 
                 // Collect source locations while we match instruction lines
-                else if (std::regex_match(line, match, instructionRe)) {
-                    uint16_t address = hexToU16(match[1]);
+                else if (auto instruction = InstructionMatch(line)) {
+                    uint16_t address = HexToU16(instruction.Address());
                     m_debugSymbols->AddSourceLocation(address, {st.sourceFile, st.lineNum});
 
                 }
                 // Stop as soon as we hit any stab directive
-                else if (std::regex_match(line, match, stabRe)) {
+                else if (StabMatch(line)) {
                     reparseCurrLine = true;
                     state = ParseDirectives{st.sourceFile};
                 }
