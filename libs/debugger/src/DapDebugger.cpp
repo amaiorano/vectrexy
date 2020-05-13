@@ -33,6 +33,34 @@ namespace {
         return p;
     };
 
+    struct VariableRef {
+        enum class Type : uint8_t { CallStackIndex = 1, ChildVariable };
+
+        VariableRef(Type type, int value)
+            : m_type(static_cast<int>(type))
+            , m_value(value) {}
+
+        VariableRef(int value)
+            : m_type(0)
+            , m_value(0) {
+            std::memcpy(this, &value, sizeof(value));
+        }
+
+        int AsInt() const {
+            int result{};
+            std::memcpy(&result, this, sizeof(result));
+            return result;
+        }
+
+        Type GetType() const { return static_cast<Type>(m_type); }
+        int GetValue() const { return m_value; }
+
+    private:
+        int m_type : 8;
+        int m_value : 24;
+    };
+    static_assert(sizeof(VariableRef) == sizeof(int));
+
 } // namespace
 
 DapDebugger::DapDebugger() = default;
@@ -183,14 +211,15 @@ void DapDebugger::InitDap() {
             dap::ScopesResponse response;
 
             // ScopesRequest::frameId corresponds to the StackFrame::id we set in StackTraceRequest
-            size_t callStackIndex = static_cast<size_t>(request.frameId);
+            int callStackIndex = request.frameId;
 
             auto frame = m_callStack.Frames()[callStackIndex];
             if (auto function = m_debugSymbols.GetFunctionByAddress(frame.frameAddress)) {
                 dap::Scope dapScope;
                 dapScope.name = "Locals";
                 dapScope.presentationHint = "locals";
-                dapScope.variablesReference = static_cast<int>(callStackIndex);
+                dapScope.variablesReference =
+                    VariableRef{VariableRef::Type::CallStackIndex, callStackIndex}.AsInt();
                 response.scopes.push_back(dapScope);
             }
 
@@ -207,125 +236,46 @@ void DapDebugger::InitDap() {
 
             const auto& frames = m_callStack.Frames();
 
-            // VariablesRequest::variablesReference corresponds to Scope::variablesReference we set
-            // in ScopesRequest
-            size_t callStackIndex = static_cast<size_t>(request.variablesReference);
-            const auto frame = frames[callStackIndex];
+            VariableRef variableRef{request.variablesReference};
 
-            const bool atTop = (callStackIndex + 1) == m_callStack.Frames().size();
-            const uint16_t currAddress = atTop ? PC() : frames[callStackIndex + 1].calleeAddress;
-            const uint16_t stackAddress =
-                atTop ? m_cpu->Registers().S : frames[callStackIndex + 1].stackPointer;
+            if (variableRef.GetType() == VariableRef::Type::CallStackIndex) {
+                // VariablesRequest::variablesReference corresponds to Scope::variablesReference we
+                // set in ScopesRequest
+                const size_t callStackIndex = variableRef.GetValue();
+                const auto frame = frames[callStackIndex];
 
-            if (auto function = m_debugSymbols.GetFunctionByAddress(frame.frameAddress)) {
-                // Collect variables from all scopes that encompass currAddress
-                Traverse(function->scope, [&](const std::shared_ptr<const Scope>& scope) {
-                    // Skip scopes that do not contains the current address
-                    if (!scope->Contains(currAddress))
-                        return;
+                const bool atTop = (callStackIndex + 1) == m_callStack.Frames().size();
+                const uint16_t currAddress =
+                    atTop ? PC() : frames[callStackIndex + 1].calleeAddress;
+                const uint16_t stackAddress =
+                    atTop ? m_cpu->Registers().S : frames[callStackIndex + 1].stackPointer;
 
-                    for (auto& var : scope->variables) {
-                        uint16_t varAddress = stackAddress + var.stackOffset;
+                if (auto function = m_debugSymbols.GetFunctionByAddress(frame.frameAddress)) {
+                    // Collect variables from all scopes that encompass currAddress
+                    Traverse(function->scope, [&](const std::shared_ptr<const Scope>& scope) {
+                        // Skip scopes that do not contains the current address
+                        if (!scope->Contains(currAddress))
+                            return;
 
-                        std::string displayValue;
-                        std::string displayType;
+                        for (auto& var : scope->variables) {
+                            uint16_t varAddress =
+                                stackAddress + std::get<Variable::StackOffset>(var.location);
 
-                        if (auto primType = std::dynamic_pointer_cast<PrimitiveType>(var.type)) {
-                            // buffer to store value, at most 8 bytes
-                            char value[8];
+                            auto dapVar = CreateDapVariable(var, varAddress);
 
-                            ASSERT(primType->byteSize <= std::size(value));
-
-                            displayType = primType->name;
-
-                            // TODO: endian-dependent
-                            for (size_t i = primType->byteSize; i-- > 0;) {
-                                value[i] = m_memoryBus->Read(varAddress++);
-                            }
-
-                            switch (primType->format) {
-                            case PrimitiveType::Format::Int: {
-                                switch (primType->byteSize) {
-                                case 1: {
-                                    uint8_t v;
-                                    std::memcpy(&v, value, sizeof(v));
-                                    displayValue = primType->isSigned
-                                                       ? std::to_string(static_cast<int8_t>(v))
-                                                       : std::to_string(v);
-                                } break;
-                                case 2: {
-                                    uint16_t v;
-                                    std::memcpy(&v, value, sizeof(v));
-                                    displayValue = primType->isSigned
-                                                       ? std::to_string(static_cast<int16_t>(v))
-                                                       : std::to_string(v);
-                                } break;
-                                case 4: {
-                                    uint32_t v;
-                                    std::memcpy(&v, value, sizeof(v));
-                                    displayValue = primType->isSigned
-                                                       ? std::to_string(static_cast<int32_t>(v))
-                                                       : std::to_string(v);
-                                } break;
-                                case 8: {
-                                    uint64_t v;
-                                    std::memcpy(&v, value, sizeof(v));
-                                    displayValue = primType->isSigned
-                                                       ? std::to_string(static_cast<int64_t>(v))
-                                                       : std::to_string(v);
-                                } break;
-                                default:
-                                    FAIL_MSG("Unexpected byte size");
-                                    break;
-                                }
-                            } break;
-
-                            case PrimitiveType::Format::Char: {
-                                ASSERT(primType->byteSize == 1);
-                                uint8_t v;
-                                std::memcpy(&v, value, sizeof(v));
-                                displayValue = primType->isSigned
-                                                   ? std::to_string(static_cast<int8_t>(v))
-                                                   : std::to_string(v);
-                            } break;
-
-                            case PrimitiveType::Format::Float: {
-                                switch (primType->byteSize) {
-                                case 4: {
-                                    float v;
-                                    static_assert(sizeof(v) == 4);
-                                    std::memcpy(&v, value, sizeof(v));
-                                    displayValue = std::to_string(v);
-                                } break;
-                                case 8: {
-                                    double v;
-                                    static_assert(sizeof(v) == 8);
-                                    std::memcpy(&v, value, sizeof(v));
-                                    displayValue = std::to_string(v);
-                                }
-                                default:
-                                    FAIL_MSG("Unexpected byte size");
-                                    break;
-                                }
-                            } break;
-                            } // switch
-                        } else if (auto indirectType =
-                                       std::dynamic_pointer_cast<IndirectType>(var.type)) {
-
-                            // Get the value of the pointed-to address
-                            uint16_t valueAddress = m_memoryBus->Read16(varAddress);
-                            // TODO: read and display value at valueAddress
-                            displayValue = FormattedString("0x%04x", valueAddress);
-                            displayType = indirectType->name;
+                            response.variables.push_back(dapVar);
                         }
+                    });
+                }
+            } else if (variableRef.GetType() == VariableRef::Type::ChildVariable) {
+                const int id = variableRef.GetValue();
+                auto var = m_dynamicVariables.GetAndRemoveVariableById(id);
 
-                        dap::Variable dapVar;
-                        dapVar.name = var.name;
-                        dapVar.value = displayValue;
-                        dapVar.type = displayType;
-                        response.variables.push_back(dapVar);
-                    }
-                });
+                // Child variables always contain an absolute address (pointers/references)
+                uint16_t varAddress = std::get<Variable::AbsoluteAddress>(var->location);
+
+                auto dapVar = CreateDapVariable(*var, varAddress);
+                response.variables.push_back(dapVar);
             }
 
             return response;
@@ -844,4 +794,109 @@ bool DapDebugger::CheckForBreakpoints() {
 
 uint16_t DapDebugger::PC() const {
     return m_cpu->Registers().PC;
+}
+
+dap::Variable DapDebugger::CreateDapVariable(const Variable& var, uint16_t varAddress) {
+    std::string displayValue;
+    std::string displayType;
+    int variablesReference = 0;
+
+    if (auto primType = std::dynamic_pointer_cast<PrimitiveType>(var.type)) {
+        // buffer to store value, at most 8 bytes
+        char value[8];
+
+        ASSERT(primType->byteSize <= std::size(value));
+
+        displayType = primType->name;
+
+        // TODO: endian-dependent
+        for (size_t i = primType->byteSize; i-- > 0;) {
+            value[i] = m_memoryBus->Read(varAddress++);
+        }
+
+        switch (primType->format) {
+        case PrimitiveType::Format::Int: {
+            switch (primType->byteSize) {
+            case 1: {
+                uint8_t v;
+                std::memcpy(&v, value, sizeof(v));
+                displayValue =
+                    primType->isSigned ? std::to_string(static_cast<int8_t>(v)) : std::to_string(v);
+            } break;
+            case 2: {
+                uint16_t v;
+                std::memcpy(&v, value, sizeof(v));
+                displayValue = primType->isSigned ? std::to_string(static_cast<int16_t>(v))
+                                                  : std::to_string(v);
+            } break;
+            case 4: {
+                uint32_t v;
+                std::memcpy(&v, value, sizeof(v));
+                displayValue = primType->isSigned ? std::to_string(static_cast<int32_t>(v))
+                                                  : std::to_string(v);
+            } break;
+            case 8: {
+                uint64_t v;
+                std::memcpy(&v, value, sizeof(v));
+                displayValue = primType->isSigned ? std::to_string(static_cast<int64_t>(v))
+                                                  : std::to_string(v);
+            } break;
+            default:
+                FAIL_MSG("Unexpected byte size");
+                break;
+            }
+        } break;
+
+        case PrimitiveType::Format::Char: {
+            ASSERT(primType->byteSize == 1);
+            uint8_t v;
+            std::memcpy(&v, value, sizeof(v));
+            displayValue =
+                primType->isSigned ? std::to_string(static_cast<int8_t>(v)) : std::to_string(v);
+        } break;
+
+        case PrimitiveType::Format::Float: {
+            switch (primType->byteSize) {
+            case 4: {
+                float v;
+                static_assert(sizeof(v) == 4);
+                std::memcpy(&v, value, sizeof(v));
+                displayValue = std::to_string(v);
+            } break;
+            case 8: {
+                double v;
+                static_assert(sizeof(v) == 8);
+                std::memcpy(&v, value, sizeof(v));
+                displayValue = std::to_string(v);
+            }
+            default:
+                FAIL_MSG("Unexpected byte size");
+                break;
+            }
+        } break;
+        } // switch
+
+    } else if (auto indirectType = std::dynamic_pointer_cast<IndirectType>(var.type)) {
+
+        // Get the value of the pointed-to address
+        uint16_t valueAddress = m_memoryBus->Read16(varAddress);
+
+        // Create a child variable to display the dereferenced value
+        auto variable = std::make_unique<Variable>();
+        variable->name = "*" + var.name;
+        variable->type = indirectType->type;
+        variable->location = Variable::AbsoluteAddress{valueAddress};
+        const int id = m_dynamicVariables.AddVariable(std::move(variable));
+
+        displayValue = FormattedString("0x%04x", valueAddress);
+        displayType = indirectType->name;
+        variablesReference = VariableRef{VariableRef::Type::ChildVariable, id}.AsInt();
+    }
+
+    dap::Variable dapVar;
+    dapVar.name = var.name;
+    dapVar.value = displayValue;
+    dapVar.type = displayType;
+    dapVar.variablesReference = variablesReference;
+    return dapVar;
 }

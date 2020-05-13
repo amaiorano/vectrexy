@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/StrongType.h"
 #include <array>
 #include <cstdint>
 #include <optional>
@@ -48,7 +49,10 @@ struct IndirectType : Type {
 struct Variable {
     std::string name;
     std::shared_ptr<Type> type;
-    uint16_t stackOffset; // bytes
+
+    using StackOffset = StrongType<uint16_t, struct StackOffsetType>; // bytes
+    using AbsoluteAddress = StrongType<uint16_t, struct AbsoluteAddressType>;
+    std::variant<StackOffset, AbsoluteAddress> location;
 };
 
 struct Scope : std::enable_shared_from_this<Scope> {

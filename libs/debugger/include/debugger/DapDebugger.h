@@ -21,6 +21,7 @@ class MemoryBus;
 namespace dap {
     class Session;
     class Writer;
+    struct Variable;
 } // namespace dap
 
 class DapDebugger {
@@ -48,6 +49,30 @@ private:
                                 AudioContext& audioContext);
     bool CheckForBreakpoints();
     uint16_t PC() const;
+    dap::Variable CreateDapVariable(const Variable& var, uint16_t varAddress);
+
+    class DynamicVariables {
+    public:
+        // Adds a variable, and returns a unique id
+        int AddVariable(std::unique_ptr<Variable> variable) {
+            int id = m_idCounter;
+            m_idToVariable[m_idCounter++] = std::move(variable);
+            return id;
+        }
+
+        // Returns the variable by input id, removing it from the set
+        std::unique_ptr<Variable> GetAndRemoveVariableById(int id) {
+            auto iter = m_idToVariable.find(id);
+            ASSERT(iter != m_idToVariable.end());
+            auto result = std::move(iter->second);
+            m_idToVariable.erase(iter);
+            return result;
+        }
+
+    private:
+        int m_idCounter{};
+        std::unordered_map<int, std::unique_ptr<Variable>> m_idToVariable;
+    } m_dynamicVariables;
 
     fs::path m_devDir;
     Emulator* m_emulator{};

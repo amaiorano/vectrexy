@@ -298,7 +298,7 @@ bool RstParser::Parse(const fs::path& rstFile) {
                             Variable v;
                             v.name = std::move(name);
                             v.type = std::move(type);
-                            v.stackOffset = stackOffset;
+                            v.location = Variable::StackOffset{stackOffset};
 
                             currVariables.push_back(std::move(v));
                         };
