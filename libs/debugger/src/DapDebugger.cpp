@@ -916,8 +916,9 @@ dap::Variable DapDebugger::CreateDapVariable(const Variable& var, uint16_t varAd
         if (iter != enumType->valueToId.end()) {
             displayValue = iter->second;
         } else {
-            displayValue = "Unknown enum identifier";
+            displayValue = "<Unknown>";
         }
+        displayValue += " {" + std::to_string(enumValue) + "}";
 
         displayType = enumType->name;
 
