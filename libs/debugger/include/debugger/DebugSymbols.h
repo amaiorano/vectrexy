@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/Base.h"
 #include "core/StrongType.h"
 #include <array>
 #include <cstdint>
@@ -38,6 +39,12 @@ struct Type {
 struct PrimitiveType : Type {
     enum class Format { Int, Char, Float };
     Format format{};
+    size_t byteSize{};
+    bool isSigned{};
+};
+
+struct EnumType : Type {
+    std::unordered_map<ssize_t, std::string> valueToId;
     size_t byteSize{};
     bool isSigned{};
 };

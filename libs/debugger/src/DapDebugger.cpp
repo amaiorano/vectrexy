@@ -801,18 +801,21 @@ dap::Variable DapDebugger::CreateDapVariable(const Variable& var, uint16_t varAd
     std::string displayType;
     int variablesReference = 0;
 
-    if (auto primType = std::dynamic_pointer_cast<PrimitiveType>(var.type)) {
+    auto ReadValue = [&](auto& value, size_t byteSize, uint16_t address) {
         // buffer to store value, at most 8 bytes
-        char value[8];
+        // char value[8];
+        ASSERT(byteSize <= std::size(value));
+        // TODO: endian-dependent
+        for (size_t i = byteSize; i-- > 0;) {
+            value[i] = m_memoryBus->Read(address++);
+        }
+    };
 
-        ASSERT(primType->byteSize <= std::size(value));
-
+    if (auto primType = std::dynamic_pointer_cast<PrimitiveType>(var.type)) {
         displayType = primType->name;
 
-        // TODO: endian-dependent
-        for (size_t i = primType->byteSize; i-- > 0;) {
-            value[i] = m_memoryBus->Read(varAddress++);
-        }
+        char value[8];
+        ReadValue(value, primType->byteSize, varAddress);
 
         switch (primType->format) {
         case PrimitiveType::Format::Int: {
@@ -875,6 +878,48 @@ dap::Variable DapDebugger::CreateDapVariable(const Variable& var, uint16_t varAd
             }
         } break;
         } // switch
+
+    } else if (auto enumType = std::dynamic_pointer_cast<EnumType>(var.type)) {
+
+        char value[8];
+        ReadValue(value, enumType->byteSize, varAddress);
+
+        ssize_t enumValue{};
+
+        switch (enumType->byteSize) {
+        case 1: {
+            uint8_t v;
+            std::memcpy(&v, value, sizeof(v));
+            enumValue = enumType->isSigned ? static_cast<int8_t>(v) : v;
+        } break;
+        case 2: {
+            uint16_t v;
+            std::memcpy(&v, value, sizeof(v));
+            enumValue = enumType->isSigned ? static_cast<int16_t>(v) : v;
+        } break;
+        case 4: {
+            uint32_t v;
+            std::memcpy(&v, value, sizeof(v));
+            enumValue = enumType->isSigned ? static_cast<int32_t>(v) : v;
+        } break;
+        case 8: {
+            uint64_t v;
+            std::memcpy(&v, value, sizeof(v));
+            enumValue = enumType->isSigned ? static_cast<int64_t>(v) : v;
+        } break;
+        default:
+            FAIL_MSG("Unexpected byte size");
+            break;
+        }
+
+        auto iter = enumType->valueToId.find(enumValue);
+        if (iter != enumType->valueToId.end()) {
+            displayValue = iter->second;
+        } else {
+            displayValue = "Unknown enum identifier";
+        }
+
+        displayType = enumType->name;
 
     } else if (auto indirectType = std::dynamic_pointer_cast<IndirectType>(var.type)) {
 

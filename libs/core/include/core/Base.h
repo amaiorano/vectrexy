@@ -155,6 +155,9 @@ inline void AssertHandler(const char* file, int line, const char* condition, con
 // Type aliases
 using cycles_t = uint64_t;
 
+using ssize_t = ptrdiff_t;
+static_assert(sizeof(ssize_t) == sizeof(size_t));
+
 template <typename Container, typename T>
 bool contains(Container container, T& value) {
     return std::find(begin(container), end(container), value) != end(container);

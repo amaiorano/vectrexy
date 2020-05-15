@@ -3,8 +3,10 @@
 #include "core/Base.h"
 #include "core/ConsoleOutput.h"
 #include "core/StdUtil.h"
+#include "core/StringUtil.h"
 
 #include <fstream>
+#include <limits>
 #include <regex>
 #include <string>
 #include <variant>
@@ -148,6 +150,22 @@ namespace {
         std::string TypeRefId() const { return m_match[3].str(); }
     };
 
+    // Match stabs type string for N_LSYM: enum type definitions
+    // "bool:t22=eFalse:0,True:1,;"
+    // "WeekDay:t25=eMonday:0,Tuesday:1,Wednesday:2,EndOfDays:2,Foo:-5000,;"
+    //
+    // 1: type (enum) name
+    // 2: type def #
+    // 3. values (comma-separated key:value pairs)
+    struct LSymEnumMatch : MatchBase {
+        LSymEnumMatch(const std::string& s)
+            : MatchBase(R"((.*):t([0-9]+)=e(.*),;)", s) {}
+
+        std::string TypeName() const { return m_match[1].str(); }
+        std::string TypeDefId() const { return m_match[2].str(); }
+        std::string Values() const { return m_match[3].str(); }
+    };
+
     uint16_t HexToU16(const std::string& s) {
         return checked_static_cast<uint16_t>(std::stoi(s, {}, 16));
     }
@@ -192,9 +210,41 @@ bool RstParser::Parse(const fs::path& rstFile) {
     std::shared_ptr<Scope> currScope{};
     std::vector<Variable> currVariables;
 
+    auto GetLine = [](std::ifstream& fin, std::string& line) {
+        if (!std::getline(fin, line))
+            return false;
+
+        // stab string lines that are too long are extended over multiple consecutive lines by
+        // adding a '\\' token at the end of the 'string' portion, for example:
+        //   59;.stabs	"WeekDay:t25=eMonday:0,Tuesday:1,Wednesday:2,EndOfDays:2,\\", 128, 0, 0, 0
+        //   60;.stabs	"Foo:-5000,;", 128, 0, 0, 0
+        // To simplify parsing, we join all these lines into a single one.
+        if (auto stabs = StabStringMatch(line)) {
+            const char* LineContinuationToken = R"(\\)";
+            auto s = stabs.String();
+
+            while (s.size() >= 2 && s.substr(s.size() - 2) == LineContinuationToken) {
+                std::string nextLine;
+                if (!std::getline(fin, nextLine))
+                    return false;
+                auto nextStabs = StabStringMatch(nextLine);
+                ASSERT(nextStabs);
+                s = nextStabs.String();
+
+                // Replace the "\\" with the string contents of the next line
+                auto index = line.rfind(LineContinuationToken);
+                ASSERT(index != std::string::npos);
+                line.erase(index, 2);
+                line.insert(index, s);
+            }
+        }
+
+        return true;
+    }; // namespace
+
     std::string line;
     bool reparseCurrLine = false;
-    while (reparseCurrLine || std::getline(fin, line)) {
+    while (reparseCurrLine || GetLine(fin, line)) {
         reparseCurrLine = false;
 
         auto parseLabelLine = [&](const std::string& line) -> bool {
@@ -275,6 +325,21 @@ bool RstParser::Parse(const fs::path& rstFile) {
                             } else {
                                 t->format = PrimitiveType::Format::Int;
                             }
+
+                            typeIdToType[typeDefId] = t;
+                            m_debugSymbols->AddType(t);
+                            return t;
+                        };
+
+                        auto addEnumType = [&](const std::string& typeDefId,
+                                               const std::string& typeName, bool isSigned,
+                                               size_t byteSize,
+                                               std::unordered_map<ssize_t, std::string> valueToId) {
+                            auto t = std::make_shared<EnumType>();
+                            t->name = typeName;
+                            t->isSigned = isSigned;
+                            t->byteSize = byteSize;
+                            t->valueToId = std::move(valueToId);
 
                             typeIdToType[typeDefId] = t;
                             m_debugSymbols->AddType(t);
@@ -411,6 +476,47 @@ bool RstParser::Parse(const fs::path& rstFile) {
                             auto indirectType = addIndirectType(typeDefId, iter->second);
                             addVariable(varName, indirectType, DecToU16(stackOffset));
                         }
+                        // Enum type definitions
+                        else if (auto lsymEnum = LSymEnumMatch(lsymString)) {
+                            auto minValue = std::numeric_limits<ssize_t>::max();
+                            auto maxValue = std::numeric_limits<ssize_t>::min();
+                            std::unordered_map<ssize_t, std::string> valueToId;
+
+                            auto values = StringUtil::Split(lsymEnum.Values(), ",");
+                            for (auto& value : values) {
+                                auto kvp = StringUtil::Split(value, ":");
+                                auto id = kvp[0];
+
+                                // For "bool", gcc emits an enum type with "True" and "False" as
+                                // identifiers. We want these to be displayed as "true" and "false"
+                                // instead.
+                                if (lsymEnum.TypeName() == "bool") {
+                                    id = StringUtil::ToLower(id);
+                                }
+
+                                ssize_t v = std::stoll(kvp[1]);
+                                minValue = std::min(minValue, v);
+                                maxValue = std::max(maxValue, v);
+
+                                // Only insert the first identifier mapped to the same value in the
+                                // enum. This way we only display the first one in the debugger,
+                                // like Visual Studio does.
+                                valueToId.try_emplace(v, id);
+                            }
+
+                            const bool isSigned = minValue < 0;
+
+                            // For byte size, we are assuming the compiler will pick the smallest
+                            // possible byte size that can represent this enum. This assumption may
+                            // not always be true, but it seems to be for the gcc fork that targets
+                            // 6809.
+                            const auto numBits =
+                                static_cast<size_t>(::log2(maxValue - minValue + 1));
+                            const size_t byteSize = (numBits + 7) / 8;
+
+                            addEnumType(lsymEnum.TypeDefId(), lsymEnum.TypeName(), isSigned,
+                                        byteSize, std::move(valueToId));
+                        }
                     }
                 }
 
@@ -420,7 +526,13 @@ bool RstParser::Parse(const fs::path& rstFile) {
 
                     if (type == N_SLINE) {
                         uint32_t lineNum = stoi(stabd.Desc());
-                        state = ParseLineInstructions{st.sourceFile, lineNum};
+                        // If the compiler injects code (e.g. no return in main, compiler injects
+                        // "return 0;" instructions), the stab data says this code is at line "0" in
+                        // the file, because technically it's not in the file. We ignore these,
+                        // since they don't correspond to actual source locations.
+                        if (lineNum != 0) {
+                            state = ParseLineInstructions{st.sourceFile, lineNum};
+                        }
                     }
                 }
 
