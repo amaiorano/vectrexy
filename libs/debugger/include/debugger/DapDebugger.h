@@ -49,19 +49,31 @@ private:
                                 AudioContext& audioContext);
     bool CheckForBreakpoints();
     uint16_t PC() const;
-    dap::Variable CreateDapVariable(const Variable& var, uint16_t varAddress);
 
+    dap::Variable CreateDapVariable(std::shared_ptr<Variable> var, uint16_t varAddress);
+    std::vector<dap::Variable> CreateChildDapVariables(std::shared_ptr<Variable> parentVar,
+                                                       uint16_t parentVarAddress);
+
+    // Used to temporarily store variables that may be expanded (e.g. pointers, structs, unions).
+    // When these variables are added, along with their address, we return a unique id that can be
+    // used to retrieve the pair if the variable is expanded.
     class DynamicVariables {
     public:
+        struct VariableData {
+            std::shared_ptr<Variable> var;
+            uint16_t varAddress{};
+        };
+
         // Adds a variable, and returns a unique id
-        int AddVariable(std::unique_ptr<Variable> variable) {
+        int AddVariable(std::shared_ptr<Variable> variable, uint16_t varAddress) {
             int id = m_idCounter;
-            m_idToVariable[m_idCounter++] = std::move(variable);
+            m_idToVariable.try_emplace(m_idCounter++,
+                                       VariableData{std::move(variable), varAddress});
             return id;
         }
 
         // Returns the variable by input id, removing it from the set
-        std::unique_ptr<Variable> GetAndRemoveVariableById(int id) {
+        VariableData GetAndRemoveVariableById(int id) {
             auto iter = m_idToVariable.find(id);
             ASSERT(iter != m_idToVariable.end());
             auto result = std::move(iter->second);
@@ -69,9 +81,14 @@ private:
             return result;
         }
 
+        void Clear() {
+            m_idCounter = 0;
+            m_idToVariable.clear();
+        }
+
     private:
         int m_idCounter{};
-        std::unordered_map<int, std::unique_ptr<Variable>> m_idToVariable;
+        std::unordered_map<int, VariableData> m_idToVariable;
     } m_dynamicVariables;
 
     fs::path m_devDir;

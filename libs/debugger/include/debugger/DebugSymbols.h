@@ -49,6 +49,17 @@ struct EnumType : Type {
     bool isSigned{};
 };
 
+struct StructType : Type {
+    struct Member {
+        std::string name;
+        size_t offsetBits;
+        size_t sizeBits;
+        std::shared_ptr<Type> type;
+    };
+
+    std::vector<Member> members;
+};
+
 struct IndirectType : Type {
     std::shared_ptr<Type> type;
 };
@@ -57,9 +68,9 @@ struct Variable {
     std::string name;
     std::shared_ptr<Type> type;
 
+    using NoLocation = StrongType<uint16_t, struct NoLocationType>;
     using StackOffset = StrongType<uint16_t, struct StackOffsetType>; // bytes
-    using AbsoluteAddress = StrongType<uint16_t, struct AbsoluteAddressType>;
-    std::variant<StackOffset, AbsoluteAddress> location;
+    std::variant<NoLocation, StackOffset> location;
 };
 
 struct Scope : std::enable_shared_from_this<Scope> {
@@ -82,7 +93,7 @@ struct Scope : std::enable_shared_from_this<Scope> {
 
     Scope* parent{};
     std::vector<std::shared_ptr<Scope>> children;
-    std::vector<Variable> variables;
+    std::vector<std::shared_ptr<Variable>> variables;
     std::pair<uint16_t, uint16_t> range; // [first address, last address[
 };
 

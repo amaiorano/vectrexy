@@ -14,6 +14,16 @@
 #include <memory>
 #include <mutex>
 
+// TODO: move to utility header
+// Appends, via move, values from source to target
+template <typename T, typename U>
+T& container_move_append(T& target, U& source) {
+    for (auto& s : source) {
+        target.push_back(std::move(s));
+    }
+    return target;
+}
+
 namespace {
     // We only have one main thread, so use a constant id
     const dap::integer DAP_THREAD_ID = 100;
@@ -34,7 +44,7 @@ namespace {
     };
 
     struct VariableRef {
-        enum class Type : uint8_t { CallStackIndex = 1, ChildVariable };
+        enum class Type : uint8_t { CallStackIndex = 1, ParentVariableId };
 
         VariableRef(Type type, int value)
             : m_type(static_cast<int>(type))
@@ -239,6 +249,10 @@ void DapDebugger::InitDap() {
             VariableRef variableRef{request.variablesReference};
 
             if (variableRef.GetType() == VariableRef::Type::CallStackIndex) {
+                // We're about to populate top-level variables for the current call stack index, so
+                // clear the dynamic variable cache.
+                m_dynamicVariables.Clear();
+
                 // VariablesRequest::variablesReference corresponds to Scope::variablesReference we
                 // set in ScopesRequest
                 const size_t callStackIndex = variableRef.GetValue();
@@ -259,23 +273,21 @@ void DapDebugger::InitDap() {
 
                         for (auto& var : scope->variables) {
                             uint16_t varAddress =
-                                stackAddress + std::get<Variable::StackOffset>(var.location);
+                                stackAddress + std::get<Variable::StackOffset>(var->location);
 
                             auto dapVar = CreateDapVariable(var, varAddress);
-
-                            response.variables.push_back(dapVar);
+                            response.variables.push_back(std::move(dapVar));
                         }
                     });
                 }
-            } else if (variableRef.GetType() == VariableRef::Type::ChildVariable) {
+            } else if (variableRef.GetType() == VariableRef::Type::ParentVariableId) {
+                // We are expanding a variable, get the parent variable and address
                 const int id = variableRef.GetValue();
-                auto var = m_dynamicVariables.GetAndRemoveVariableById(id);
+                auto [parentVar, parentVarAddress] =
+                    m_dynamicVariables.GetAndRemoveVariableById(id);
 
-                // Child variables always contain an absolute address (pointers/references)
-                uint16_t varAddress = std::get<Variable::AbsoluteAddress>(var->location);
-
-                auto dapVar = CreateDapVariable(*var, varAddress);
-                response.variables.push_back(dapVar);
+                auto dapVars = CreateChildDapVariables(parentVar, parentVarAddress);
+                container_move_append(response.variables, dapVars);
             }
 
             return response;
@@ -796,10 +808,17 @@ uint16_t DapDebugger::PC() const {
     return m_cpu->Registers().PC;
 }
 
-dap::Variable DapDebugger::CreateDapVariable(const Variable& var, uint16_t varAddress) {
-    std::string displayValue;
-    std::string displayType;
-    int variablesReference = 0;
+dap::Variable DapDebugger::CreateDapVariable(std::shared_ptr<Variable> var, uint16_t varAddress) {
+
+    auto MakeDapVariable = [](const std::string varName, const std::string& displayValue,
+                              const std::string& displayType, int variablesReference) {
+        dap::Variable dapVar;
+        dapVar.name = varName;
+        dapVar.value = displayValue;
+        dapVar.type = displayType;
+        dapVar.variablesReference = variablesReference;
+        return dapVar;
+    };
 
     auto ReadValue = [&](auto& value, size_t byteSize, uint16_t address) {
         // buffer to store value, at most 8 bytes
@@ -811,8 +830,8 @@ dap::Variable DapDebugger::CreateDapVariable(const Variable& var, uint16_t varAd
         }
     };
 
-    if (auto primType = std::dynamic_pointer_cast<PrimitiveType>(var.type)) {
-        displayType = primType->name;
+    if (auto primType = std::dynamic_pointer_cast<PrimitiveType>(var->type)) {
+        std::string displayValue;
 
         char value[8];
         ReadValue(value, primType->byteSize, varAddress);
@@ -879,8 +898,9 @@ dap::Variable DapDebugger::CreateDapVariable(const Variable& var, uint16_t varAd
         } break;
         } // switch
 
-    } else if (auto enumType = std::dynamic_pointer_cast<EnumType>(var.type)) {
+        return MakeDapVariable(var->name, displayValue, primType->name, 0);
 
+    } else if (auto enumType = std::dynamic_pointer_cast<EnumType>(var->type)) {
         char value[8];
         ReadValue(value, enumType->byteSize, varAddress);
 
@@ -912,6 +932,7 @@ dap::Variable DapDebugger::CreateDapVariable(const Variable& var, uint16_t varAd
             break;
         }
 
+        std::string displayValue;
         auto iter = enumType->valueToId.find(enumValue);
         if (iter != enumType->valueToId.end()) {
             displayValue = iter->second;
@@ -920,29 +941,62 @@ dap::Variable DapDebugger::CreateDapVariable(const Variable& var, uint16_t varAd
         }
         displayValue += " {" + std::to_string(enumValue) + "}";
 
-        displayType = enumType->name;
+        return MakeDapVariable(var->name, displayValue, enumType->name, 0);
 
-    } else if (auto indirectType = std::dynamic_pointer_cast<IndirectType>(var.type)) {
+    } else if (auto structType = std::dynamic_pointer_cast<StructType>(var->type)) {
 
-        // Get the value of the pointed-to address
-        uint16_t valueAddress = m_memoryBus->Read16(varAddress);
+        std::string displayValue = ""; // TODO: display first few members?
+        const int id = m_dynamicVariables.AddVariable(var, varAddress);
+        int variablesReference = VariableRef{VariableRef::Type::ParentVariableId, id}.AsInt();
+        return MakeDapVariable(var->name, displayValue, structType->name, variablesReference);
 
-        // Create a child variable to display the dereferenced value
-        auto variable = std::make_unique<Variable>();
-        variable->name = "*" + var.name;
-        variable->type = indirectType->type;
-        variable->location = Variable::AbsoluteAddress{valueAddress};
-        const int id = m_dynamicVariables.AddVariable(std::move(variable));
+    } else if (auto indirectType = std::dynamic_pointer_cast<IndirectType>(var->type)) {
 
-        displayValue = FormattedString("0x%04x", valueAddress);
-        displayType = indirectType->name;
-        variablesReference = VariableRef{VariableRef::Type::ChildVariable, id}.AsInt();
+        const uint16_t pointeeAddress = m_memoryBus->Read16(varAddress);
+        std::string displayValue = FormattedString("0x%04x", pointeeAddress);
+
+        const int id = m_dynamicVariables.AddVariable(var, varAddress);
+        int variablesReference = VariableRef{VariableRef::Type::ParentVariableId, id}.AsInt();
+
+        return MakeDapVariable(var->name, displayValue, indirectType->name, variablesReference);
+    } else {
+        FAIL_MSG("Unexpected type");
     }
 
-    dap::Variable dapVar;
-    dapVar.name = var.name;
-    dapVar.value = displayValue;
-    dapVar.type = displayType;
-    dapVar.variablesReference = variablesReference;
-    return dapVar;
+    FAIL_MSG("Unreachable");
+    return {};
+}
+
+std::vector<dap::Variable> DapDebugger::CreateChildDapVariables(std::shared_ptr<Variable> parentVar,
+                                                                uint16_t parentVarAddress) {
+    std::vector<dap::Variable> result;
+
+    if (auto structType = std::dynamic_pointer_cast<StructType>(parentVar->type)) {
+
+        for (auto& m : structType->members) {
+            // Create a child variable to display the dereferenced value
+            auto var = std::make_shared<Variable>();
+            var->name = m.name;
+            var->type = m.type;
+
+            // TODO: add support for bitfields
+            const uint16_t memberAddress =
+                parentVarAddress + static_cast<uint16_t>(m.offsetBits / 8);
+
+            result.push_back(CreateDapVariable(var, memberAddress));
+        }
+
+    } else if (auto indirectType = std::dynamic_pointer_cast<IndirectType>(parentVar->type)) {
+
+        const uint16_t pointeeAddress = m_memoryBus->Read16(parentVarAddress);
+        auto var = std::make_shared<Variable>();
+        var->name = "*" + parentVar->name;
+        var->type = indirectType->type;
+        result.push_back(CreateDapVariable(var, pointeeAddress));
+
+    } else {
+        FAIL_MSG("Unexpected type");
+    }
+
+    return result;
 }

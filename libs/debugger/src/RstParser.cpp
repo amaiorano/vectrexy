@@ -13,17 +13,41 @@
 
 namespace {
     struct MatchBase {
-        MatchBase(const char* re, const std::string& s)
-            : m_re(re) {
-            m_matched = std::regex_match(s, m_match, m_re);
+        MatchBase(const char* re, std::string s)
+            : m_s(std::move(s))
+            , m_re(re) {
+            m_matched = std::regex_match(m_s, m_match, m_re);
         }
 
         operator bool() const { return m_matched; }
 
     protected:
+        std::string m_s;
         std::regex m_re;
         std::smatch m_match;
         bool m_matched{};
+    };
+
+    struct MultiMatchBase {
+        MultiMatchBase(const char* re, std::string s)
+            : m_s(std::move(s))
+            , m_re(re) {
+
+            auto words_begin = std::sregex_iterator(m_s.begin(), m_s.end(), m_re);
+            auto words_end = std::sregex_iterator();
+
+            m_matches.reserve(std::distance(words_begin, words_end));
+            for (std::sregex_iterator i = words_begin; i != words_end; ++i) {
+                m_matches.push_back(*i);
+            }
+        }
+
+        operator bool() const { return !m_matches.empty(); }
+
+    protected:
+        std::string m_s;
+        std::regex m_re;
+        std::vector<std::smatch> m_matches;
     };
 
     // Match a label line
@@ -156,7 +180,7 @@ namespace {
     //
     // 1: type (enum) name
     // 2: type def #
-    // 3. values (comma-separated key:value pairs)
+    // 3: values (comma-separated key:value pairs)
     struct LSymEnumMatch : MatchBase {
         LSymEnumMatch(const std::string& s)
             : MatchBase(R"((.*):t([0-9]+)=e(.*),;)", s) {}
@@ -164,6 +188,41 @@ namespace {
         std::string TypeName() const { return m_match[1].str(); }
         std::string TypeDefId() const { return m_match[2].str(); }
         std::string Values() const { return m_match[3].str(); }
+    };
+
+    // Match stabs type string for N_LSYM: struct/class type definitions
+    // "Foo:T26=s4a:7,0,8;b:7,8,8;c:7,16,8;d:7,24,6;e:7,30,2;;
+    //
+    // 1: type name
+    // 2: type def #
+    // 3: total byte size of struct
+    // 4: values (semicolon-separated key:value pairs)
+    struct LSymStructMatch : MatchBase {
+        LSymStructMatch(const std::string& s)
+            : MatchBase(R"((.*):T([0-9]+)=s([0-9]+)(.*);)", s) {}
+
+        // Splits out the values
+        // 1: member name
+        // 2: type ref #
+        // 3: offset in bits
+        // 4: size in bits
+        // "a:7,0,8;b:7,8,8;c:7,16,8;d:7,24,6;e:7,30,2;"
+        struct ValueMatch : MultiMatchBase {
+            ValueMatch(const std::string& s)
+                : MultiMatchBase(R"((.*?):(.*?),(.*?),(.*?);)", s) {}
+
+            size_t Count() const { return m_matches.size(); }
+
+            std::string MemberName(size_t i) const { return m_matches[i][1].str(); }
+            std::string TypeRefId(size_t i) const { return m_matches[i][2].str(); }
+            std::string OffsetBits(size_t i) const { return m_matches[i][3].str(); }
+            std::string SizeBits(size_t i) const { return m_matches[i][4].str(); }
+        };
+
+        std::string TypeName() const { return m_match[1].str(); }
+        std::string TypeDefId() const { return m_match[2].str(); }
+        std::string SizeBytes() const { return m_match[3].str(); }
+        ValueMatch Values() const { return ValueMatch{m_match[4].str()}; }
     };
 
     uint16_t HexToU16(const std::string& s) {
@@ -208,7 +267,7 @@ bool RstParser::Parse(const fs::path& rstFile) {
 
     std::shared_ptr<Function> currFunction;
     std::shared_ptr<Scope> currScope{};
-    std::vector<Variable> currVariables;
+    std::vector<std::shared_ptr<Variable>> currVariables;
 
     auto GetLine = [](std::ifstream& fin, std::string& line) {
         if (!std::getline(fin, line))
@@ -326,6 +385,7 @@ bool RstParser::Parse(const fs::path& rstFile) {
                                 t->format = PrimitiveType::Format::Int;
                             }
 
+                            ASSERT(typeIdToType.count(typeDefId) == 0);
                             typeIdToType[typeDefId] = t;
                             m_debugSymbols->AddType(t);
                             return t;
@@ -341,6 +401,20 @@ bool RstParser::Parse(const fs::path& rstFile) {
                             t->byteSize = byteSize;
                             t->valueToId = std::move(valueToId);
 
+                            ASSERT(typeIdToType.count(typeDefId) == 0);
+                            typeIdToType[typeDefId] = t;
+                            m_debugSymbols->AddType(t);
+                            return t;
+                        };
+
+                        auto addStructType = [&](const std::string& typeDefId,
+                                                 const std::string& typeName,
+                                                 std::vector<StructType::Member> members) {
+                            auto t = std::make_shared<StructType>();
+                            t->name = typeName;
+                            t->members = std::move(members);
+
+                            ASSERT(typeIdToType.count(typeDefId) == 0);
                             typeIdToType[typeDefId] = t;
                             m_debugSymbols->AddType(t);
                             return t;
@@ -353,6 +427,7 @@ bool RstParser::Parse(const fs::path& rstFile) {
                             t->name = type->name + "*";
                             t->type = std::move(type);
 
+                            ASSERT(typeIdToType.count(typeDefId) == 0);
                             typeIdToType[typeDefId] = t;
                             m_debugSymbols->AddType(t);
                             return t;
@@ -360,10 +435,10 @@ bool RstParser::Parse(const fs::path& rstFile) {
 
                         auto addVariable = [&](std::string name, std::shared_ptr<Type> type,
                                                uint16_t stackOffset) {
-                            Variable v;
-                            v.name = std::move(name);
-                            v.type = std::move(type);
-                            v.location = Variable::StackOffset{stackOffset};
+                            auto v = std::make_shared<Variable>();
+                            v->name = std::move(name);
+                            v->type = std::move(type);
+                            v->location = Variable::StackOffset{stackOffset};
 
                             currVariables.push_back(std::move(v));
                         };
@@ -458,6 +533,11 @@ bool RstParser::Parse(const fs::path& rstFile) {
                         }
                         // Pointer type definition AND variable declaration
                         else if (auto lsymPointer = LSymPointerMatch(lsymString)) {
+
+                            // TODO: move the type finding code into addIndirectType so that I can
+                            // reuse it when parsing structs/unions for pointer members. Should
+                            // probably do the same for the other add*Type functions.
+
                             const auto varName = lsymPointer.VarName();
                             const auto typeDefId = lsymPointer.TypeDefId();
                             const auto typeRefId = lsymPointer.TypeRefId();
@@ -516,6 +596,39 @@ bool RstParser::Parse(const fs::path& rstFile) {
 
                             addEnumType(lsymEnum.TypeDefId(), lsymEnum.TypeName(), isSigned,
                                         byteSize, std::move(valueToId));
+                        }
+
+                        // Struct type definitions
+                        else if (auto lsymStruct = LSymStructMatch(lsymString)) {
+                            // Collect info for each member
+                            auto values = lsymStruct.Values();
+
+                            std::vector<StructType::Member> members;
+                            members.reserve(values.Count());
+
+                            for (size_t i = 0; i < values.Count(); ++i) {
+                                StructType::Member member;
+                                member.name = values.MemberName(i);
+                                member.offsetBits = std::stoul(values.OffsetBits(i));
+                                member.sizeBits = std::stoul(values.SizeBits(i));
+
+                                // Find type of this member
+                                auto iter = typeIdToType.find(values.TypeRefId(i));
+                                if (iter == typeIdToType.end()) {
+                                    Printf("Warning! Type not found for struct member '%s' "
+                                           "(type-ref id: "
+                                           "'%s')\n",
+                                           member.name.c_str(), values.TypeRefId(i).c_str());
+                                    return;
+                                }
+
+                                member.type = iter->second;
+
+                                members.push_back(member);
+                            }
+
+                            addStructType(lsymStruct.TypeDefId(), lsymStruct.TypeName(),
+                                          std::move(members));
                         }
                     }
                 }
