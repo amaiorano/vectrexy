@@ -1,11 +1,9 @@
 #include "Debugger/RstParser.h"
-#include "Debugger/DebugSymbols.h"
 #include "core/Base.h"
 #include "core/ConsoleOutput.h"
 #include "core/StdUtil.h"
 #include "core/StringUtil.h"
 
-#include <fstream>
 #include <limits>
 #include <regex>
 #include <string>
@@ -262,45 +260,6 @@ bool RstParser::Parse(const fs::path& rstFile) {
     if (!fin)
         return false;
 
-    std::unordered_map<std::string, uint16_t> labelToAddress;
-    std::unordered_map<std::string, std::shared_ptr<Type>> typeIdToType;
-
-    std::shared_ptr<Function> currFunction;
-    std::shared_ptr<Scope> currScope{};
-    std::vector<std::shared_ptr<Variable>> currVariables;
-
-    auto GetLine = [](std::ifstream& fin, std::string& line) {
-        if (!std::getline(fin, line))
-            return false;
-
-        // stab string lines that are too long are extended over multiple consecutive lines by
-        // adding a '\\' token at the end of the 'string' portion, for example:
-        //   59;.stabs	"WeekDay:t25=eMonday:0,Tuesday:1,Wednesday:2,EndOfDays:2,\\", 128, 0, 0, 0
-        //   60;.stabs	"Foo:-5000,;", 128, 0, 0, 0
-        // To simplify parsing, we join all these lines into a single one.
-        if (auto stabs = StabStringMatch(line)) {
-            const char* LineContinuationToken = R"(\\)";
-            auto s = stabs.String();
-
-            while (s.size() >= 2 && s.substr(s.size() - 2) == LineContinuationToken) {
-                std::string nextLine;
-                if (!std::getline(fin, nextLine))
-                    return false;
-                auto nextStabs = StabStringMatch(nextLine);
-                ASSERT(nextStabs);
-                s = nextStabs.String();
-
-                // Replace the "\\" with the string contents of the next line
-                auto index = line.rfind(LineContinuationToken);
-                ASSERT(index != std::string::npos);
-                line.erase(index, 2);
-                line.insert(index, s);
-            }
-        }
-
-        return true;
-    }; // namespace
-
     std::string line;
     bool reparseCurrLine = false;
     while (reparseCurrLine || GetLine(fin, line)) {
@@ -308,7 +267,7 @@ bool RstParser::Parse(const fs::path& rstFile) {
 
         auto parseLabelLine = [&](const std::string& line) -> bool {
             if (auto label = LabelMatch(line)) {
-                labelToAddress[label.Label()] = HexToU16(label.Address());
+                m_labelToAddress[label.Label()] = HexToU16(label.Address());
                 return true;
             }
             return false;
@@ -350,99 +309,23 @@ bool RstParser::Parse(const fs::path& rstFile) {
                         const std::string funcName = fixupFuncName(stabs.String()); // Function name
                         const std::string label = stabs.Value();                    // Label name
 
-                        auto iter = labelToAddress.find(label);
-                        if (iter == labelToAddress.end()) {
+                        auto iter = m_labelToAddress.find(label);
+                        if (iter == m_labelToAddress.end()) {
                             Printf("Warning! label not found: %s\n", label.c_str());
                             return;
                         }
                         const uint16_t funcAddress = iter->second;
                         m_debugSymbols->AddSymbol(Symbol{funcName, funcAddress});
 
-                        // Note that currFunction may still point to the last one we parsed at this
-                        // point. This happens if the function has no scopes (no local variables).
-                        ASSERT(!currScope);
-                        currFunction = std::make_shared<Function>(funcName, funcAddress);
+                        // Note that m_currFunction may still point to the last one we parsed at
+                        // this point. This happens if the function has no scopes (no local
+                        // variables).
+                        ASSERT(!m_currScope);
+                        m_currFunction = std::make_shared<Function>(funcName, funcAddress);
                     }
 
                     // Local variable or type definition
                     else if (type == N_LSYM) {
-                        auto addPrimitiveType = [&](const std::string& typeDefId,
-                                                    const std::string& typeName, bool isSigned,
-                                                    size_t byteSize) -> std::shared_ptr<Type> {
-                            auto t = std::make_shared<PrimitiveType>();
-                            t->name = typeName;
-                            t->isSigned = isSigned;
-                            t->byteSize = byteSize;
-
-                            // Figure out the format type
-                            if (typeName.find("float") != std::string::npos ||
-                                typeName.find("double") != std::string::npos) {
-                                t->format = PrimitiveType::Format::Float;
-                            } else if (typeName.find("char") != std::string::npos &&
-                                       byteSize == 1) {
-                                t->format = PrimitiveType::Format::Char;
-                            } else {
-                                t->format = PrimitiveType::Format::Int;
-                            }
-
-                            ASSERT(typeIdToType.count(typeDefId) == 0);
-                            typeIdToType[typeDefId] = t;
-                            m_debugSymbols->AddType(t);
-                            return t;
-                        };
-
-                        auto addEnumType = [&](const std::string& typeDefId,
-                                               const std::string& typeName, bool isSigned,
-                                               size_t byteSize,
-                                               std::unordered_map<ssize_t, std::string> valueToId) {
-                            auto t = std::make_shared<EnumType>();
-                            t->name = typeName;
-                            t->isSigned = isSigned;
-                            t->byteSize = byteSize;
-                            t->valueToId = std::move(valueToId);
-
-                            ASSERT(typeIdToType.count(typeDefId) == 0);
-                            typeIdToType[typeDefId] = t;
-                            m_debugSymbols->AddType(t);
-                            return t;
-                        };
-
-                        auto addStructType = [&](const std::string& typeDefId,
-                                                 const std::string& typeName,
-                                                 std::vector<StructType::Member> members) {
-                            auto t = std::make_shared<StructType>();
-                            t->name = typeName;
-                            t->members = std::move(members);
-
-                            ASSERT(typeIdToType.count(typeDefId) == 0);
-                            typeIdToType[typeDefId] = t;
-                            m_debugSymbols->AddType(t);
-                            return t;
-                        };
-
-                        auto addIndirectType =
-                            [&](const std::string& typeDefId,
-                                std::shared_ptr<Type> type) -> std::shared_ptr<Type> {
-                            auto t = std::make_shared<IndirectType>();
-                            t->name = type->name + "*";
-                            t->type = std::move(type);
-
-                            ASSERT(typeIdToType.count(typeDefId) == 0);
-                            typeIdToType[typeDefId] = t;
-                            m_debugSymbols->AddType(t);
-                            return t;
-                        };
-
-                        auto addVariable = [&](std::string name, std::shared_ptr<Type> type,
-                                               uint16_t stackOffset) {
-                            auto v = std::make_shared<Variable>();
-                            v->name = std::move(name);
-                            v->type = std::move(type);
-                            v->location = Variable::StackOffset{stackOffset};
-
-                            currVariables.push_back(std::move(v));
-                        };
-
                         const std::string lsymString = stabs.String();
                         const std::string lsymValue = stabs.Value();
 
@@ -458,7 +341,7 @@ bool RstParser::Parse(const fs::path& rstFile) {
                                     // always display the first type, not the alias type name. E.g.
                                     // 'signed' is an alias for 'int', 'unsigned long' is an alias
                                     // for 'unsigned long int'.
-                                    if (typeIdToType.find(typeDefId) != typeIdToType.end())
+                                    if (m_typeIdToType.find(typeDefId) != m_typeIdToType.end())
                                         return;
 
                                     // TODO: handle 'bool' which is an enum type (handle enum types,
@@ -471,9 +354,9 @@ bool RstParser::Parse(const fs::path& rstFile) {
                                         // TODO: byte size if 1 or 2, depending on if -mint8 was
                                         // passed or not. Need to figure that out, or have the user
                                         // tell us.
-                                        addPrimitiveType(typeDefId, typeName, true, 1);
+                                        AddPrimitiveType(typeDefId, typeName, true, 1);
                                     } else if (typeName == "void") {
-                                        addPrimitiveType(typeDefId, typeName, false, 0);
+                                        AddPrimitiveType(typeDefId, typeName, false, 0);
                                     }
                                 } else {
                                     // Ignore the type-def # that this is a range of because it's
@@ -499,12 +382,12 @@ bool RstParser::Parse(const fs::path& rstFile) {
                                                 ++numBits;
                                         }
 
-                                        addPrimitiveType(typeDefId, typeName, isSigned,
+                                        AddPrimitiveType(typeDefId, typeName, isSigned,
                                                          numBits / 8);
                                     } else {
                                         // Special case where lowerBound specifies the number of
                                         // bytes
-                                        addPrimitiveType(typeDefId, typeName, true,
+                                        AddPrimitiveType(typeDefId, typeName, true,
                                                          static_cast<size_t>(lowerBound));
                                     }
                                 }
@@ -520,42 +403,35 @@ bool RstParser::Parse(const fs::path& rstFile) {
                                 // 101 ;	.stabs	"c:7",128,0,0,1
                                 const auto stackOffset = lsymValue;
 
-                                auto iter = typeIdToType.find(typeRefId);
-                                if (iter == typeIdToType.end()) {
-                                    Printf("Warning! Type not found for variable '%s' (type-ref "
-                                           "id: '%s')\n",
-                                           varName.c_str(), typeRefId.c_str());
+                                auto varType = FindType(typeRefId, varName);
+                                if (!varType)
                                     return;
-                                } else {
-                                    addVariable(varName, iter->second, DecToU16(stackOffset));
-                                }
+
+                                AddVariable(varName, varType, DecToU16(stackOffset));
                             }
                         }
                         // Pointer type definition AND variable declaration
                         else if (auto lsymPointer = LSymPointerMatch(lsymString)) {
 
-                            // TODO: move the type finding code into addIndirectType so that I can
+                            // TODO: move the type finding code into AddIndirectType so that I can
                             // reuse it when parsing structs/unions for pointer members. Should
-                            // probably do the same for the other add*Type functions.
+                            // probably do the same for the other Add*Type functions.
 
                             const auto varName = lsymPointer.VarName();
                             const auto typeDefId = lsymPointer.TypeDefId();
                             const auto typeRefId = lsymPointer.TypeRefId();
 
                             // Find the type that this is a pointer to and create a new type for it
-                            auto iter = typeIdToType.find(typeRefId);
-                            if (iter == typeIdToType.end()) {
-                                Printf("Warning! Type not found for variable '%s' (type-ref id: "
-                                       "'%s')\n",
-                                       varName.c_str(), typeRefId.c_str());
+                            auto pointerType = FindType(typeRefId, varName);
+                            if (!pointerType)
                                 return;
-                            }
 
                             const auto stackOffset = lsymValue;
 
-                            auto indirectType = addIndirectType(typeDefId, iter->second);
-                            addVariable(varName, indirectType, DecToU16(stackOffset));
+                            auto indirectType = AddIndirectType(typeDefId, pointerType);
+                            AddVariable(varName, indirectType, DecToU16(stackOffset));
                         }
+
                         // Enum type definitions
                         else if (auto lsymEnum = LSymEnumMatch(lsymString)) {
                             auto minValue = std::numeric_limits<ssize_t>::max();
@@ -594,7 +470,7 @@ bool RstParser::Parse(const fs::path& rstFile) {
                                 static_cast<size_t>(::log2(maxValue - minValue + 1));
                             const size_t byteSize = (numBits + 7) / 8;
 
-                            addEnumType(lsymEnum.TypeDefId(), lsymEnum.TypeName(), isSigned,
+                            AddEnumType(lsymEnum.TypeDefId(), lsymEnum.TypeName(), isSigned,
                                         byteSize, std::move(valueToId));
                         }
 
@@ -613,21 +489,15 @@ bool RstParser::Parse(const fs::path& rstFile) {
                                 member.sizeBits = std::stoul(values.SizeBits(i));
 
                                 // Find type of this member
-                                auto iter = typeIdToType.find(values.TypeRefId(i));
-                                if (iter == typeIdToType.end()) {
-                                    Printf("Warning! Type not found for struct member '%s' "
-                                           "(type-ref id: "
-                                           "'%s')\n",
-                                           member.name.c_str(), values.TypeRefId(i).c_str());
+                                auto memberType = FindType(values.TypeRefId(i), member.name);
+                                if (!memberType)
                                     return;
-                                }
 
-                                member.type = iter->second;
-
+                                member.type = std::move(memberType);
                                 members.push_back(member);
                             }
 
-                            addStructType(lsymStruct.TypeDefId(), lsymStruct.TypeName(),
+                            AddStructType(lsymStruct.TypeDefId(), lsymStruct.TypeName(),
                                           std::move(members));
                         }
                     }
@@ -658,44 +528,44 @@ bool RstParser::Parse(const fs::path& rstFile) {
                         // Create a scope and transfer all variable declarations we've collected so
                         // far
                         auto scope = std::make_shared<Scope>();
-                        scope->variables = std::move(currVariables);
+                        scope->variables = std::move(m_currVariables);
 
                         const std::string label = value;
-                        auto iter = labelToAddress.find(label);
-                        if (iter == labelToAddress.end()) {
+                        auto iter = m_labelToAddress.find(label);
+                        if (iter == m_labelToAddress.end()) {
                             FAIL_MSG("Warning! label not found: %s\n", label.c_str());
                         }
                         const uint16_t scopeStartAddress = iter->second;
                         scope->range.first = scopeStartAddress;
 
                         // Make current
-                        if (currScope) {
-                            currScope->AddChild(scope);
+                        if (m_currScope) {
+                            m_currScope->AddChild(scope);
                         }
-                        currScope = scope;
+                        m_currScope = scope;
 
                         // Add the first scope to the function
-                        if (!currFunction->scope) {
-                            currFunction->scope = scope;
+                        if (!m_currFunction->scope) {
+                            m_currFunction->scope = scope;
                         }
 
                     } else if (type == N_RBRAC) {
                         // Set the end address for the closing scope
                         const std::string label = value;
-                        auto iter = labelToAddress.find(label);
-                        if (iter == labelToAddress.end()) {
+                        auto iter = m_labelToAddress.find(label);
+                        if (iter == m_labelToAddress.end()) {
                             FAIL_MSG("Warning! label not found: %s\n", label.c_str());
                         }
                         const uint16_t scopeEndAddress = iter->second;
-                        currScope->range.second = scopeEndAddress;
+                        m_currScope->range.second = scopeEndAddress;
 
                         // Set current scope to parent
-                        ASSERT(currScope);
-                        currScope = currScope->Parent();
+                        ASSERT(m_currScope);
+                        m_currScope = m_currScope->Parent();
 
                         // On the last closing scope, we're done defining the current function
-                        if (!currScope) {
-                            m_debugSymbols->AddFunction(std::move(currFunction));
+                        if (!m_currScope) {
+                            m_debugSymbols->AddFunction(std::move(m_currFunction));
                         }
                     }
                 }
@@ -721,4 +591,123 @@ bool RstParser::Parse(const fs::path& rstFile) {
     }
 
     return true;
+}
+
+bool RstParser::GetLine(std::ifstream& fin, std::string& line) {
+    if (!std::getline(fin, line))
+        return false;
+
+    // stab string lines that are too long are extended over multiple consecutive lines by
+    // adding a '\\' token at the end of the 'string' portion, for example:
+    //   59;.stabs	"WeekDay:t25=eMonday:0,Tuesday:1,Wednesday:2,EndOfDays:2,\\", 128, 0, 0, 0
+    //   60;.stabs	"Foo:-5000,;", 128, 0, 0, 0
+    // To simplify parsing, we join all these lines into a single one.
+    if (auto stabs = StabStringMatch(line)) {
+        const char* LineContinuationToken = R"(\\)";
+        auto s = stabs.String();
+
+        while (s.size() >= 2 && s.substr(s.size() - 2) == LineContinuationToken) {
+            std::string nextLine;
+            if (!std::getline(fin, nextLine))
+                return false;
+            auto nextStabs = StabStringMatch(nextLine);
+            ASSERT(nextStabs);
+            s = nextStabs.String();
+
+            // Replace the "\\" with the string contents of the next line
+            auto index = line.rfind(LineContinuationToken);
+            ASSERT(index != std::string::npos);
+            line.erase(index, 2);
+            line.insert(index, s);
+        }
+    }
+
+    return true;
+};
+
+std::shared_ptr<Type> RstParser::FindType(const std::string& typeRefId,
+                                          std::optional<std::string> varName) {
+    auto iter = m_typeIdToType.find(typeRefId);
+    if (iter == m_typeIdToType.end()) {
+        Printf("Warning! Type not found for '%s' "
+               "(type-ref id: "
+               "'%s')\n",
+               varName ? varName->c_str() : "Unknown variable", typeRefId.c_str());
+        return {};
+    }
+
+    return iter->second;
+}
+
+std::shared_ptr<Type> RstParser::AddPrimitiveType(const std::string& typeDefId,
+                                                  const std::string& typeName, bool isSigned,
+                                                  size_t byteSize) {
+    auto t = std::make_shared<PrimitiveType>();
+    t->name = typeName;
+    t->isSigned = isSigned;
+    t->byteSize = byteSize;
+
+    // Figure out the format type
+    if (typeName.find("float") != std::string::npos ||
+        typeName.find("double") != std::string::npos) {
+        t->format = PrimitiveType::Format::Float;
+    } else if (typeName.find("char") != std::string::npos && byteSize == 1) {
+        t->format = PrimitiveType::Format::Char;
+    } else {
+        t->format = PrimitiveType::Format::Int;
+    }
+
+    ASSERT(m_typeIdToType.count(typeDefId) == 0);
+    m_typeIdToType[typeDefId] = t;
+    m_debugSymbols->AddType(t);
+    return t;
+}
+
+std::shared_ptr<EnumType>
+RstParser::AddEnumType(const std::string& typeDefId, const std::string& typeName, bool isSigned,
+                       size_t byteSize, std::unordered_map<ssize_t, std::string> valueToId) {
+    auto t = std::make_shared<EnumType>();
+    t->name = typeName;
+    t->isSigned = isSigned;
+    t->byteSize = byteSize;
+    t->valueToId = std::move(valueToId);
+
+    ASSERT(m_typeIdToType.count(typeDefId) == 0);
+    m_typeIdToType[typeDefId] = t;
+    m_debugSymbols->AddType(t);
+    return t;
+}
+
+std::shared_ptr<StructType> RstParser::AddStructType(const std::string& typeDefId,
+                                                     const std::string& typeName,
+                                                     std::vector<StructType::Member> members) {
+    auto t = std::make_shared<StructType>();
+    t->name = typeName;
+    t->members = std::move(members);
+
+    ASSERT(m_typeIdToType.count(typeDefId) == 0);
+    m_typeIdToType[typeDefId] = t;
+    m_debugSymbols->AddType(t);
+    return t;
+}
+
+std::shared_ptr<IndirectType> RstParser::AddIndirectType(const std::string& typeDefId,
+                                                         std::shared_ptr<Type> type) {
+    auto t = std::make_shared<IndirectType>();
+    t->name = type->name + "*";
+    t->type = std::move(type);
+
+    ASSERT(m_typeIdToType.count(typeDefId) == 0);
+    m_typeIdToType[typeDefId] = t;
+    m_debugSymbols->AddType(t);
+    return t;
+}
+
+void RstParser::AddVariable(std::string name, std::shared_ptr<Type> type, uint16_t stackOffset) {
+    auto v = std::make_shared<Variable>();
+    v->name = std::move(name);
+    v->type = std::move(type);
+    v->location = Variable::StackOffset{stackOffset};
+
+    m_currVariables.push_back(std::move(v));
 }
