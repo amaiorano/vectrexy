@@ -199,22 +199,23 @@ namespace {
         LSymStructMatch(const std::string& s)
             : MatchBase(R"((.*):T([0-9]+)=s([0-9]+)(.*);)", s) {}
 
-        // Splits out the values
-        // 1: member name
-        // 2: type ref #
-        // 3: offset in bits
-        // 4: size in bits
-        // "a:7,0,8;b:7,8,8;c:7,16,8;d:7,24,6;e:7,30,2;"
+        // Splits out the array of values
+        // 1: lsym string
+        // 2: offset in bits
+        // 3: size in bits
+        // "a:7,0,8;b:7,8,8;c:7,16,8;d:7,24,6;e:7,30,2;p:28=*7,88,16;"
         struct ValueMatch : MultiMatchBase {
             ValueMatch(const std::string& s)
-                : MultiMatchBase(R"((.*?):(.*?),(.*?),(.*?);)", s) {}
+                : MultiMatchBase(R"((.*?),(.*?),(.*?);)", s) {}
 
             size_t Count() const { return m_matches.size(); }
 
-            std::string MemberName(size_t i) const { return m_matches[i][1].str(); }
-            std::string TypeRefId(size_t i) const { return m_matches[i][2].str(); }
-            std::string OffsetBits(size_t i) const { return m_matches[i][3].str(); }
-            std::string SizeBits(size_t i) const { return m_matches[i][4].str(); }
+            // "a:7"
+            // "p:28=*7"
+            std::string LSym(size_t i) const { return m_matches[i][1].str(); }
+
+            std::string OffsetBits(size_t i) const { return m_matches[i][2].str(); }
+            std::string SizeBits(size_t i) const { return m_matches[i][3].str(); }
         };
 
         std::string TypeName() const { return m_match[1].str(); }
@@ -426,9 +427,9 @@ bool RstParser::Parse(const fs::path& rstFile) {
                             if (!pointerType)
                                 return;
 
-                            const auto stackOffset = lsymValue;
-
                             auto indirectType = AddIndirectType(typeDefId, pointerType);
+
+                            const auto stackOffset = lsymValue;
                             AddVariable(varName, indirectType, DecToU16(stackOffset));
                         }
 
@@ -483,17 +484,46 @@ bool RstParser::Parse(const fs::path& rstFile) {
                             members.reserve(values.Count());
 
                             for (size_t i = 0; i < values.Count(); ++i) {
+
                                 StructType::Member member;
-                                member.name = values.MemberName(i);
+
+                                // Parse member variables as we do regular variables. We expect
+                                // these to be either regular variable declarations, or pointer type
+                                // defintion and declaration.
+                                const auto memberLSym = values.LSym(i);
+
+                                if (auto lsymMemberVar = LSymMatch(memberLSym)) {
+                                    ASSERT(!lsymMemberVar.IsTypeDef()); // Is a variable declaration
+
+                                    auto memberType = FindType(lsymMemberVar.VarTypeRefId(),
+                                                               lsymMemberVar.VarName());
+                                    if (!memberType)
+                                        return;
+
+                                    member.name = lsymMemberVar.VarName();
+                                    member.type = std::move(memberType);
+
+                                } else if (auto lsymMemberPointer = LSymPointerMatch(memberLSym)) {
+                                    // Find the type that this is a pointer to and create a new type
+                                    // for it
+                                    auto pointerType = FindType(lsymMemberPointer.TypeRefId(),
+                                                                lsymMemberPointer.VarName());
+                                    if (!pointerType)
+                                        return;
+
+                                    auto indirectType =
+                                        AddIndirectType(lsymMemberPointer.TypeDefId(), pointerType);
+
+                                    member.name = lsymMemberPointer.VarName();
+                                    member.type = std::move(indirectType);
+
+                                } else {
+                                    FAIL_MSG("Unexpected match for member");
+                                }
+
                                 member.offsetBits = std::stoul(values.OffsetBits(i));
                                 member.sizeBits = std::stoul(values.SizeBits(i));
 
-                                // Find type of this member
-                                auto memberType = FindType(values.TypeRefId(i), member.name);
-                                if (!memberType)
-                                    return;
-
-                                member.type = std::move(memberType);
                                 members.push_back(member);
                             }
 
