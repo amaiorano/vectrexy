@@ -33,11 +33,23 @@ private:
                                                   std::shared_ptr<Type> type);
     void AddVariable(std::string name, std::shared_ptr<Type> type, uint16_t stackOffset);
 
+    void HandleStabStringMatch(struct StabStringMatch& stabs);
+    void HandleStabDotMatch(struct StabDotMatch& stabd);
+    void HandleStabNumberMatch(struct StabNumberMatch& stabn);
+
     DebugSymbols* m_debugSymbols{};
+
+    struct ParseDirectives {};
+    struct ParseLineInstructions {
+        uint32_t lineNum{};
+    };
+
+    std::variant<ParseDirectives, ParseLineInstructions> m_state{ParseDirectives{}};
 
     std::unordered_map<std::string, uint16_t> m_labelToAddress;
     std::unordered_map<std::string, std::shared_ptr<Type>> m_typeIdToType;
 
+    std::string m_currSourceFile;
     std::shared_ptr<Function> m_currFunction;
     std::shared_ptr<Scope> m_currScope{};
     std::vector<std::shared_ptr<Variable>> m_currVariables;
