@@ -953,7 +953,7 @@ dap::Variable DapDebugger::CreateDapVariable(std::shared_ptr<Variable> var, uint
     } else if (auto indirectType = std::dynamic_pointer_cast<IndirectType>(var->type)) {
 
         const uint16_t pointeeAddress = m_memoryBus->Read16(varAddress);
-        std::string displayValue = FormattedString("0x%04x", pointeeAddress);
+        std::string displayValue = FormattedString("0x%04x", pointeeAddress).Value();
 
         const int id = m_dynamicVariables.AddVariable(var, varAddress);
         int variablesReference = VariableRef{VariableRef::Type::ParentVariableId, id}.AsInt();
