@@ -483,7 +483,63 @@ void RstParser::HandleStabStringMatch(StabStringMatch& stabs) {
         const std::string lsymString = stabs.String();
         const std::string lsymValue = stabs.Value();
 
-        if (auto lsym = LSymMatch(lsymString)) {
+        // Struct type definitions
+        if (auto lsymStruct = LSymStructMatch(lsymString)) {
+            // Collect info for each member
+            const auto values = lsymStruct.Values();
+
+            std::vector<StructType::Member> members;
+            members.reserve(values.Count());
+
+            for (size_t i = 0; i < values.Count(); ++i) {
+
+                StructType::Member member;
+
+                // Parse member variables as we do regular variables. We expect
+                // these to be either regular variable declarations, or pointer type
+                // defintion and declaration.
+                const auto memberLSym = values.LSym(i);
+
+                if (auto lsymMemberVar = LSymMatch(memberLSym)) {
+                    ASSERT(!lsymMemberVar.IsTypeDef()); // Is a variable declaration
+
+                    auto memberType =
+                        FindType(lsymMemberVar.VarTypeRefId(), lsymMemberVar.VarName());
+                    if (!memberType)
+                        return;
+
+                    member.name = lsymMemberVar.VarName();
+                    member.type = std::move(memberType);
+
+                } else if (auto lsymMemberPointer = LSymPointerMatch(memberLSym)) {
+                    // Find the type that this is a pointer to and create a new type
+                    // for it
+                    auto pointerType =
+                        FindType(lsymMemberPointer.TypeRefId(), lsymMemberPointer.VarName());
+                    if (!pointerType) {
+                        // Skip this member
+                        continue;
+                    }
+
+                    auto indirectType = AddIndirectType(lsymMemberPointer.TypeDefId(), pointerType);
+
+                    member.name = lsymMemberPointer.VarName();
+                    member.type = std::move(indirectType);
+
+                } else {
+                    FAIL_MSG("Unexpected match for member");
+                }
+
+                member.offsetBits = std::stoul(values.OffsetBits(i));
+                member.sizeBits = std::stoul(values.SizeBits(i));
+
+                members.push_back(member);
+            }
+
+            AddStructType(lsymStruct.TypeDefId(), lsymStruct.TypeName(), std::move(members));
+        }
+        // Type definition or variable declaration
+        else if (auto lsym = LSymMatch(lsymString)) {
             // Type definition
             if (lsym.IsTypeDef()) {
                 const auto typeName = lsym.TypeName();
@@ -570,7 +626,6 @@ void RstParser::HandleStabStringMatch(StabStringMatch& stabs) {
             const auto stackOffset = lsymValue;
             AddVariable(lsymPointer.VarName(), indirectType, DecToU16(stackOffset));
         }
-
         // Enum type definitions
         else if (auto lsymEnum = LSymEnumMatch(lsymString)) {
             auto minValue = std::numeric_limits<ssize_t>::max();
@@ -610,62 +665,6 @@ void RstParser::HandleStabStringMatch(StabStringMatch& stabs) {
 
             AddEnumType(lsymEnum.TypeDefId(), lsymEnum.TypeName(), isSigned, byteSize,
                         std::move(valueToId));
-        }
-
-        // Struct type definitions
-        else if (auto lsymStruct = LSymStructMatch(lsymString)) {
-            // Collect info for each member
-            const auto values = lsymStruct.Values();
-
-            std::vector<StructType::Member> members;
-            members.reserve(values.Count());
-
-            for (size_t i = 0; i < values.Count(); ++i) {
-
-                StructType::Member member;
-
-                // Parse member variables as we do regular variables. We expect
-                // these to be either regular variable declarations, or pointer type
-                // defintion and declaration.
-                const auto memberLSym = values.LSym(i);
-
-                if (auto lsymMemberVar = LSymMatch(memberLSym)) {
-                    ASSERT(!lsymMemberVar.IsTypeDef()); // Is a variable declaration
-
-                    auto memberType =
-                        FindType(lsymMemberVar.VarTypeRefId(), lsymMemberVar.VarName());
-                    if (!memberType)
-                        return;
-
-                    member.name = lsymMemberVar.VarName();
-                    member.type = std::move(memberType);
-
-                } else if (auto lsymMemberPointer = LSymPointerMatch(memberLSym)) {
-                    // Find the type that this is a pointer to and create a new type
-                    // for it
-                    auto pointerType =
-                        FindType(lsymMemberPointer.TypeRefId(), lsymMemberPointer.VarName());
-                    if (!pointerType) {
-                        // Skip this member
-                        continue;
-                    }
-
-                    auto indirectType = AddIndirectType(lsymMemberPointer.TypeDefId(), pointerType);
-
-                    member.name = lsymMemberPointer.VarName();
-                    member.type = std::move(indirectType);
-
-                } else {
-                    FAIL_MSG("Unexpected match for member");
-                }
-
-                member.offsetBits = std::stoul(values.OffsetBits(i));
-                member.sizeBits = std::stoul(values.SizeBits(i));
-
-                members.push_back(member);
-            }
-
-            AddStructType(lsymStruct.TypeDefId(), lsymStruct.TypeName(), std::move(members));
         }
     }
 }
