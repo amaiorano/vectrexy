@@ -2,9 +2,11 @@
 
 #include "core/FileSystem.h"
 #include "debugger/DebugSymbols.h"
-#include <fstream>
+#include "debugger/RstFile.h"
 #include <memory>
+#include <string>
 #include <unordered_map>
+#include <variant>
 #include <vector>
 
 class DebugSymbols;
@@ -12,11 +14,9 @@ class DebugSymbols;
 class RstParser {
 public:
     RstParser(DebugSymbols& debugSymbols);
-    bool Parse(const fs::path& rstFile);
+    bool Parse(const fs::path& rstFilePath);
 
 private:
-    bool GetLine(std::ifstream& fin, std::string& line);
-
     std::shared_ptr<Type> FindType(const std::string& typeRefId,
                                    std::optional<std::string> varName = {});
     void AddType(const std::string& typeDefId, std::shared_ptr<Type> type);
@@ -38,7 +38,11 @@ private:
     void HandleStabDotMatch(struct StabDotMatch& stabd);
     void HandleStabNumberMatch(struct StabNumberMatch& stabn);
 
+    void BeginFunctionDefinition(const std::string& funcName, uint16_t funcAddress);
+    void EndFunctionDefinition();
+
     DebugSymbols* m_debugSymbols{};
+    RstFile m_rstFile;
 
     struct ParseDirectives {};
     struct ParseLineInstructions {
