@@ -166,7 +166,7 @@ struct LSymMatch : MatchBase {
 // easily distinguish them.
 struct LSymPointerMatch : MatchBase {
     LSymPointerMatch(const std::string& s)
-        : MatchBase(R"((.*):([0-9]+)=\*([0-9]+))", s) {}
+        : MatchBase(R"((.*):([0-9]+)=\*([0-9]+)(=.*:)*)", s) {}
 
     std::string VarName() const { return m_match[1].str(); }
     std::string TypeDefId() const { return m_match[2].str(); }
@@ -303,6 +303,11 @@ bool RstParser::Parse(const fs::path& rstFile) {
             });
     }
 
+    m_debugSymbols->ResolveTypes([this](std::string id) -> std::shared_ptr<Type> {
+        ASSERT(m_typeIdToType.count(id) != 0);
+        return m_typeIdToType[id];
+    });
+
     return true;
 }
 
@@ -341,15 +346,28 @@ bool RstParser::GetLine(std::ifstream& fin, std::string& line) {
 std::shared_ptr<Type> RstParser::FindType(const std::string& typeRefId,
                                           std::optional<std::string> varName) {
     auto iter = m_typeIdToType.find(typeRefId);
+
+    // If type isn't found, create an UnresolvedType in its stead. These will be resolved later.
     if (iter == m_typeIdToType.end()) {
-        Printf("Warning! Type not found for '%s' "
-               "(type-ref id: "
-               "'%s')\n",
-               varName ? varName->c_str() : "Unknown variable", typeRefId.c_str());
-        return {};
+        auto type = std::make_unique<UnresolvedType>();
+        type->id = typeRefId;
+        return type;
     }
 
     return iter->second;
+}
+
+void RstParser::AddType(const std::string& typeDefId, std::shared_ptr<Type> type) {
+    auto iter = m_typeIdToType.find(typeDefId);
+
+    // If it's found, it must an unresolved type. We will replace it either with another
+    // unresolved type, or with the actual type.
+    if (iter != m_typeIdToType.end()) {
+        ASSERT(std::dynamic_pointer_cast<UnresolvedType>(iter->second));
+    }
+
+    m_typeIdToType[typeDefId] = type;
+    m_debugSymbols->AddType(std::move(type));
 }
 
 std::shared_ptr<Type> RstParser::AddPrimitiveType(const std::string& typeDefId,
@@ -370,9 +388,7 @@ std::shared_ptr<Type> RstParser::AddPrimitiveType(const std::string& typeDefId,
         t->format = PrimitiveType::Format::Int;
     }
 
-    ASSERT(m_typeIdToType.count(typeDefId) == 0);
-    m_typeIdToType[typeDefId] = t;
-    m_debugSymbols->AddType(t);
+    AddType(typeDefId, t);
     return t;
 }
 
@@ -385,9 +401,7 @@ RstParser::AddEnumType(const std::string& typeDefId, const std::string& typeName
     t->byteSize = byteSize;
     t->valueToId = std::move(valueToId);
 
-    ASSERT(m_typeIdToType.count(typeDefId) == 0);
-    m_typeIdToType[typeDefId] = t;
-    m_debugSymbols->AddType(t);
+    AddType(typeDefId, t);
     return t;
 }
 
@@ -398,9 +412,7 @@ std::shared_ptr<StructType> RstParser::AddStructType(const std::string& typeDefI
     t->name = typeName;
     t->members = std::move(members);
 
-    ASSERT(m_typeIdToType.count(typeDefId) == 0);
-    m_typeIdToType[typeDefId] = t;
-    m_debugSymbols->AddType(t);
+    AddType(typeDefId, t);
     return t;
 }
 
@@ -410,9 +422,7 @@ std::shared_ptr<IndirectType> RstParser::AddIndirectType(const std::string& type
     t->name = type->name + "*";
     t->type = std::move(type);
 
-    ASSERT(m_typeIdToType.count(typeDefId) == 0);
-    m_typeIdToType[typeDefId] = t;
-    m_debugSymbols->AddType(t);
+    AddType(typeDefId, t);
     return t;
 }
 
@@ -635,8 +645,10 @@ void RstParser::HandleStabStringMatch(StabStringMatch& stabs) {
                     // for it
                     auto pointerType =
                         FindType(lsymMemberPointer.TypeRefId(), lsymMemberPointer.VarName());
-                    if (!pointerType)
-                        return;
+                    if (!pointerType) {
+                        // Skip this member
+                        continue;
+                    }
 
                     auto indirectType = AddIndirectType(lsymMemberPointer.TypeDefId(), pointerType);
 

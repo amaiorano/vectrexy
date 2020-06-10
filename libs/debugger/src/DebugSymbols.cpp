@@ -1,5 +1,6 @@
 #include "Debugger/DebugSymbols.h"
 #include <cassert>
+#include <unordered_set>
 
 void DebugSymbols::AddSourceLocation(uint16_t address, SourceLocation location) {
     // TODO: if there's already a location object at address, validate that it's the same as the
@@ -55,4 +56,58 @@ const Symbol* DebugSymbols::GetSymbolByAddress(uint16_t address) const {
         return &iter->second;
     }
     return {};
+}
+
+void DebugSymbols::ResolveTypes(
+    const std::function<std::shared_ptr<Type>(std::string id)>& resolver) {
+
+    auto resolve = [&](std::string id) {
+        auto t = resolver(id);
+        ASSERT_MSG(std::dynamic_pointer_cast<UnresolvedType>(t) == nullptr,
+                   "Type with id:%s was not resolved!", id.c_str());
+        return t;
+    };
+
+    // Track types visited to avoid infinite recursion over the Type tree. E.g. if we resolve a
+    // recursively defined type, like 'struct Node { Node* next; }', we must make sure not to
+    // traverse 'Node' infinitely.
+    std::unordered_set<std::shared_ptr<Type>*> visitedTypes;
+
+    std::function<bool(std::shared_ptr<Type> & t)> tryResolve;
+    tryResolve = [&](std::shared_ptr<Type>& t) {
+        if (visitedTypes.count(&t) != 0)
+            return false;
+        visitedTypes.insert(&t);
+
+        if (auto ut = std::dynamic_pointer_cast<UnresolvedType>(t)) {
+            t = resolve(ut->id);
+            return true;
+
+        } else if (auto it = std::dynamic_pointer_cast<IndirectType>(t)) {
+            if (tryResolve(it->type)) {
+                // HACK! Need a more generic solution for post-resolve fixups
+                it->name = it->type->name + "*";
+            }
+
+        } else if (auto st = std::dynamic_pointer_cast<StructType>(t)) {
+            for (auto&& m : st->members) {
+                tryResolve(m.type);
+            }
+        }
+
+        return false;
+    };
+
+    for (auto&& t : m_types) {
+        tryResolve(t);
+    }
+
+    for (auto&& addressFunctionPair : m_addressToFunction) {
+        auto& rootScope = addressFunctionPair.second->scope;
+        Traverse(rootScope, [&](std::shared_ptr<Scope> scope) {
+            for (auto&& v : scope->variables) {
+                tryResolve(v->type);
+            }
+        });
+    }
 }

@@ -19,6 +19,7 @@ private:
 
     std::shared_ptr<Type> FindType(const std::string& typeRefId,
                                    std::optional<std::string> varName = {});
+    void AddType(const std::string& typeDefId, std::shared_ptr<Type> type);
 
     std::shared_ptr<Type> AddPrimitiveType(const std::string& typeDefId,
                                            const std::string& typeName, bool isSigned,

@@ -4,6 +4,7 @@
 #include "core/StrongType.h"
 #include <array>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -35,6 +36,10 @@ namespace std {
 struct Type {
     virtual ~Type() = default;
     std::string name;
+};
+
+struct UnresolvedType : Type {
+    std::string id{};
 };
 
 struct PrimitiveType : Type {
@@ -99,14 +104,19 @@ struct Scope : std::enable_shared_from_this<Scope> {
 };
 
 // TODO: Create a TreeNode base, and move this into it
-template <typename Callback>
-void Traverse(std::shared_ptr<const Scope> node, Callback callback) {
+template <typename Callback, typename NodePtr>
+void Traverse(NodePtr node, Callback callback) {
     if (node) {
         callback(node);
         for (auto& c : node->children) {
             Traverse(c, callback);
         }
     }
+}
+
+template <typename Callback>
+void Traverse(std::shared_ptr<const Scope> node, Callback callback) {
+    return Traverse(node, callback);
 }
 
 struct Function {
@@ -148,6 +158,8 @@ public:
     }
 
     void AddType(std::shared_ptr<Type> type) { m_types.push_back(std::move(type)); }
+
+    void ResolveTypes(const std::function<std::shared_ptr<Type>(std::string id)>& resolver);
 
 private:
     // Store source location info for every possible address
