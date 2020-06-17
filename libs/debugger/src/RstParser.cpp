@@ -17,6 +17,19 @@ namespace {
         return checked_static_cast<uint16_t>(std::stoi(s, {}, 10));
     }
 
+    template <typename T = void>
+    size_t StringToSizeT(const std::string& s) {
+        if constexpr (sizeof(size_t) == sizeof(unsigned long long)) {
+            return std::stoull(s);
+        } else if constexpr (sizeof(size_t) == sizeof(unsigned int)) {
+            return std::stoul(s);
+        } else {
+            static_assert(dependent_false<T>::value, "size_t case missing");
+            FAIL();
+            return 0;
+        }
+    }
+
     constexpr auto N_FUN = 36;    // 0x24 Function name
     constexpr auto N_SLINE = 68;  // 0x44 Line number in text segment
     constexpr auto N_LSYM = 128;  // 0x80 Local variable or type definition
@@ -170,11 +183,23 @@ RstParser::AddEnumType(const std::string& typeDefId, const std::string& typeName
     return t;
 }
 
+std::shared_ptr<ArrayType> RstParser::AddArrayType(const std::string& typeDefId,
+                                                   std::shared_ptr<Type> type, size_t numElems) {
+    auto t = std::make_shared<ArrayType>();
+    t->name = type->name + "[" + std::to_string(numElems) + "]";
+    t->type = std::move(type);
+    t->numElems = numElems;
+
+    AddType(typeDefId, t);
+    return t;
+}
+
 std::shared_ptr<StructType> RstParser::AddStructType(const std::string& typeDefId,
-                                                     const std::string& typeName,
+                                                     const std::string& typeName, size_t byteSize,
                                                      std::vector<StructType::Member> members) {
     auto t = std::make_shared<StructType>();
     t->name = typeName;
+    t->byteSize = byteSize;
     t->members = std::move(members);
 
     AddType(typeDefId, t);
@@ -291,13 +316,14 @@ void RstParser::HandleStabStringMatch(StabStringMatch& stabs) {
                     FAIL_MSG("Unexpected match for member");
                 }
 
-                member.offsetBits = std::stoul(values.OffsetBits(i));
-                member.sizeBits = std::stoul(values.SizeBits(i));
+                member.offsetBits = StringToSizeT(values.OffsetBits(i));
+                member.sizeBits = StringToSizeT(values.SizeBits(i));
 
                 members.push_back(member);
             }
 
-            AddStructType(lsymStruct.TypeDefId(), lsymStruct.TypeName(), std::move(members));
+            AddStructType(lsymStruct.TypeDefId(), lsymStruct.TypeName(),
+                          StringToSizeT(lsymStruct.SizeBytes()), std::move(members));
         }
         // Type definition or variable declaration
         else if (auto lsym = LSymMatch(lsymString)) {
@@ -426,6 +452,44 @@ void RstParser::HandleStabStringMatch(StabStringMatch& stabs) {
 
             AddEnumType(lsymEnum.TypeDefId(), lsymEnum.TypeName(), isSigned, byteSize,
                         std::move(valueToId));
+
+        }
+
+        else if (auto lsymArray = LSymArrayMatch(lsymString)) {
+            // For parsing, prefix a the var name and colon to be able to match.
+            auto arrayLSym = lsymArray.VarName() + ":" + lsymArray.LSymType();
+
+            std::shared_ptr<Type> arrayElemType{};
+
+            if (auto arrayLSymVar = LSymMatch(arrayLSym)) {
+                ASSERT(!arrayLSymVar.IsTypeDef()); // Is a variable declaration
+
+                arrayElemType = FindType(arrayLSymVar.VarTypeRefId(), arrayLSymVar.VarName());
+                if (!arrayElemType)
+                    return;
+
+            } else if (auto lsymMemberPointer = LSymPointerMatch(arrayLSym)) {
+                // Find the type that this is a pointer to and create a new type
+                // for it
+                auto pointerType =
+                    FindType(lsymMemberPointer.TypeRefId(), lsymMemberPointer.VarName());
+                if (!pointerType) {
+                    return;
+                }
+
+                auto indirectType = AddIndirectType(lsymMemberPointer.TypeDefId(), pointerType);
+                arrayElemType = indirectType;
+
+            } else {
+                FAIL_MSG("Unexpected match for member");
+                return;
+            }
+
+            auto arrayType = AddArrayType(lsymArray.TypeDefId(), arrayElemType,
+                                          StringToSizeT(lsymArray.IndexUpperBound()) + 1);
+
+            const auto stackOffset = lsymValue;
+            AddVariable(lsymArray.VarName(), arrayType, DecToU16(stackOffset));
         }
     }
 }

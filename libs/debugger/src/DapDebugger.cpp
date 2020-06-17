@@ -959,6 +959,17 @@ dap::Variable DapDebugger::CreateDapVariable(std::shared_ptr<Variable> var, uint
         int variablesReference = VariableRef{VariableRef::Type::ParentVariableId, id}.AsInt();
 
         return MakeDapVariable(var->name, displayValue, indirectType->name, variablesReference);
+
+    } else if (auto arrayType = std::dynamic_pointer_cast<ArrayType>(var->type)) {
+
+        // const uint16_t arrayStartAddress = m_memoryBus->Read16(varAddress);
+        std::string displayValue = FormattedString("0x%04x", varAddress).Value();
+
+        const int id = m_dynamicVariables.AddVariable(var, varAddress);
+        int variablesReference = VariableRef{VariableRef::Type::ParentVariableId, id}.AsInt();
+
+        return MakeDapVariable(var->name, displayValue, arrayType->name, variablesReference);
+
     } else {
         FAIL_MSG("Unexpected type");
     }
@@ -993,6 +1004,20 @@ std::vector<dap::Variable> DapDebugger::CreateChildDapVariables(std::shared_ptr<
         var->name = "*" + parentVar->name;
         var->type = indirectType->type;
         result.push_back(CreateDapVariable(var, pointeeAddress));
+
+    } else if (auto arrayType = std::dynamic_pointer_cast<ArrayType>(parentVar->type)) {
+        const size_t elemSize = arrayType->type->Size();
+
+        for (size_t i = 0; i < arrayType->numElems; ++i) {
+            auto var = std::make_shared<Variable>();
+            var->name = parentVar->name + "[" + std::to_string(i) + "]";
+            var->type = arrayType->type;
+
+            const uint16_t elemAddress =
+                checked_static_cast<uint16_t>(parentVarAddress + elemSize * i);
+
+            result.push_back(CreateDapVariable(var, elemAddress));
+        }
 
     } else {
         FAIL_MSG("Unexpected type");

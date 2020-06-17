@@ -35,14 +35,23 @@ namespace std {
 
 struct Type {
     virtual ~Type() = default;
+    virtual size_t Size() const = 0;
+
     std::string name;
 };
 
 struct UnresolvedType : Type {
+    size_t Size() const override {
+        FAIL();
+        return 0;
+    }
+
     std::string id{};
 };
 
 struct PrimitiveType : Type {
+    size_t Size() const override { return byteSize; }
+
     enum class Format { Int, Char, Float };
     Format format{};
     size_t byteSize{};
@@ -50,12 +59,23 @@ struct PrimitiveType : Type {
 };
 
 struct EnumType : Type {
+    size_t Size() const override { return byteSize; }
+
     std::unordered_map<ssize_t, std::string> valueToId;
     size_t byteSize{};
     bool isSigned{};
 };
 
+struct ArrayType : Type {
+    size_t Size() const override { return type->Size() * numElems; }
+
+    std::shared_ptr<Type> type; // Element type
+    size_t numElems;
+};
+
 struct StructType : Type {
+    size_t Size() const override { return byteSize; }
+
     struct Member {
         std::string name;
         size_t offsetBits;
@@ -63,10 +83,16 @@ struct StructType : Type {
         std::shared_ptr<Type> type;
     };
 
+    size_t byteSize{};
     std::vector<Member> members;
 };
 
 struct IndirectType : Type {
+    size_t Size() const override {
+        // Pointers/references are 2 bytes on the Vectrex (6809 CPU)
+        return 2;
+    }
+
     std::shared_ptr<Type> type;
 };
 

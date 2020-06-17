@@ -89,6 +89,12 @@ void DebugSymbols::ResolveTypes(
                 it->name = it->type->name + "*";
             }
 
+        } else if (auto at = std::dynamic_pointer_cast<ArrayType>(t)) {
+            if (tryResolve(at->type)) {
+                // HACK! Need a more generic solution for post-resolve fixups
+                at->name = at->name + "[" + std::to_string(at->numElems) + "]";
+            }
+
         } else if (auto st = std::dynamic_pointer_cast<StructType>(t)) {
             for (auto&& m : st->members) {
                 tryResolve(m.type);

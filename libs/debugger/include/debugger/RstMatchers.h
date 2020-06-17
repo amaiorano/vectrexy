@@ -179,6 +179,26 @@ struct LSymEnumMatch : MatchBase {
     std::string Values() const { return m_match[3].str(); }
 };
 
+// Match stabs type string for N_LSYM: array variable declarations
+// int i[1];        i:25=ar26=r26;0;-1;;0;0;7
+// char c[2];       c:27=ar26;0;1;13
+// bool b[3];       b:28=ar26;0;2;22
+// int* pi[4];      pi:29=ar26;0;3;30=*7
+//
+// 1: variable name
+// 2: type def #
+// 3: index upper-bound
+// 4: lsym type (not the entire lsym, e.g. "7" instead of "i:7" or "30=*7" instead of "pi:30=*7"
+struct LSymArrayMatch : MatchBase {
+    LSymArrayMatch(const std::string& s)
+        : MatchBase(R"((.*):([0-9]+)=ar[0-9]+(?:=r.*?;.*?;.*?;|);.*?;(.*?);(.*))", s) {}
+
+    std::string VarName() const { return m_match[1].str(); }
+    std::string TypeDefId() const { return m_match[2].str(); }
+    std::string IndexUpperBound() const { return m_match[3].str(); }
+    std::string LSymType() const { return m_match[4].str(); }
+};
+
 // Match stabs type string for N_LSYM: struct/class type definitions
 // "Foo:T26=s4a:7,0,8;b:7,8,8;c:7,16,8;d:7,24,6;e:7,30,2;;
 //

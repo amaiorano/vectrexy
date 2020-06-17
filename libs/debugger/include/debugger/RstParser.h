@@ -27,8 +27,10 @@ private:
     std::shared_ptr<EnumType> AddEnumType(const std::string& typeDefId, const std::string& typeName,
                                           bool isSigned, size_t byteSize,
                                           std::unordered_map<ssize_t, std::string> valueToId);
+    std::shared_ptr<ArrayType> AddArrayType(const std::string& typeDefId,
+                                            std::shared_ptr<Type> arrayType, size_t numElems);
     std::shared_ptr<StructType> AddStructType(const std::string& typeDefId,
-                                              const std::string& typeName,
+                                              const std::string& typeName, size_t byteSize,
                                               std::vector<StructType::Member> members);
     std::shared_ptr<IndirectType> AddIndirectType(const std::string& typeDefId,
                                                   std::shared_ptr<Type> type);
