@@ -2,19 +2,30 @@
 
 #include <regex>
 #include <string>
+#include <unordered_map>
+
+// Cache of std::regex objects to avoid re-compiling the same expressions
+struct RegexCache {
+    const std::regex& GetOrAdd(const char* re) {
+        auto result = cache.try_emplace(re, re);
+        return result.first->second;
+    }
+    std::unordered_map<const char*, std::regex> cache;
+};
 
 struct MatchBase {
     MatchBase(const char* re, std::string s)
         : m_s(std::move(s))
-        , m_re(re) {
+        , m_re(m_regexCache.GetOrAdd(re)) {
         m_matched = std::regex_match(m_s, m_match, m_re);
     }
 
     operator bool() const { return m_matched; }
 
 protected:
-    std::string m_s;
-    std::regex m_re;
+    static inline RegexCache m_regexCache;
+    const std::string m_s;
+    const std::regex& m_re;
     std::smatch m_match;
     bool m_matched{};
 };
@@ -22,7 +33,7 @@ protected:
 struct MultiMatchBase {
     MultiMatchBase(const char* re, std::string s)
         : m_s(std::move(s))
-        , m_re(re) {
+        , m_re(m_regexCache.GetOrAdd(re)) {
 
         auto words_begin = std::sregex_iterator(m_s.begin(), m_s.end(), m_re);
         auto words_end = std::sregex_iterator();
@@ -35,9 +46,12 @@ struct MultiMatchBase {
 
     operator bool() const { return !m_matches.empty(); }
 
+    const std::vector<std::smatch>& Matches() const { return m_matches; }
+
 protected:
-    std::string m_s;
-    std::regex m_re;
+    static inline RegexCache m_regexCache;
+    const std::string m_s;
+    const std::regex& m_re;
     std::vector<std::smatch> m_matches;
 };
 
