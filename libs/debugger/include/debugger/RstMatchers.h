@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/Base.h"
 #include <regex>
 #include <string>
 #include <unordered_map>
@@ -198,19 +199,86 @@ struct LSymEnumMatch : MatchBase {
 // char c[2];       c:27=ar26;0;1;13
 // bool b[3];       b:28=ar26;0;2;22
 // int* pi[4];      pi:29=ar26;0;3;30=*7
-//
-// 1: variable name
-// 2: type def #
-// 3: index upper-bound
-// 4: lsym type (not the entire lsym, e.g. "7" instead of "i:7" or "30=*7" instead of "pi:30=*7"
 struct LSymArrayMatch : MatchBase {
     LSymArrayMatch(const std::string& s)
-        : MatchBase(R"((.*):([0-9]+)=ar[0-9]+(?:=r.*?;.*?;.*?;|);.*?;(.*?);(.*))", s) {}
+        : MatchBase(R"((.*):([0-9]+)(=ar.*))", s) {
+
+        if (!m_matched)
+            return;
+
+        // Multidimensional arrays are a bit annoying to parse. Let's look at an example:
+        //      int* c[10][11][12];
+        //
+        // Produces stabs like:
+        //      c:25=ar26=r26;0;-1;;0;9;27=ar26;0;10;28=ar26;0;11;29=*7
+        //
+        // Let's break it down:
+        //
+        // clang-format off
+        //
+        // "c:25" -> variable name 'c' is of type 25
+        // "25=ar26"         -> type 25 is an array ('a') of type range ('r') 26
+        // "r26=r26;0;-1;"   -> range 26 is defined as a range that goes from 0 to -1 (max whatever). We ignore this.
+        // "25=ar26;0;9;27"  -> type 25 is an array of max index 9 (arity 10) of type 27
+        // "27=ar26;0;10;28" -> type 27 is an array of max index 10 (arity 11) of type 28
+        // "28=ar26;0;11;29" -> type 28 is an array of max index 11 (arity 12) of type 29
+        // "29=*7"           -> type 29 is a pointer of type 7 (int*)
+        //
+        // clang-format on
+        //
+        // So in this case, we want to extract and provide the following info:
+        //
+        // Variable name: "c"
+        // Dimensions (typeDefId, maxIndex, typeRefSym)
+        //  0: (25, 9, 27)
+        //  1: (27, 10, 28)
+        //  2: (28, 11, 29=*7)
+        //
+        // Client code should consume this in reverse: define type 28 as an array of type 29, then
+        // type 27 as an array of type 28, etc.
+
+        // Create a multi matcher to extract parts for each dimension from m_match[3].
+        // e.g. "ar26=r26;0;-1;;0;9;31=ar26;0;10;32=ar26;0;11;33=*7"
+        // Would extract three matches of (maxIndex, typeRefSym):
+        //  1:  "9"   2: "31="
+        //  1: "10"   2: "32="
+        //  1: "11"   2: "33=*7"
+        // When returning "31=", we remove "="
+        auto dimMatcher = MultiMatchBase(R"([0-9]+(?:=r.*?;.*?;.*?;)?;.*?;(.*?);(.*?)(?:=ar|$))",
+                                         m_match[3].str());
+
+        for (size_t i = 0; i < dimMatcher.Matches().size(); ++i) {
+            auto dimMatch = dimMatcher.Matches()[i];
+
+            // First dimension's def id is match[2], otherwise it's the type ref id of the previous
+            // dimension
+            std::string typeDefId = m_dims.empty() ? m_match[2] : m_dims.back().typeRefSym;
+
+            auto maxIndex = dimMatch[1].str();
+            auto typeRefSym = dimMatch[2].str();
+
+            // If it ends in '=', chop it off
+            if (typeRefSym.back() == '=') {
+                typeRefSym = typeRefSym.substr(0, typeRefSym.size() - 1);
+                ASSERT_MSG(std::regex_match(typeRefSym, std::regex{R"([0-9]+)"}),
+                           "Should be a number");
+            }
+
+            m_dims.push_back({typeDefId, std::move(maxIndex), std::move(typeRefSym)});
+        }
+    }
+
+    struct Dimension {
+        const std::string typeDefId;
+        const std::string maxIndex;
+        const std::string typeRefSym; // A symbol type: "30", "30=*31", etc.
+    };
 
     std::string VarName() const { return m_match[1].str(); }
-    std::string TypeDefId() const { return m_match[2].str(); }
-    std::string IndexUpperBound() const { return m_match[3].str(); }
-    std::string LSymType() const { return m_match[4].str(); }
+    const std::vector<Dimension>& Dims() const { return m_dims; }
+
+private:
+    std::vector<Dimension> m_dims;
 };
 
 // Match stabs type string for N_LSYM: struct/class type definitions

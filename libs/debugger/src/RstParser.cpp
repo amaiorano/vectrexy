@@ -456,38 +456,54 @@ void RstParser::HandleStabStringMatch(StabStringMatch& stabs) {
         }
 
         else if (auto lsymArray = LSymArrayMatch(lsymString)) {
-            // For parsing, prefix a the var name and colon to be able to match.
-            auto arrayLSym = lsymArray.VarName() + ":" + lsymArray.LSymType();
 
-            std::shared_ptr<Type> arrayElemType{};
+            // This will be set to the last dimension we parse, which will be the type of the array
+            // variable.
+            std::shared_ptr<ArrayType> arrayType;
 
-            if (auto arrayLSymVar = LSymMatch(arrayLSym)) {
-                ASSERT(!arrayLSymVar.IsTypeDef()); // Is a variable declaration
+            // Iterate through dimensions in reverse order to define each dimension as an array type
+            const auto& dims = lsymArray.Dims();
+            for (auto iter = dims.rbegin(); iter != dims.rend(); ++iter) {
+                auto& dim = *iter;
 
-                arrayElemType = FindType(arrayLSymVar.VarTypeRefId(), arrayLSymVar.VarName());
-                if (!arrayElemType)
-                    return;
+                // For parsing, prefix a dummy var name and colon to be able to match.
+                // TODO: do this better.
+                auto arrayLSym = "dummy:" + dim.typeRefSym;
 
-            } else if (auto lsymMemberPointer = LSymPointerMatch(arrayLSym)) {
-                // Find the type that this is a pointer to and create a new type
-                // for it
-                auto pointerType =
-                    FindType(lsymMemberPointer.TypeRefId(), lsymMemberPointer.VarName());
-                if (!pointerType) {
+                // TODO: After parsing the first dimension, we don't need to match/find the next
+                // type, as it should already be 'arrayType' from the last iteration.
+                std::shared_ptr<Type> arrayElemType{};
+
+                if (auto arrayLSymVar = LSymMatch(arrayLSym)) {
+                    ASSERT(!arrayLSymVar.IsTypeDef()); // Is a variable declaration
+
+                    arrayElemType = FindType(arrayLSymVar.VarTypeRefId(), arrayLSymVar.VarName());
+                    if (!arrayElemType)
+                        return;
+
+                } else if (auto lsymPointer2 = LSymPointerMatch(arrayLSym)) {
+                    // Find the type that this is a pointer to and create a new type
+                    // for it
+                    auto pointerType = FindType(lsymPointer2.TypeRefId(), lsymPointer2.VarName());
+                    if (!pointerType) {
+                        return;
+                    }
+
+                    auto indirectType = AddIndirectType(lsymPointer2.TypeDefId(), pointerType);
+                    arrayElemType = indirectType;
+
+                } else {
+                    FAIL_MSG("Unexpected match for member");
                     return;
                 }
 
-                auto indirectType = AddIndirectType(lsymMemberPointer.TypeDefId(), pointerType);
-                arrayElemType = indirectType;
+                ASSERT(!arrayType || arrayType == arrayElemType);
 
-            } else {
-                FAIL_MSG("Unexpected match for member");
-                return;
+                arrayType =
+                    AddArrayType(dim.typeDefId, arrayElemType, StringToSizeT(dim.maxIndex) + 1);
             }
 
-            auto arrayType = AddArrayType(lsymArray.TypeDefId(), arrayElemType,
-                                          StringToSizeT(lsymArray.IndexUpperBound()) + 1);
-
+            // Finally, add the array variable
             const auto stackOffset = lsymValue;
             AddVariable(lsymArray.VarName(), arrayType, DecToU16(stackOffset));
         }
