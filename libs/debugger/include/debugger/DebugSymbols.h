@@ -34,6 +34,8 @@ namespace std {
 } // namespace std
 
 struct Type {
+    Type(std::string name)
+        : name(std::move(name)) {}
     virtual ~Type() = default;
     virtual size_t Size() const = 0;
 
@@ -41,6 +43,9 @@ struct Type {
 };
 
 struct UnresolvedType : Type {
+    UnresolvedType()
+        : Type("<UNRESOLVED>") {}
+
     size_t Size() const override {
         FAIL();
         return 0;
@@ -50,15 +55,38 @@ struct UnresolvedType : Type {
 };
 
 struct PrimitiveType : Type {
+    enum class Format { Int, Char, Float };
+
+    PrimitiveType(std::string name, bool isSigned, size_t byteSize)
+        : Type(std::move(name))
+        , isSigned(isSigned)
+        , byteSize(byteSize) {
+
+        // Figure out the format type
+        if (name.find("float") != std::string::npos || name.find("double") != std::string::npos) {
+            format = PrimitiveType::Format::Float;
+        } else if (name.find("char") != std::string::npos && byteSize == 1) {
+            format = PrimitiveType::Format::Char;
+        } else {
+            format = PrimitiveType::Format::Int;
+        }
+    }
+
     size_t Size() const override { return byteSize; }
 
-    enum class Format { Int, Char, Float };
-    Format format{};
-    size_t byteSize{};
     bool isSigned{};
+    size_t byteSize{};
+    Format format{};
 };
 
 struct EnumType : Type {
+    EnumType(std::string name, bool isSigned, size_t byteSize,
+             std::unordered_map<ssize_t, std::string> valueToId)
+        : Type(std::move(name))
+        , isSigned(isSigned)
+        , byteSize(byteSize)
+        , valueToId(std::move(valueToId)) {}
+
     size_t Size() const override { return byteSize; }
 
     std::unordered_map<ssize_t, std::string> valueToId;
@@ -67,6 +95,28 @@ struct EnumType : Type {
 };
 
 struct ArrayType : Type {
+    ArrayType(std::shared_ptr<Type> type, size_t numElems)
+        : Type("")
+        , numElems(numElems) {
+        SetType(std::move(type));
+    }
+
+    void SetType(std::shared_ptr<Type> t) {
+        type = std::move(t);
+
+        // When creating an array of array, insert our size just before the '[size]...' of the input
+        // type's name. Example: if type is 'int[5]', and numElems is 4, we want t->name to be
+        // 'int[4][5]'.
+        if (auto typeAsArray = std::dynamic_pointer_cast<ArrayType>(type)) {
+            auto index = type->name.find('[');
+            ASSERT(index != std::string::npos);
+            t->name = type->name.substr(0, index) + "[" + std::to_string(numElems) + "]" +
+                      type->name.substr(index);
+        } else {
+            t->name = type->name + "[" + std::to_string(numElems) + "]";
+        }
+    }
+
     size_t Size() const override { return type->Size() * numElems; }
 
     std::shared_ptr<Type> type; // Element type
@@ -74,8 +124,6 @@ struct ArrayType : Type {
 };
 
 struct StructType : Type {
-    size_t Size() const override { return byteSize; }
-
     struct Member {
         std::string name;
         size_t offsetBits;
@@ -83,11 +131,28 @@ struct StructType : Type {
         std::shared_ptr<Type> type;
     };
 
+    StructType(std::string name, size_t byteSize, std::vector<StructType::Member> members)
+        : Type(std::move(name))
+        , byteSize(byteSize)
+        , members(std::move(members)) {}
+
+    size_t Size() const override { return byteSize; }
+
     size_t byteSize{};
     std::vector<Member> members;
 };
 
 struct IndirectType : Type {
+    IndirectType(std::shared_ptr<Type> type)
+        : Type("") {
+        SetType(std::move(type));
+    }
+
+    void SetType(std::shared_ptr<Type> t) {
+        type = std::move(t);
+        name = type->name + '*';
+    }
+
     size_t Size() const override {
         // Pointers/references are 2 bytes on the Vectrex (6809 CPU)
         return 2;

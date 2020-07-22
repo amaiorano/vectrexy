@@ -151,21 +151,7 @@ void RstParser::AddType(const std::string& typeDefId, std::shared_ptr<Type> type
 std::shared_ptr<Type> RstParser::AddPrimitiveType(const std::string& typeDefId,
                                                   const std::string& typeName, bool isSigned,
                                                   size_t byteSize) {
-    auto t = std::make_shared<PrimitiveType>();
-    t->name = typeName;
-    t->isSigned = isSigned;
-    t->byteSize = byteSize;
-
-    // Figure out the format type
-    if (typeName.find("float") != std::string::npos ||
-        typeName.find("double") != std::string::npos) {
-        t->format = PrimitiveType::Format::Float;
-    } else if (typeName.find("char") != std::string::npos && byteSize == 1) {
-        t->format = PrimitiveType::Format::Char;
-    } else {
-        t->format = PrimitiveType::Format::Int;
-    }
-
+    auto t = std::make_shared<PrimitiveType>(typeName, isSigned, byteSize);
     AddType(typeDefId, t);
     return t;
 }
@@ -173,23 +159,14 @@ std::shared_ptr<Type> RstParser::AddPrimitiveType(const std::string& typeDefId,
 std::shared_ptr<EnumType>
 RstParser::AddEnumType(const std::string& typeDefId, const std::string& typeName, bool isSigned,
                        size_t byteSize, std::unordered_map<ssize_t, std::string> valueToId) {
-    auto t = std::make_shared<EnumType>();
-    t->name = typeName;
-    t->isSigned = isSigned;
-    t->byteSize = byteSize;
-    t->valueToId = std::move(valueToId);
-
+    auto t = std::make_shared<EnumType>(typeName, isSigned, byteSize, std::move(valueToId));
     AddType(typeDefId, t);
     return t;
 }
 
 std::shared_ptr<ArrayType> RstParser::AddArrayType(const std::string& typeDefId,
                                                    std::shared_ptr<Type> type, size_t numElems) {
-    auto t = std::make_shared<ArrayType>();
-    t->name = type->name + "[" + std::to_string(numElems) + "]";
-    t->type = std::move(type);
-    t->numElems = numElems;
-
+    auto t = std::make_shared<ArrayType>(std::move(type), numElems);
     AddType(typeDefId, t);
     return t;
 }
@@ -197,21 +174,14 @@ std::shared_ptr<ArrayType> RstParser::AddArrayType(const std::string& typeDefId,
 std::shared_ptr<StructType> RstParser::AddStructType(const std::string& typeDefId,
                                                      const std::string& typeName, size_t byteSize,
                                                      std::vector<StructType::Member> members) {
-    auto t = std::make_shared<StructType>();
-    t->name = typeName;
-    t->byteSize = byteSize;
-    t->members = std::move(members);
-
+    auto t = std::make_shared<StructType>(typeName, byteSize, std::move(members));
     AddType(typeDefId, t);
     return t;
 }
 
 std::shared_ptr<IndirectType> RstParser::AddIndirectType(const std::string& typeDefId,
                                                          std::shared_ptr<Type> type) {
-    auto t = std::make_shared<IndirectType>();
-    t->name = type->name + "*";
-    t->type = std::move(type);
-
+    auto t = std::make_shared<IndirectType>(std::move(type));
     AddType(typeDefId, t);
     return t;
 }

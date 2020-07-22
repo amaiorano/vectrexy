@@ -71,37 +71,37 @@ void DebugSymbols::ResolveTypes(
     // Track types visited to avoid infinite recursion over the Type tree. E.g. if we resolve a
     // recursively defined type, like 'struct Node { Node* next; }', we must make sure not to
     // traverse 'Node' infinitely.
-    std::unordered_set<std::shared_ptr<Type>*> visitedTypes;
+    std::unordered_set<const std::shared_ptr<Type>*> visitedTypes;
 
-    std::function<bool(std::shared_ptr<Type> & t)> tryResolve;
-    tryResolve = [&](std::shared_ptr<Type>& t) {
+    std::function<std::shared_ptr<Type>(const std::shared_ptr<Type>& t)> tryResolve;
+
+    tryResolve = [&](const std::shared_ptr<Type>& t) -> std::shared_ptr<Type> {
         if (visitedTypes.count(&t) != 0)
-            return false;
+            return {};
         visitedTypes.insert(&t);
 
         if (auto ut = std::dynamic_pointer_cast<UnresolvedType>(t)) {
-            t = resolve(ut->id);
-            return true;
+            return resolve(ut->id);
 
         } else if (auto it = std::dynamic_pointer_cast<IndirectType>(t)) {
-            if (tryResolve(it->type)) {
-                // HACK! Need a more generic solution for post-resolve fixups
-                it->name = it->type->name + "*";
+            if (auto resolvedType = tryResolve(it->type)) {
+                it->SetType(std::move(resolvedType));
             }
 
         } else if (auto at = std::dynamic_pointer_cast<ArrayType>(t)) {
-            if (tryResolve(at->type)) {
-                // HACK! Need a more generic solution for post-resolve fixups
-                at->name = at->name + "[" + std::to_string(at->numElems) + "]";
+            if (auto resolvedType = tryResolve(at->type)) {
+                at->SetType(std::move(resolvedType));
             }
 
         } else if (auto st = std::dynamic_pointer_cast<StructType>(t)) {
             for (auto&& m : st->members) {
-                tryResolve(m.type);
+                if (auto resolvedType = tryResolve(m.type)) {
+                    m.type = std::move(resolvedType);
+                }
             }
         }
 
-        return false;
+        return {};
     };
 
     for (auto&& t : m_types) {
