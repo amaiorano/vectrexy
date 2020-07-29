@@ -7,3 +7,6 @@
 [submodule "external/cppdap"]
 	path = external/cppdap
 	url = https://github.com/google/cppdap.git
+[submodule "external/subprocess/subprocess"]
+	path = external/subprocess/subprocess
+	url = https://github.com/sheredom/subprocess.h.git
