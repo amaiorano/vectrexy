@@ -63,9 +63,10 @@ struct PrimitiveType : Type {
         , byteSize(byteSize) {
 
         // Figure out the format type
-        if (name.find("float") != std::string::npos || name.find("double") != std::string::npos) {
+        if (this->name.find("float") != std::string::npos ||
+            this->name.find("double") != std::string::npos) {
             format = PrimitiveType::Format::Float;
-        } else if (name.find("char") != std::string::npos && byteSize == 1) {
+        } else if (this->name.find("char") != std::string::npos && byteSize == 1) {
             format = PrimitiveType::Format::Char;
         } else {
             format = PrimitiveType::Format::Int;
