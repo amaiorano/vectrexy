@@ -195,19 +195,45 @@ struct Scope : std::enable_shared_from_this<Scope> {
     std::pair<uint16_t, uint16_t> range; // [first address, last address[
 };
 
+// Traverse takes a NodePtr type that is expected to be a pointer-like with a 'children' member (a
+// vector of NodePtr). It performs an inorder traversal of the tree starting at NodePtr, invoking
+// callback(currNode) on each node. If Callback returns a bool, or a type convertible to bool (e.g.
+// pointer, shared_ptr, etc.), it will stop as soon as a true-type result is returned, and returns
+// that result.
 // TODO: Create a TreeNode base, and move this into it
-template <typename Callback, typename NodePtr>
-void Traverse(NodePtr node, Callback callback) {
-    if (node) {
-        callback(node);
-        for (auto& c : node->children) {
-            Traverse(c, callback);
+template <typename NodePtr, typename Callback>
+auto Traverse(NodePtr& node, Callback callback)
+    -> std::invoke_result_t<decltype(callback(node))()> {
+
+    // Callback returns a bool, or type convertible to bool (e.g. pointer, shared_ptr, etc.)
+    if constexpr (std::is_constructible_v<bool, std::invoke_result_t<decltype(callback(node))()>>) {
+
+        if (node) {
+            if (auto result = callback(node))
+                return result;
+
+            for (auto& c : node->children) {
+                if (auto result = Traverse(c, callback))
+                    return result;
+            }
+        }
+
+        return {};
+
+    } else { // Callback returns void
+
+        if (node) {
+            callback(node);
+            for (auto& c : node->children) {
+                Traverse(c, callback);
+            }
         }
     }
 }
 
 template <typename Callback>
-void Traverse(std::shared_ptr<const Scope> node, Callback callback) {
+auto Traverse(const std::shared_ptr<Scope>& node, const Callback* callback)
+    -> std::invoke_result_t<decltype(callback(node))()> {
     return Traverse(node, callback);
 }
 

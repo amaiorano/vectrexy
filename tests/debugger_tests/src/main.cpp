@@ -64,24 +64,20 @@ namespace {
         return rstFile;
     }
 
-    std::shared_ptr<Variable> FindVariableByName(std::shared_ptr<const Function> function,
+    std::shared_ptr<Variable> FindVariableByName(const std::shared_ptr<const Function>& function,
                                                  const char* name) {
-        std::shared_ptr<Variable> result{};
-        Traverse(function->scope, [&](std::shared_ptr<const Scope> node) {
-            // TODO: Make a version of Traverse that checks the return value of Pred and stops if
-            // it's false.
-            if (result)
-                return;
 
-            auto iter = std::find_if(node->variables.begin(), node->variables.end(),
-                                     [&](auto variable) { return variable->name == name; });
-            if (iter != node->variables.end()) {
-                result = *iter;
-            }
-        });
-
-        return result;
+        return Traverse(
+            function->scope, [&](const std::shared_ptr<Scope>& node) -> std::shared_ptr<Variable> {
+                auto iter = std::find_if(node->variables.begin(), node->variables.end(),
+                                         [&](auto variable) { return variable->name == name; });
+                if (iter != node->variables.end()) {
+                    return *iter;
+                }
+                return {};
+            });
     }
+
 } // namespace
 
 TEST(StabsParser, PrimitiveTypes) {
