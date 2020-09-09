@@ -40,7 +40,8 @@ namespace {
         struct subprocess_s subprocess;
         int result =
             subprocess_create(command, subprocess_option_combined_stdout_stderr, &subprocess);
-        EXPECT_EQ(result, 0);
+        if (result != 0)
+            return {};
 
         FILE* p_stdout = subprocess_stdout(&subprocess);
         if (showOutput) {
@@ -52,14 +53,22 @@ namespace {
 
         int process_return;
         result = subprocess_join(&subprocess, &process_return);
-        EXPECT_EQ(result, 0);
-        EXPECT_EQ(process_return, 0);
+        if (result != 0)
+            return {};
+        if (process_return != 0) {
+            std::cerr << "Process returned unexpected value: " << process_return << std::endl;
+            return {};
+        }
 
         result = subprocess_destroy(&subprocess);
-        EXPECT_EQ(result, 0);
+        if (result != 0)
+            return {};
 
         auto rstFile = buildDir / "main.rst";
-        EXPECT_TRUE(fs::exists(rstFile));
+        if (!fs::exists(rstFile)) {
+            std::cerr << "Compiled listing file not found: " << rstFile << std::endl;
+            return {};
+        }
 
         return rstFile;
     }
@@ -109,6 +118,7 @@ int main() {
 }
 )";
     auto rstFile = CompileSource(source, false);
+    ASSERT_TRUE(!rstFile.empty());
 
     auto symbols = std::make_unique<DebugSymbols>();
     auto parser = std::make_unique<RstParser>(*symbols);
@@ -165,6 +175,74 @@ int main() {
         EXPECT_EQ(primType->isSigned, p.isSigned);
         EXPECT_EQ(primType->byteSize, p.byteSize);
         EXPECT_EQ(primType->format, p.format);
+    }
+}
+
+TEST(StabsParser, IndirectTypes) {
+
+    const char* source = R"(
+int main() {
+    int a;
+    int* p1 = &a;
+    int* p2 = p1;
+    int& r1 = a;
+    int& r2 = r1;
+    int** pp = &p1;
+    int*** ppp = &pp;
+    int***& rppp = ppp;
+
+    const int* cp1 = &a;
+
+    // TODO: pointer to class/struct
+    // TODO: pointer to function
+
+    return 0;
+}
+)";
+    auto rstFile = CompileSource(source, false);
+    ASSERT_TRUE(!rstFile.empty());
+
+    auto symbols = std::make_unique<DebugSymbols>();
+    auto parser = std::make_unique<RstParser>(*symbols);
+    EXPECT_TRUE(parser->Parse(rstFile));
+
+    auto* mainSymbol = symbols->GetSymbolByName("main()");
+    EXPECT_TRUE(mainSymbol);
+    auto mainFunction = symbols->GetFunctionByAddress(mainSymbol->address);
+    EXPECT_TRUE(mainFunction);
+
+    // Should have a scope since there are local variables
+    EXPECT_TRUE(mainFunction->scope);
+
+    struct TestParams {
+        const char* name;
+        const char* typeName;
+        const std::type_info& pointeeTypeInfo;
+        const char* pointeeName;
+    };
+
+    TestParams testParams[] = {
+        "p1",   "int*",    typeid(PrimitiveType), "int",
+        "p2",   "int*",    typeid(PrimitiveType), "int",
+        "r1",   "int*",    typeid(PrimitiveType), "int",
+        "r2",   "int*",    typeid(PrimitiveType), "int",
+        "pp",   "int**",   typeid(IndirectType),  "int*",
+        "ppp",  "int***",  typeid(IndirectType),  "int**",
+        "rppp", "int****", typeid(IndirectType),  "int***",
+    };
+
+    for (auto& p : testParams) {
+        SCOPED_TRACE(p.name);
+        auto var = FindVariableByName(mainFunction, p.name);
+        ASSERT_TRUE(var);
+        EXPECT_EQ(var->name, p.name);
+        EXPECT_EQ(var->type->name, p.typeName);
+
+        auto indirectType = std::dynamic_pointer_cast<IndirectType>(var->type);
+        ASSERT_TRUE(indirectType);
+
+        EXPECT_EQ(typeid(*indirectType->type), p.pointeeTypeInfo);
+        EXPECT_EQ(indirectType->type->name, p.pointeeName);
     }
 }
 
