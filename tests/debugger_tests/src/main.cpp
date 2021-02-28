@@ -13,14 +13,26 @@ namespace {
     }
 
     fs::path CompileSource(const char* source, bool showOutput) {
+        // Find template dir in current path and up to root. This works as long as we're running out
+        // of a subdirectory of the project folder.
+        auto findBuildTemplateDir = []() -> fs::path {
+            auto templatePath = fs::path{"tests/debugger_tests/build-template"};
+            while (true) {
+                if (fs::exists(templatePath)) {
+                    return (fs::current_path() / templatePath).make_preferred();
+                }
+                fs::current_path("..");
+            }
+            return {};
+        };
+
+        const auto sourceBuildTemplateDir = findBuildTemplateDir();
         const auto tempDir = fs::temp_directory_path() / "vectrexy-unit-tests";
         const auto buildDir = tempDir / "build-template";
 
         fs::create_directories(buildDir);
 
-        auto cwd = fs::current_path();
-
-        fs::copy("./tests/debugger_tests/build-template", buildDir,
+        fs::copy(sourceBuildTemplateDir, buildDir,
                  fs::copy_options::update_existing | fs::copy_options::recursive);
 
         StringToFile(source, buildDir / "src/main.cpp");
@@ -36,6 +48,11 @@ namespace {
             "-C",
             "build-template",
             0};
+
+        std::string s;
+        for (auto& s2 : command) {
+            s += !s2 ? "" : std::string{s2} + " ";
+        }
 
         struct subprocess_s subprocess;
         int result =
