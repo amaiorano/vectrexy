@@ -12,6 +12,38 @@ namespace {
         fout << s;
     }
 
+    bool Exec(std::vector<const char*> command, bool showOutput) {
+        command.push_back(0); // Add terminator
+        struct subprocess_s subprocess;
+        int result = subprocess_create(command.data(), subprocess_option_combined_stdout_stderr,
+                                       &subprocess);
+        if (result != 0)
+            return {};
+
+        FILE* p_stdout = subprocess_stdout(&subprocess);
+        if (showOutput) {
+            char outputText[1024];
+            while (fgets(outputText, sizeof(outputText), p_stdout)) {
+                std::cout << "stdout/stderr> " << outputText;
+            }
+        }
+
+        int process_return;
+        result = subprocess_join(&subprocess, &process_return);
+        if (result != 0)
+            return false;
+        if (process_return != 0) {
+            std::cerr << "Process returned unexpected value: " << process_return << std::endl;
+            return false;
+        }
+
+        result = subprocess_destroy(&subprocess);
+        if (result != 0)
+            return false;
+
+        return true;
+    }
+
     fs::path CompileSource(const char* source, bool showOutput) {
         // Find template dir in current path and up to root. This works as long as we're running out
         // of a subdirectory of the project folder.
@@ -37,49 +69,10 @@ namespace {
 
         StringToFile(source, buildDir / "src/main.cpp");
 
-        const char* command[] = {
-            "docker",
-            "run",
-            "-v",
-            FormattedString("%s:/root/build-template", buildDir.string().c_str()),
-            "amaiorano/gcc6809",
-            "make",
-            "DEBUG=1",
-            "-C",
-            "build-template",
-            0};
-
-        std::string s;
-        for (auto& s2 : command) {
-            s += !s2 ? "" : std::string{s2} + " ";
-        }
-
-        struct subprocess_s subprocess;
-        int result =
-            subprocess_create(command, subprocess_option_combined_stdout_stderr, &subprocess);
-        if (result != 0)
-            return {};
-
-        FILE* p_stdout = subprocess_stdout(&subprocess);
-        if (showOutput) {
-            char outputText[1024];
-            while (fgets(outputText, sizeof(outputText), p_stdout)) {
-                std::cout << "stdout/stderr> " << outputText;
-            }
-        }
-
-        int process_return;
-        result = subprocess_join(&subprocess, &process_return);
-        if (result != 0)
-            return {};
-        if (process_return != 0) {
-            std::cerr << "Process returned unexpected value: " << process_return << std::endl;
-            return {};
-        }
-
-        result = subprocess_destroy(&subprocess);
-        if (result != 0)
-            return {};
+        Exec({"docker", "run", "-v",
+              FormattedString("%s:/root/build-template", buildDir.string().c_str()),
+              "amaiorano/gcc6809", "make", "DEBUG=1", "-C", "build-template"},
+             showOutput);
 
         auto rstFile = buildDir / "main.rst";
         if (!fs::exists(rstFile)) {
@@ -139,12 +132,12 @@ int main() {
 
     auto symbols = std::make_unique<DebugSymbols>();
     auto parser = std::make_unique<RstParser>(*symbols);
-    EXPECT_TRUE(parser->Parse(rstFile));
+    ASSERT_TRUE(parser->Parse(rstFile));
 
     auto* mainSymbol = symbols->GetSymbolByName("main()");
-    EXPECT_TRUE(mainSymbol);
+    ASSERT_TRUE(mainSymbol);
     auto mainFunction = symbols->GetFunctionByAddress(mainSymbol->address);
-    EXPECT_TRUE(mainFunction);
+    ASSERT_TRUE(mainFunction);
 
     // Should have a scope since there are local variables
     EXPECT_TRUE(mainFunction->scope);
@@ -221,12 +214,12 @@ int main() {
 
     auto symbols = std::make_unique<DebugSymbols>();
     auto parser = std::make_unique<RstParser>(*symbols);
-    EXPECT_TRUE(parser->Parse(rstFile));
+    ASSERT_TRUE(parser->Parse(rstFile));
 
     auto* mainSymbol = symbols->GetSymbolByName("main()");
-    EXPECT_TRUE(mainSymbol);
+    ASSERT_TRUE(mainSymbol);
     auto mainFunction = symbols->GetFunctionByAddress(mainSymbol->address);
-    EXPECT_TRUE(mainFunction);
+    ASSERT_TRUE(mainFunction);
 
     // Should have a scope since there are local variables
     EXPECT_TRUE(mainFunction->scope);
