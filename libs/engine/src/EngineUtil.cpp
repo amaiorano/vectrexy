@@ -12,12 +12,12 @@ bool EngineUtil::FindAndSetRootPath(fs::path startPath) {
     do {
         if (fs::exists(currDir / biosRomFile)) {
             fs::current_path(currDir);
-            Printf("Root path set to: %s\n", fs::current_path().string().c_str());
+            // Printf("Root path set to: %s\n", fs::current_path().string().c_str());
             return true;
         }
         currDir = currDir.parent_path();
     } while (!currDir.empty());
 
-    Errorf("Bios rom file not found: %s", biosRomFile.string().c_str());
+    // Errorf("Bios rom file not found: %s", biosRomFile.string().c_str());
     return false;
 }

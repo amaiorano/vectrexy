@@ -112,7 +112,7 @@ struct FormattedString {
 
     const char* Value() const { return buffer; }
 
-    operator const char*() const { return Value(); }
+    operator const char *() const { return Value(); }
 
     char buffer[MaxLength];
 };
@@ -155,14 +155,22 @@ inline void AssertHandler(const char* file, int line, const char* condition, con
 // Type aliases
 using cycles_t = uint64_t;
 
+using ssize_t = ptrdiff_t;
+static_assert(sizeof(ssize_t) == sizeof(size_t));
+
+template <typename Container, typename T>
+bool contains(Container container, T& value) {
+    return std::find(begin(container), end(container), value) != end(container);
+}
+
 template <typename Container, typename Pred>
-bool find_if(Container container, Pred pred) {
+bool find_if(const Container& container, Pred pred) {
     return std::find_if(std::begin(container), std::end(container), pred) != std::end(container);
 }
 
 // Returns index of value in container, or index_if_not_found
 template <typename Container, typename T>
-int find_index_of(Container container, const T& value, int index_if_not_found = -1) {
+int find_index_of(const Container& container, const T& value, int index_if_not_found = -1) {
     auto b = std::begin(container);
     auto e = std::end(container);
     auto iter = std::find(b, e, value);
@@ -172,7 +180,7 @@ int find_index_of(Container container, const T& value, int index_if_not_found = 
     return index_if_not_found;
 }
 
-// Adapter with a variadic constructor template to forward the arguments, useful for aggregate
+// Adapter with a variafdic constructor template to forward the arguments, useful for aggregate
 // initialization of types via forwarding functions like make_shared.
 // From: https://stackoverflow.com/a/35300172/4039972
 template <class T>

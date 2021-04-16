@@ -13,6 +13,7 @@ project(vectrexy
 
 option(BUILD_SHARED_LIBS "Build libs as shared libraries." OFF)
 option(DEBUG_UI "Enable the debug UI." ON)
+option(BUILD_TESTS "Build tests." ON)
 
 set(ENGINE_TYPE sdl CACHE STRING "Engine Type")
 set_property(CACHE ENGINE_TYPE PROPERTY STRINGS sdl null)
@@ -111,6 +112,7 @@ if(LINUX)
 	add_subdirectory(external/linenoise)
 endif()
 add_subdirectory(external/noc)
+add_subdirectory(external/cppdap)
 
 # Add libs
 add_subdirectory(libs/core)
@@ -124,3 +126,9 @@ if(USE_SDL_ENGINE)
 	add_subdirectory(libs/sdl_engine)
 endif()
 add_subdirectory(libs/vectrexy)
+
+if(BUILD_TESTS)
+	find_package(GTest CONFIG REQUIRED)
+	add_subdirectory(external/subprocess)
+	add_subdirectory(tests/debugger_tests)
+endif()

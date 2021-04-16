@@ -78,6 +78,19 @@ public:
 
     void RemoveAll() { m_breakpoints.clear(); }
 
+    // Removes all elements for which the predicate function returns true.
+    // Predicate signature: bool p(Breakpoint&)
+    template <typename P>
+    void RemoveAllIf(P predicate) {
+        for (size_t i = 0; i < Num(); ++i) {
+            auto bp = *GetAtIndex(i);
+            if (predicate(bp)) {
+                RemoveAtIndex(i);
+                --i;
+            }
+        }
+    }
+
     Breakpoint* Get(uint16_t address) {
         // @HACK: Temporary optimization to make debug builds faster when no breakpoints have been
         // added. Need to make breakpoints generally faster (with or without breakpoints set).
@@ -146,6 +159,8 @@ public:
     }
 
     std::vector<ConditionalBreakpoint>& Breakpoints() { return m_conditionalBreakpoints; }
+
+    void RemoveAll() { m_conditionalBreakpoints.clear(); }
 
 private:
     std::vector<ConditionalBreakpoint> m_conditionalBreakpoints;

@@ -21,8 +21,8 @@ class SyncProtocol;
 
 class Debugger {
 public:
-    void Init(std::shared_ptr<IEngineService>& engineService, int argc, char** argv,
-              fs::path devDir, Emulator& emulator);
+    void Init(const std::vector<std::string_view>& args,
+              std::shared_ptr<IEngineService>& engineService, fs::path devDir, Emulator& emulator);
     void Reset();
     bool FrameUpdate(double frameTime, const EmuEvents& emuEvents, const Input& input,
                      RenderContext& renderContext, AudioContext& audioContext);

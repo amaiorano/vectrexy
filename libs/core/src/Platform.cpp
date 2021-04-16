@@ -22,7 +22,7 @@ namespace {
 } // namespace
 
 namespace Platform {
-    void Init() {
+    void InitConsole() {
         // Enable VT100 style in current console. This allows us to use codes like "\033[A\033[2K"
         // to delete current line and bring cursor back to column 0.
         HANDLE hConsole = ::GetStdHandle(STD_OUTPUT_HANDLE);
@@ -110,6 +110,25 @@ namespace Platform {
         ::ShellExecute(nullptr, "open", command, nullptr, nullptr, SW_SHOWNORMAL);
         return true;
     }
+
+    void WaitForDebuggerAttach(bool breakOnAttach) {
+        if (::IsDebuggerPresent())
+            return;
+
+        int msgboxID = ::MessageBox(nullptr, "Wait for debugger to attach?", "Attach Debugger",
+                                    MB_ICONEXCLAMATION | MB_YESNO);
+
+        if (msgboxID == IDNO) {
+            return;
+        }
+
+        while (!::IsDebuggerPresent())
+            ::Sleep(100);
+
+        if (breakOnAttach)
+            ::DebugBreak();
+    }
+
 } // namespace Platform
 
 #elif defined(PLATFORM_LINUX)
@@ -130,7 +149,7 @@ namespace {
 } // namespace
 
 namespace Platform {
-    void Init() {}
+    void InitConsole() {}
 
     void SetFocus(WindowHandle windowHandle) {}
 
@@ -194,6 +213,8 @@ namespace Platform {
         // Parent process
         return true;
     }
+
+    void WaitForDebuggerAttach(bool breakOnAttach) { (void)breakOnAttach; }
 } // namespace Platform
 
 #endif

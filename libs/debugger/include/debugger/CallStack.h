@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/Base.h"
+#include <optional>
 #include <vector>
 
 class StackFrame {
@@ -19,8 +20,10 @@ public:
     }
 
     // Address of instruction that called this frame's function.
+    // TODO: rename to callerAddress
     uint16_t calleeAddress{};
     // Address of the first instruction of this frame's function.
+    // TODO: rename to calleeAddress?
     uint16_t frameAddress{};
     // Address to return to once this function ends.
     uint16_t returnAddress{};

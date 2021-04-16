@@ -10,8 +10,7 @@ namespace Platform {
     // Every platform has their own window handle type, so we use std::any and cast internally
     using WindowHandle = std::any;
 
-    // Platform-specific initialization. Call once at start of program.
-    void Init();
+    void InitConsole();
 
     void SetFocus(WindowHandle windowHandle);
 
@@ -66,5 +65,8 @@ namespace Platform {
                                               std::optional<fs::path> initialPath = {});
 
     bool ExecuteShellCommand(const char* command);
+
+    // Block until debugger attaches to process
+    void WaitForDebuggerAttach(bool breakOnAttach = false);
 
 } // namespace Platform

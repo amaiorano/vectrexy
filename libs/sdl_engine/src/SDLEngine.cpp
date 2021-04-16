@@ -23,6 +23,11 @@
 #include <fstream>
 #include <iostream>
 
+#ifdef PLATFORM_WINDOWS
+#include <fcntl.h> // _O_BINARY
+#include <io.h>    // _setmode
+#endif
+
 // Include SDL_syswm.h for SDL_GetWindowWMInfo
 // This includes windows.h on Windows platforms, we have to do the usual dance of disabling certain
 // warnings and undef'ing certain macros
@@ -77,6 +82,18 @@ namespace {
         }
         return 1.f;
     }
+
+    void SetVSyncEnabled(bool enabled) {
+        enum SwapInterval : int { NoVSync = 0, VSync = 1, AdaptiveVSync = -1 };
+        if (enabled) {
+            // Prefer adaptive if available
+            if (SDL_GL_SetSwapInterval(SwapInterval::AdaptiveVSync) == -1) {
+                SDL_GL_SetSwapInterval(SwapInterval::VSync);
+            }
+        } else {
+            SDL_GL_SetSwapInterval(SwapInterval::NoVSync);
+        }
+    }
 } // namespace
 
 class SDLEngineImpl {
@@ -84,16 +101,34 @@ public:
     void RegisterClient(IEngineClient& client) { m_client = &client; }
 
     bool Run(int argc, char** argv) {
-        Platform::Init();
+        const auto args = std::vector<std::string_view>(argv + 1, argv + argc);
 
-        if (!EngineUtil::FindAndSetRootPath(fs::path(fs::absolute(argv[0]))))
+        if (!EngineUtil::FindAndSetRootPath(fs::path(fs::absolute(argv[0])))) {
+            Errorf("Failed to find and set root path\n");
             return false;
+        }
 
         // Create standard directories
         fs::create_directories(Paths::overlaysDir);
         fs::create_directories(Paths::romsDir);
         fs::create_directories(Paths::userDir);
         fs::create_directories(Paths::devDir);
+
+        if (contains(args, "-dap")) {
+            // TODO: move to DapDebugger or Platform
+#ifdef PLATFORM_WINDOWS
+            // Change stdin and stdout from text mode to binary mode.
+            // This ensures sequences of \r\n are not changed to \n.
+            _setmode(_fileno(stdin), _O_BINARY);
+            _setmode(_fileno(stdout), _O_BINARY);
+#endif
+            // DAP uses stdin/stdout to communicate, so route all our printing to a file
+            FILE* fs = fopen((Paths::devDir / "print_stream.txt").string().c_str(),
+                             "w+"); // Leak it for now
+            SetStream(ConsoleStream::Output, fs);
+            SetStream(ConsoleStream::Error, fs);
+            SetStreamAutoFlush(true);
+        }
 
         std::shared_ptr<IEngineService> engineService =
             std::make_shared<aggregate_adapter<IEngineService>>(
@@ -128,6 +163,7 @@ public:
         m_options.Add<float>("imguiFontScale", GetDefaultImguiFontScale());
         m_options.Add<std::string>("lastOpenedFile", {});
         m_options.Add<float>("volume", 0.5f);
+        m_options.Add<bool>("vsync", false);
         m_inputManager.AddOptions(m_options);
         m_options.SetFilePath(Paths::optionsFile);
         m_options.Load();
@@ -188,11 +224,7 @@ public:
             return false;
         }
 
-        // TODO: Expose as option
-        enum SwapInterval : int { NoVSync = 0, VSync = 1, AdaptiveVSync = -1 };
-        if (SDL_GL_SetSwapInterval(SwapInterval::AdaptiveVSync) == -1) {
-            SDL_GL_SetSwapInterval(SwapInterval::VSync);
-        }
+        SetVSyncEnabled(m_options.Get<bool>("vsync"));
 
 #ifdef DEBUG_UI_ENABLED
         Gui::EnabledWindows[Gui::Window::Debug] = m_options.Get<bool>("imguiDebugWindow");
@@ -209,7 +241,7 @@ public:
         m_audioDriver.Initialize();
         m_audioDriver.SetVolume(m_options.Get<float>("volume"));
 
-        if (!m_client->Init(engineService, m_options.Get<std::string>("biosRomFile"), argc, argv)) {
+        if (!m_client->Init(args, engineService, m_options.Get<std::string>("biosRomFile"))) {
             return false;
         }
 
@@ -465,6 +497,15 @@ private:
                     if (ImGui::Combo("Bios", &index, items.data(), (int)items.size())) {
                         emuEvents.push_back({EmuEvent::OpenBiosRomFile{biosFiles[index]}});
                     }
+                }
+
+                ImGui::Separator();
+                ImGui::Text("Display");
+                static bool vsync = m_options.Get<bool>("vsync");
+                ImGui::Checkbox("VSync", &vsync);
+                if (vsync != m_options.Get<bool>("vsync")) {
+                    SetVSyncEnabled(vsync);
+                    m_options.Set("vsync", vsync);
                 }
 
                 ImGui::Separator();

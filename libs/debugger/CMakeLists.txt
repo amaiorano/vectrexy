@@ -13,4 +13,6 @@ target_link_libraries(${MODULE_NAME}
     PUBLIC
         core
         emulator
+    PRIVATE
+        cppdap
 )
