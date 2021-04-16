@@ -15,4 +15,5 @@ target_link_libraries(${MODULE_NAME}
         emulator
     PRIVATE
         cppdap
+        stabs_parser
 )
