@@ -66,7 +66,7 @@ Install:
 
 Install dependent packages with vcpkg:
 ```bash
-vcpkg install sdl2:x64-windows-static sdl2-net:x64-windows-static glew:x64-windows-static glm:x64-windows-static stb:x64-windows-static imgui:x64-windows-static
+vcpkg install sdl2:x64-windows-static sdl2-net:x64-windows-static glew:x64-windows-static glm:x64-windows-static stb:x64-windows-static imgui:x64-windows-static gtest:x64-windows-static
 ```
 
 Clone and build vectrexy using CMake:
@@ -74,8 +74,8 @@ Clone and build vectrexy using CMake:
 git clone --recursive https://github.com/amaiorano/vectrexy.git
 cd vectrexy
 mkdir build && cd build
-cmake -A x64 -DCMAKE_TOOLCHAIN_FILE=../../vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-static ..
-vectrexy.sln ..
+cmake ..
+cmake --build .
 ```
 
 ### Ubuntu
@@ -97,7 +97,7 @@ sudo apt-get install build-essential mercurial make cmake autoconf automake libt
 Install the rest of the dependencies through vcpkg:
 ```bash
 cd vcpkg
-./vcpkg install sdl2 sdl2-net glew glm stb imgui
+./vcpkg install sdl2 sdl2-net glew glm stb imgui gtest
 ```
 
 Clone and build vectrexy using CMake:
@@ -105,9 +105,22 @@ Clone and build vectrexy using CMake:
 git clone --recursive https://github.com/amaiorano/vectrexy.git
 cd vectrexy
 mkdir build && cd build
-cmake -DCMAKE_TOOLCHAIN_FILE=../../vcpkg/scripts/buildsystems/vcpkg.cmake ..
-make
+cmake ..
+cmake --build .
 ```
+
+### Tips for building
+
+If you opeted for vcpkg's integrated installation, via `vcpkg integrate install`, then everything should just work. If not, it's recommended to clone `vcpkg` in the same parent directory where `vectrexy` is cloned so that it's found automatically. Alternatively, you can either specify the vcpkg toolchain file via cmake arg:
+
+```bash
+cmake -DCMAKE_TOOLCHAIN_FILE=../../vcpkg/scripts/buildsystems/vcpkg.cmake ..
+```
+
+Or by setting environment variable `VCPKG_ROOT` to the root path of your vcpkg install.
+
+Finally, you may set environment variable `VCPKG_DEFAULT_TRIPLET` to the vcpkg triplet to build with. If not set, a good default will automatically be set.
+
 
 ### Extra CMake Build Args
 
@@ -126,7 +139,6 @@ If enabled, the in-game debug UI can be displayed. Mostly useful for development
 #### ENGINE_TYPE=null|sdl (Default: sdl)
 
 The type of engine to use. By default, SDL is used. If "null" is specified, the emulator will execute without any audio or visuals; however, the debugger will work, which can be useful for testing the emulator, or as a starting point for a new engine type.
-
 
 ## Contributing
 
