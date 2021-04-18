@@ -6,6 +6,9 @@ cmake_policy(SET CMP0091 NEW)
 # Disable adding MSVC warning flags to CMAKE_<LANG>_FLAGS by default.
 cmake_policy(SET CMP0092 NEW)
 
+include(cmake/DepUtil.cmake)
+init_vcpkg_vars()
+
 project(vectrexy
 	DESCRIPTION "A Vectrexy emulator by Antonio Maiorano"
 	HOMEPAGE_URL https://github.com/amaiorano/vectrexy
