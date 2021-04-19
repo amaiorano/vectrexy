@@ -6,6 +6,7 @@
 #include "debugger/DebugSymbols.h"
 #include "debugger/RstMatchers.h"
 
+#include <cmath>
 #include <limits>
 
 namespace {
