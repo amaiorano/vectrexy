@@ -11,9 +11,9 @@
 #include "dap/session.h"
 
 #include <condition_variable>
+#include <cstring>
 #include <memory>
 #include <mutex>
-#include <string>
 
 // TODO: move to utility header
 // Appends, via move, values from source to target
