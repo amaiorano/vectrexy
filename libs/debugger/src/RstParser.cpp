@@ -3,6 +3,7 @@
 #include "core/ConsoleOutput.h"
 #include "core/StdUtil.h"
 #include "core/StringUtil.h"
+#include "debugger/DebugSymbols.h"
 #include "debugger/RstMatchers.h"
 
 #include <limits>

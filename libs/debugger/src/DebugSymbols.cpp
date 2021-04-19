@@ -1,4 +1,4 @@
-#include "Debugger/DebugSymbols.h"
+#include "debugger/DebugSymbols.h"
 #include <cassert>
 #include <unordered_set>
 

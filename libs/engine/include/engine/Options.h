@@ -5,6 +5,7 @@
 #include <map>
 #include <string>
 #include <variant>
+#include <vector>
 
 class Options {
 public:

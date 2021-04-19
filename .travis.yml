@@ -21,17 +21,17 @@ matrix:
     - os: linux
       dist: xenial
       sudo: required
-      compiler: gcc-8
+      compiler: gcc-9
       env:
         - VCPKG_TRIPLET=x64-linux
-        - CC_COMPILER=gcc-8
-        - CXX_COMPILER=g++-8
+        - CC_COMPILER=gcc-9
+        - CXX_COMPILER=g++-9
       addons:
         apt:
           sources:
             - ubuntu-toolchain-r-test
           packages:
-            - g++-8
+            - g++-9
             - libgtk2.0-dev
             - lftp
             # SDL build dependencies
@@ -71,9 +71,6 @@ before_install:
   - ./${CMAKE_INSTALL_SCRIPT} --prefix=$HOME/usr --exclude-subdir --skip-license
 
 install:
-  # HACK: gcc 8.0.1 is missing movdirintrin.h so just download it. We need this for GLM and Vectrexy to build.
-  - sudo wget https://raw.githubusercontent.com/gcc-mirror/gcc/gcc-8-branch/gcc/config/i386/movdirintrin.h -P /usr/lib/gcc/x86_64-linux-gnu/8/include/
-
   # Create deps dir
   - mkdir -p ${DEPS_DIR}
 
