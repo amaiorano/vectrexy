@@ -16,7 +16,7 @@ project(vectrexy
 
 option(BUILD_SHARED_LIBS "Build libs as shared libraries." OFF)
 option(DEBUG_UI "Enable the debug UI." ON)
-option(BUILD_TESTS "Build tests." ON)
+option(BUILD_TESTS "Build tests." OFF)
 
 set(ENGINE_TYPE sdl CACHE STRING "Engine Type")
 set_property(CACHE ENGINE_TYPE PROPERTY STRINGS sdl null)
