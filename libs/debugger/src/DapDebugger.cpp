@@ -13,6 +13,7 @@
 #include <condition_variable>
 #include <memory>
 #include <mutex>
+#include <string>
 
 // TODO: move to utility header
 // Appends, via move, values from source to target
@@ -419,7 +420,7 @@ void DapDebugger::InitDap() {
     // This example debugger only exposes one synthetic source file.
     // https://microsoft.github.io/debug-adapter-protocol/specification#Requests_Source
     m_session->registerHandler(
-        [&](const dap::SourceRequest & /*request*/) -> dap::ResponseOrError<dap::SourceResponse> {
+        [&](const dap::SourceRequest& /*request*/) -> dap::ResponseOrError<dap::SourceResponse> {
             // if (request.sourceReference != sourceReferenceId) {
             //    return dap::Error("Unknown source reference '%d'", int(request.sourceReference));
             //}
