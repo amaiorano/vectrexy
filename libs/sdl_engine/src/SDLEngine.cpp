@@ -67,6 +67,9 @@ namespace {
     void ImGui_Render() {
         GLUtil::ScopedDebugGroup sdb("ImGui");
         ImGui::Render();
+
+        void ImGui_ImplSdlGL3_RenderDrawLists(ImDrawData*);
+        ImGui_ImplSdlGL3_RenderDrawLists(ImGui::GetDrawData());
     }
 
     std::optional<float> GetDPI() {
