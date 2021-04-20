@@ -35,7 +35,7 @@ target_link_libraries(${MODULE_NAME}
 		SDL2::SDL2_net
 		imgui::imgui
 		GLEW::GLEW
-		glm
+		glm::glm
 		OpenGL::GL
 		OpenGL::GLU
 )
