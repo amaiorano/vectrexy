@@ -1,0 +1,137 @@
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [windows, ubuntu] # TODO: macOS
+        config: [Debug, Release]
+        arch: [x64, x86]
+        exclude:
+          - os: ubuntu
+            arch: x86
+      fail-fast: false
+
+    env:
+      OS: ${{ matrix.os }}
+      CONFIG: ${{ matrix.config }}
+      ARCH: ${{ matrix.arch }}
+
+    runs-on: ${{ matrix.os }}-latest
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: 'recursive'
+        # Don't shallow clone (fetch branches and tags) for git describe to work
+        fetch-depth: 0
+
+    - name: set env vars 1
+      shell: bash
+      run: echo 'BRANCH_NAME='$(echo ${GITHUB_REF#refs/heads/}) >> $GITHUB_ENV
+
+    - name: set env vars 2
+      shell: bash
+      run: |
+        # Package name includes branch name only if not master
+        if [ ! "${{ env.BRANCH_NAME }}" = "master" ]; then export BRANCH_STRING="-${{ env.BRANCH_NAME }}"; fi
+
+        # Package name includes config if not Release
+        if [ ! "${{ env.CONFIG }}" = "Release" ]; then export CONFIG_STRING="-${{ env.CONFIG }}"; fi
+        
+        echo 'PACKAGE_DIR<<EOF' >> $GITHUB_ENV
+        echo "vectrexy-${{ matrix.os }}-${{ matrix.arch }}$CONFIG_STRING$BRANCH_STRING" | awk '{print tolower($0)}' >> $GITHUB_ENV
+        echo 'EOF' >> $GITHUB_ENV
+
+    - name: output env vars
+      shell: bash
+      run: |
+        echo OS: $OS
+        echo CONFIG: $CONFIG
+        echo ARCH: $ARCH
+        echo BRANCH_NAME: $BRANCH_NAME
+        echo PACKAGE_DIR: $PACKAGE_DIR
+
+    - name: install apt dependencies
+      if: runner.os == 'linux'
+      shell: bash
+      run: sudo apt-get install libgl-dev libgtk2.0-dev libglu1-mesa-dev
+
+    - name: install vcpkg dependencies
+      shell: bash
+      run: |
+        #cd `which vcpkg|xargs readlink -f|xargs dirname`
+        #git fetch
+        #vcpkg update
+        if [ "$RUNNER_OS" = "Windows" ]; then export VCPKG_TRIPLET_ARG="--triplet $ARCH-windows-static"; fi
+        vcpkg install $VCPKG_TRIPLET_ARG sdl2 sdl2-net glew glm stb imgui gtest
+
+    - name: configure
+      shell: bash
+      run: |
+        set -o xtrace
+        mkdir build && cd build
+        if [ "$RUNNER_OS" = "Windows" ]; then
+            # Defaults to latest Visual Studio, just need to specify arch
+            if [ "$ARCH" = "x64" ]; then
+                export CMAKE_GENERATOR_ARG="-A x64"
+            else
+                export CMAKE_GENERATOR_ARG="-A Win32"
+            fi
+
+            # Set vcpkg triplet
+            export VCPKG_DEFAULT_TRIPLET="$ARCH-windows-static"
+        fi
+        cmake .. \
+          $CMAKE_GENERATOR_ARG \
+          -DCMAKE_TOOLCHAIN_FILE=$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake \
+          -DCMAKE_BUILD_TYPE:STRING=${CONFIG} \
+          -DCMAKE_INSTALL_PREFIX:PATH=~/.local
+
+    - name: build
+      shell: bash
+      run: cd build && cmake --build . --config ${CONFIG}
+
+    - name: prepare package - common
+      shell: bash
+      run: |
+        set -o xtrace
+
+        mkdir -p $PACKAGE_DIR
+        mkdir -p $PACKAGE_DIR/docs
+        mkdir -p $PACKAGE_DIR/data/bios
+        
+        cp -r ./docs $PACKAGE_DIR
+        cp -r ./data/bios $PACKAGE_DIR/data
+        cp ./README.md $PACKAGE_DIR
+        cp ./LICENSE.txt $PACKAGE_DIR
+        if [ "$RUNNER_OS" = "Windows" ]; then
+          cp ./build/${CONFIG}/vectrexy.exe $PACKAGE_DIR
+        else
+          cp ./build/vectrexy $PACKAGE_DIR
+        fi
+
+        git describe > $PACKAGE_DIR/version.txt
+
+        curl -L https://dl.cloudsmith.io/public/vectrexy/vectrexy/raw/files/data.zip -o data.zip
+        unzip data.zip -d $PACKAGE_DIR
+
+    - uses: actions/upload-artifact@v2
+      with:
+        name: ${{ env.PACKAGE_DIR }}
+        path: ${{ env.PACKAGE_DIR }}
+        if-no-files-found: error
+
+    # Use the python cli because cloudsmith-io/action@master only works on Linux
+    - name: push build to Cloudsmith
+      if: ${{ (env.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev') && matrix.config == 'Release' }}
+      shell: bash
+      run: |
+        set -o xtrace
+        cd $PACKAGE_DIR
+        7z a ../$PACKAGE_DIR.zip .
+        cd ..
+        pip install --upgrade cloudsmith-cli
+        cloudsmith push raw --republish -k ${{ secrets.CLOUDSMITH_API_KEY }} vectrexy/vectrexy ${{ env.PACKAGE_DIR }}.zip
