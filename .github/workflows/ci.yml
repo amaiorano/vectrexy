@@ -1,0 +1,102 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+      - github-actions
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [windows, ubuntu] # TODO: macOS
+        config: [Debug, Release]
+
+    env:
+      OS: ${{ matrix.os }}
+      CONFIG: ${{ matrix.config }}
+      PACKAGE_DIR: vectrexy-${{ matrix.os }}-${{ matrix.config }}
+
+    runs-on: ${{ matrix.os }}-latest
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: 'recursive'
+        # Don't shallow clone (fetch branches and tags) for git describe to work
+        fetch-depth: 0
+
+    - name: output variables
+      shell: bash
+      run: |
+        echo OS: $OS
+        echo CONFIG: $CONFIG
+        echo PACKAGE_NAME: $PACKAGE_NAME
+        echo PACKAGE_DIR: $PACKAGE_DIR
+
+    - name: install apt dependencies
+      if: runner.os == 'linux'
+      shell: bash
+      run: sudo apt-get install libgl-dev libgtk2.0-dev libglu1-mesa-dev
+
+    - name: install vcpkg dependencies
+      shell: bash
+      run: |
+        #cd `which vcpkg|xargs readlink -f|xargs dirname`
+        #git fetch
+        #vcpkg update
+        if [ "$RUNNER_OS" = "Windows" ]; then export VCPKG_TRIPLET_ARG="--triplet x64-windows-static"; fi
+        vcpkg install $VCPKG_TRIPLET_ARG sdl2 sdl2-net glew glm stb imgui gtest
+
+    - name: configure
+      shell: bash
+      run: |
+        mkdir build && cd build
+        cmake .. \
+          -DCMAKE_TOOLCHAIN_FILE=$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake \
+          -DCMAKE_BUILD_TYPE:STRING=${CONFIG} \
+          -DCMAKE_INSTALL_PREFIX:PATH=~/.local
+
+    - name: build
+      shell: bash
+      run: cd build && cmake --build . --config ${CONFIG}
+
+    - name: prepare package - common
+      shell: bash
+      run: |
+        set -o xtrace
+
+        mkdir -p $PACKAGE_DIR
+        mkdir -p $PACKAGE_DIR/docs
+        mkdir -p $PACKAGE_DIR/data/bios
+        
+        cp -r ./docs $PACKAGE_DIR
+        cp -r ./data/bios $PACKAGE_DIR/data
+        cp ./README.md $PACKAGE_DIR
+        cp ./LICENSE.txt $PACKAGE_DIR
+
+        git describe > $PACKAGE_DIR/version.txt
+
+        curl -L https://dl.bintray.com/amaiorano/vectrexy/data.zip -o data.zip
+        unzip data.zip -d $PACKAGE_DIR
+
+    - name: prepare package - windows
+      if: runner.os == 'windows'
+      shell: bash
+      run: cp ./build/${CONFIG}/vectrexy.exe $PACKAGE_DIR
+
+    - name: prepare package - linux
+      if: runner.os == 'linux'
+      shell: bash
+      run: cp ./build/vectrexy $PACKAGE_DIR
+
+    - name: sanity check
+      shell: bash
+      run: ls -lR $PACKAGE_DIR
+
+    - uses: actions/upload-artifact@v2
+      with:
+        name: ${{ env.PACKAGE_DIR }}
+        path: ${{ env.PACKAGE_DIR }}
+        if-no-files-found: error
