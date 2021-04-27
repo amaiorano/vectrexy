@@ -5,6 +5,7 @@
 #include "core/StringUtil.h"
 #include "debugger/RstMatchers.h"
 
+#include <cmath>
 #include <limits>
 
 namespace {

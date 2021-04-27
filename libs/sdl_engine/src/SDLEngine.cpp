@@ -38,6 +38,8 @@ MSC_PUSH_WARNING_DISABLE(4121)
 #undef max
 MSC_POP_WARNING_DISABLE()
 
+extern void ImGui_ImplSdlGL3_RenderDrawLists(ImDrawData*);
+
 namespace {
     // Display window dimensions
     const int DEFAULT_WINDOW_WIDTH = 600;
@@ -67,8 +69,6 @@ namespace {
     void ImGui_Render() {
         GLUtil::ScopedDebugGroup sdb("ImGui");
         ImGui::Render();
-
-        void ImGui_ImplSdlGL3_RenderDrawLists(ImDrawData*);
         ImGui_ImplSdlGL3_RenderDrawLists(ImGui::GetDrawData());
     }
 

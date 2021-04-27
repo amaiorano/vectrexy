@@ -10,6 +10,7 @@
 #include "dap/protocol.h"
 #include "dap/session.h"
 
+#include <cstring>
 #include <condition_variable>
 #include <memory>
 #include <mutex>
