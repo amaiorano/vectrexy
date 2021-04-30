@@ -10,8 +10,8 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [windows, ubuntu] # TODO: macOS
-        config: [Debug, Release]
+        os: [windows] #, ubuntu] # TODO: macOS
+        config: [Release] #[Debug, Release]
 
     env:
       OS: ${{ matrix.os }}
@@ -32,7 +32,6 @@ jobs:
       run: |
         echo OS: $OS
         echo CONFIG: $CONFIG
-        echo PACKAGE_NAME: $PACKAGE_NAME
         echo PACKAGE_DIR: $PACKAGE_DIR
 
     - name: install apt dependencies
@@ -100,3 +99,11 @@ jobs:
         name: ${{ env.PACKAGE_DIR }}
         path: ${{ env.PACKAGE_DIR }}
         if-no-files-found: error
+
+    # Use the python cli because cloudsmith-io/action@master only works on Linux
+    - name: push to Cloudsmith
+      shell: bash
+      run: |
+        set -o xtrace
+        pip install --upgrade cloudsmith-cli
+        cloudsmith push raw -k ${{ secrets.CLOUDSMITH_API_KEY }} vectrexy/vectrexy ${{ env.PACKAGE_DIR }}.zip
