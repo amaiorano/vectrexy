@@ -10,8 +10,9 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [windows] #, ubuntu] # TODO: macOS
-        config: [Release] #[Debug, Release]
+        os: [windows, ubuntu] # TODO: macOS
+        config: [Debug, Release]
+      fail-fast: false
 
     env:
       OS: ${{ matrix.os }}
@@ -74,21 +75,16 @@ jobs:
         cp -r ./data/bios $PACKAGE_DIR/data
         cp ./README.md $PACKAGE_DIR
         cp ./LICENSE.txt $PACKAGE_DIR
+        if [ "$RUNNER_OS" = "Windows" ]; then
+          cp ./build/${CONFIG}/vectrexy.exe $PACKAGE_DIR
+        else
+          cp ./build/vectrexy $PACKAGE_DIR
+        fi
 
         git describe > $PACKAGE_DIR/version.txt
 
-        curl -L https://dl.bintray.com/amaiorano/vectrexy/data.zip -o data.zip
+        curl -L https://dl.cloudsmith.io/public/vectrexy/vectrexy/raw/files/data.zip -o data.zip
         unzip data.zip -d $PACKAGE_DIR
-
-    - name: prepare package - windows
-      if: runner.os == 'windows'
-      shell: bash
-      run: cp ./build/${CONFIG}/vectrexy.exe $PACKAGE_DIR
-
-    - name: prepare package - linux
-      if: runner.os == 'linux'
-      shell: bash
-      run: cp ./build/vectrexy $PACKAGE_DIR
 
     - name: sanity check
       shell: bash
@@ -105,5 +101,8 @@ jobs:
       shell: bash
       run: |
         set -o xtrace
+        cd $PACKAGE_DIR
+        7z a ../$PACKAGE_DIR.zip .
+        cd ..
         pip install --upgrade cloudsmith-cli
         cloudsmith push raw -k ${{ secrets.CLOUDSMITH_API_KEY }} vectrexy/vectrexy ${{ env.PACKAGE_DIR }}.zip
