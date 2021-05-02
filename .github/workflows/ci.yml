@@ -1,10 +1,6 @@
 name: CI
 
-on:
-  push:
-    branches:
-      - master
-      - github-actions
+on: [push, pull_request]
 
 jobs:
   build:
@@ -17,7 +13,7 @@ jobs:
     env:
       OS: ${{ matrix.os }}
       CONFIG: ${{ matrix.config }}
-      PACKAGE_DIR: vectrexy-${{ matrix.os }}-${{ matrix.config }}
+      PACKAGE_DIR: vectrexy-${{ matrix.os }}-${{ matrix.config }}      
 
     runs-on: ${{ matrix.os }}-latest
 
@@ -28,82 +24,87 @@ jobs:
         # Don't shallow clone (fetch branches and tags) for git describe to work
         fetch-depth: 0
 
+    # For env.GITHUB_REF_SLUG (git branch name)
+    # - name: Inject GitHub slug/short variables
+    #   uses: rlespinasse/github-slug-action@v3.x
+
+    - name: Extract branch name
+      shell: bash
+      run: echo "::set-env name=BRANCH_NAME::$(echo ${GITHUB_REF#refs/heads/}"
+
     - name: output variables
       shell: bash
       run: |
         echo OS: $OS
         echo CONFIG: $CONFIG
         echo PACKAGE_DIR: $PACKAGE_DIR
+        echo BRANCH_NAME: $BRANCH_NAME
 
-    - name: install apt dependencies
-      if: runner.os == 'linux'
-      shell: bash
-      run: sudo apt-get install libgl-dev libgtk2.0-dev libglu1-mesa-dev
+    # - name: install apt dependencies
+    #   if: runner.os == 'linux'
+    #   shell: bash
+    #   run: sudo apt-get install libgl-dev libgtk2.0-dev libglu1-mesa-dev
 
-    - name: install vcpkg dependencies
-      shell: bash
-      run: |
-        #cd `which vcpkg|xargs readlink -f|xargs dirname`
-        #git fetch
-        #vcpkg update
-        if [ "$RUNNER_OS" = "Windows" ]; then export VCPKG_TRIPLET_ARG="--triplet x64-windows-static"; fi
-        vcpkg install $VCPKG_TRIPLET_ARG sdl2 sdl2-net glew glm stb imgui gtest
+    # - name: install vcpkg dependencies
+    #   shell: bash
+    #   run: |
+    #     #cd `which vcpkg|xargs readlink -f|xargs dirname`
+    #     #git fetch
+    #     #vcpkg update
+    #     if [ "$RUNNER_OS" = "Windows" ]; then export VCPKG_TRIPLET_ARG="--triplet x64-windows-static"; fi
+    #     vcpkg install $VCPKG_TRIPLET_ARG sdl2 sdl2-net glew glm stb imgui gtest
 
-    - name: configure
-      shell: bash
-      run: |
-        mkdir build && cd build
-        cmake .. \
-          -DCMAKE_TOOLCHAIN_FILE=$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake \
-          -DCMAKE_BUILD_TYPE:STRING=${CONFIG} \
-          -DCMAKE_INSTALL_PREFIX:PATH=~/.local
+    # - name: configure
+    #   shell: bash
+    #   run: |
+    #     mkdir build && cd build
+    #     cmake .. \
+    #       -DCMAKE_TOOLCHAIN_FILE=$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake \
+    #       -DCMAKE_BUILD_TYPE:STRING=${CONFIG} \
+    #       -DCMAKE_INSTALL_PREFIX:PATH=~/.local
 
-    - name: build
-      shell: bash
-      run: cd build && cmake --build . --config ${CONFIG}
+    # - name: build
+    #   shell: bash
+    #   run: cd build && cmake --build . --config ${CONFIG}
 
-    - name: prepare package - common
-      shell: bash
-      run: |
-        set -o xtrace
+    # - name: prepare package - common
+    #   shell: bash
+    #   run: |
+    #     set -o xtrace
 
-        mkdir -p $PACKAGE_DIR
-        mkdir -p $PACKAGE_DIR/docs
-        mkdir -p $PACKAGE_DIR/data/bios
+    #     mkdir -p $PACKAGE_DIR
+    #     mkdir -p $PACKAGE_DIR/docs
+    #     mkdir -p $PACKAGE_DIR/data/bios
         
-        cp -r ./docs $PACKAGE_DIR
-        cp -r ./data/bios $PACKAGE_DIR/data
-        cp ./README.md $PACKAGE_DIR
-        cp ./LICENSE.txt $PACKAGE_DIR
-        if [ "$RUNNER_OS" = "Windows" ]; then
-          cp ./build/${CONFIG}/vectrexy.exe $PACKAGE_DIR
-        else
-          cp ./build/vectrexy $PACKAGE_DIR
-        fi
+    #     cp -r ./docs $PACKAGE_DIR
+    #     cp -r ./data/bios $PACKAGE_DIR/data
+    #     cp ./README.md $PACKAGE_DIR
+    #     cp ./LICENSE.txt $PACKAGE_DIR
+    #     if [ "$RUNNER_OS" = "Windows" ]; then
+    #       cp ./build/${CONFIG}/vectrexy.exe $PACKAGE_DIR
+    #     else
+    #       cp ./build/vectrexy $PACKAGE_DIR
+    #     fi
 
-        git describe > $PACKAGE_DIR/version.txt
+    #     git describe > $PACKAGE_DIR/version.txt
 
-        curl -L https://dl.cloudsmith.io/public/vectrexy/vectrexy/raw/files/data.zip -o data.zip
-        unzip data.zip -d $PACKAGE_DIR
+    #     curl -L https://dl.cloudsmith.io/public/vectrexy/vectrexy/raw/files/data.zip -o data.zip
+    #     unzip data.zip -d $PACKAGE_DIR
 
-    - name: sanity check
-      shell: bash
-      run: ls -lR $PACKAGE_DIR
+    # - uses: actions/upload-artifact@v2
+    #   with:
+    #     name: ${{ env.PACKAGE_DIR }}
+    #     path: ${{ env.PACKAGE_DIR }}
+    #     if-no-files-found: error
 
-    - uses: actions/upload-artifact@v2
-      with:
-        name: ${{ env.PACKAGE_DIR }}
-        path: ${{ env.PACKAGE_DIR }}
-        if-no-files-found: error
-
-    # Use the python cli because cloudsmith-io/action@master only works on Linux
-    - name: push to Cloudsmith
-      #if: github.ref == 'master'
-      shell: bash
-      run: |
-        set -o xtrace
-        cd $PACKAGE_DIR
-        7z a ../$PACKAGE_DIR.zip .
-        cd ..
-        pip install --upgrade cloudsmith-cli
-        cloudsmith push raw --republish -k ${{ secrets.CLOUDSMITH_API_KEY }} vectrexy/vectrexy ${{ env.PACKAGE_DIR }}.zip
+    # # Use the python cli because cloudsmith-io/action@master only works on Linux
+    # - name: push build to Cloudsmith
+    #   if: github.ref == 'master' && matrix.config == 'Release'
+    #   shell: bash
+    #   run: |
+    #     set -o xtrace
+    #     cd $PACKAGE_DIR
+    #     7z a ../$PACKAGE_DIR.zip .
+    #     cd ..
+    #     pip install --upgrade cloudsmith-cli
+    #     cloudsmith push raw --republish -k ${{ secrets.CLOUDSMITH_API_KEY }} vectrexy/vectrexy ${{ env.PACKAGE_DIR }}.zip
