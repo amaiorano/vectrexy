@@ -10,8 +10,8 @@
 #include "dap/protocol.h"
 #include "dap/session.h"
 
-#include <cstring>
 #include <condition_variable>
+#include <cstring>
 #include <memory>
 #include <mutex>
 
@@ -420,7 +420,7 @@ void DapDebugger::InitDap() {
     // This example debugger only exposes one synthetic source file.
     // https://microsoft.github.io/debug-adapter-protocol/specification#Requests_Source
     m_session->registerHandler(
-        [&](const dap::SourceRequest & /*request*/) -> dap::ResponseOrError<dap::SourceResponse> {
+        [&](const dap::SourceRequest& /*request*/) -> dap::ResponseOrError<dap::SourceResponse> {
             // if (request.sourceReference != sourceReferenceId) {
             //    return dap::Error("Unknown source reference '%d'", int(request.sourceReference));
             //}
@@ -905,7 +905,7 @@ dap::Variable DapDebugger::CreateDapVariable(std::shared_ptr<Variable> var, uint
         char value[8];
         ReadValue(value, enumType->byteSize, varAddress);
 
-        ssize_t enumValue{};
+        int64_t enumValue{};
 
         switch (enumType->byteSize) {
         case 1: {

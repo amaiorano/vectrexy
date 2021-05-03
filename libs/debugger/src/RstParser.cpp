@@ -159,7 +159,7 @@ std::shared_ptr<Type> RstParser::AddPrimitiveType(const std::string& typeDefId,
 
 std::shared_ptr<EnumType>
 RstParser::AddEnumType(const std::string& typeDefId, const std::string& typeName, bool isSigned,
-                       size_t byteSize, std::unordered_map<ssize_t, std::string> valueToId) {
+                       size_t byteSize, std::unordered_map<int64_t, std::string> valueToId) {
     auto t = std::make_shared<EnumType>(typeName, isSigned, byteSize, std::move(valueToId));
     AddType(typeDefId, t);
     return t;
@@ -386,9 +386,9 @@ void RstParser::HandleStabStringMatch(StabStringMatch& stabs) {
         }
         // Enum type definitions
         else if (auto lsymEnum = LSymEnumMatch(lsymString)) {
-            auto minValue = std::numeric_limits<ssize_t>::max();
-            auto maxValue = std::numeric_limits<ssize_t>::min();
-            std::unordered_map<ssize_t, std::string> valueToId;
+            auto minValue = std::numeric_limits<int64_t>::max();
+            auto maxValue = std::numeric_limits<int64_t>::min();
+            std::unordered_map<int64_t, std::string> valueToId;
 
             auto values = StringUtil::Split(lsymEnum.Values(), ",");
             for (auto& value : values) {
@@ -402,7 +402,7 @@ void RstParser::HandleStabStringMatch(StabStringMatch& stabs) {
                     id = StringUtil::ToLower(id);
                 }
 
-                ssize_t v = std::stoll(kvp[1]);
+                int64_t v = std::stoll(kvp[1]);
                 minValue = std::min(minValue, v);
                 maxValue = std::max(maxValue, v);
 

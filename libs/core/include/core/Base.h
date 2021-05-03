@@ -112,7 +112,7 @@ struct FormattedString {
 
     const char* Value() const { return buffer; }
 
-    operator const char *() const { return Value(); }
+    operator const char*() const { return Value(); }
 
     char buffer[MaxLength];
 };
@@ -154,9 +154,6 @@ inline void AssertHandler(const char* file, int line, const char* condition, con
 
 // Type aliases
 using cycles_t = uint64_t;
-
-using ssize_t = ptrdiff_t;
-static_assert(sizeof(ssize_t) == sizeof(size_t));
 
 template <typename Container, typename T>
 bool contains(Container container, T& value) {

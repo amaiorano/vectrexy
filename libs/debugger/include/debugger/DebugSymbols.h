@@ -82,7 +82,7 @@ struct PrimitiveType : Type {
 
 struct EnumType : Type {
     EnumType(std::string name, bool isSigned, size_t byteSize,
-             std::unordered_map<ssize_t, std::string> valueToId)
+             std::unordered_map<int64_t, std::string> valueToId)
         : Type(std::move(name))
         , isSigned(isSigned)
         , byteSize(byteSize)
@@ -90,7 +90,7 @@ struct EnumType : Type {
 
     size_t Size() const override { return byteSize; }
 
-    std::unordered_map<ssize_t, std::string> valueToId;
+    std::unordered_map<int64_t, std::string> valueToId;
     size_t byteSize{};
     bool isSigned{};
 };
