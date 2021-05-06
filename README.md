@@ -6,14 +6,21 @@ This project is open source and available on GitHub: https://github.com/amaioran
 
 ## Download Latest Build
 
-Windows [![Build status](https://ci.appveyor.com/api/projects/status/0adcwixak7ul9oet?svg=true)](https://ci.appveyor.com/project/amaiorano/vectrexy)
+### Build status ![master branch status](https://github.com/amaiorano/vectrexy/actions/workflows/ci.yml/badge.svg?branch=master)
 
-* [Vectrexy for Windows 64-bit](https://dl.bintray.com/amaiorano/vectrexy/vectrexy_win64.zip)
-* [Vectrexy for Windows 32-bit](https://dl.bintray.com/amaiorano/vectrexy/vectrexy_win32.zip)
+* [Vectrexy for Windows 64-bit](https://dl.cloudsmith.io/public/vectrexy/vectrexy/raw/files/vectrexy-windows-x64.zip)
 
-Linux [![Build Status](https://travis-ci.org/amaiorano/vectrexy.svg?branch=master)](https://travis-ci.org/amaiorano/vectrexy)
+* [Vectrexy for Windows 32-bit](https://dl.cloudsmith.io/public/vectrexy/vectrexy/raw/files/vectrexy-windows-x86.zip)
 
-* [Vectrexy for Linux 64-bit](https://dl.bintray.com/amaiorano/vectrexy/vectrexy_linux64.zip)
+* [Vectrexy for Linux 64-bit](https://dl.cloudsmith.io/public/vectrexy/vectrexy/raw/files/vectrexy-ubuntu-x64.zip)
+
+\
+[![Hosted By: Cloudsmith](https://img.shields.io/badge/OSS%20hosting%20by-cloudsmith-blue?logo=cloudsmith&style=flat-square)](https://cloudsmith.com)
+
+Package repository hosting is graciously provided by  [Cloudsmith](https://cloudsmith.com).
+Cloudsmith is the only fully hosted, cloud-native, universal package management solution, that
+enables your organization to create, store and share packages in any format, to any place, with total
+confidence.
 
 ## Twitch Development
 
@@ -66,7 +73,7 @@ Install:
 
 Install dependent packages with vcpkg:
 ```bash
-vcpkg install sdl2:x64-windows-static sdl2-net:x64-windows-static glew:x64-windows-static glm:x64-windows-static stb:x64-windows-static imgui:x64-windows-static gtest:x64-windows-static
+vcpkg install --triplet x64-windows-static sdl2 sdl2-net glew glm stb imgui gtest
 ```
 
 Clone and build vectrexy using CMake:
@@ -81,16 +88,20 @@ cmake --build .
 ### Ubuntu
 
 Install:
-* gcc 8 or higher
 * [CMake](https://cmake.org/)
+* gcc 8 or higher
 * [vcpkg](https://github.com/Microsoft/vcpkg)
 
-Install some Linux-specific libs we depend on:
+Install a compiler and some Linux-specific libs we depend on:
 ```bash
 sudo apt-get install g++-8 libgtk2.0-dev
+```
 
+SDL2 has many dependencies, some of which you may need to install:
+```
 # SDL static lib dependencies (see https://hg.libsdl.org/SDL/file/default/docs/README-linux.md)
 # Alternatively, you can just 'apt-get libsdl2-dev' to build against the dynamic library
+
 sudo apt-get install build-essential mercurial make cmake autoconf automake libtool libasound2-dev libpulse-dev libaudio-dev libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxinerama-dev libxxf86vm-dev libxss-dev libgl1-mesa-dev libesd0-dev libdbus-1-dev libudev-dev libgles1-mesa-dev libgles2-mesa-dev libegl1-mesa-dev libibus-1.0-dev fcitx-libs-dev libsamplerate0-dev libsndio-dev
 ```
 
@@ -111,7 +122,7 @@ cmake --build .
 
 ### Tips for building
 
-If you opeted for vcpkg's integrated installation, via `vcpkg integrate install`, then everything should just work. If not, it's recommended to clone `vcpkg` in the same parent directory where `vectrexy` is cloned so that it's found automatically. Alternatively, you can either specify the vcpkg toolchain file via cmake arg:
+If you opted for vcpkg's integrated installation, via `vcpkg integrate install`, then everything should just work. If not, it's recommended to clone `vcpkg` in the same parent directory where `vectrexy` is cloned so that it's found automatically. Alternatively, you can either specify the vcpkg toolchain file via cmake arg:
 
 ```bash
 cmake -DCMAKE_TOOLCHAIN_FILE=../../vcpkg/scripts/buildsystems/vcpkg.cmake ..
@@ -121,7 +132,6 @@ Or by setting environment variable `VCPKG_ROOT` to the root path of your vcpkg i
 
 Finally, you may set environment variable `VCPKG_DEFAULT_TRIPLET` to the vcpkg triplet to build with. If not set, a good default will automatically be set.
 
-
 ### Extra CMake Build Args
 
 Use ```-D<VAR_NAME>=<VALUE>``` from the CMake CLI, or use cmake-gui to set these.
@@ -130,7 +140,7 @@ Use ```-D<VAR_NAME>=<VALUE>``` from the CMake CLI, or use cmake-gui to set these
 
 If enabled, builds a DLL/.so version.
 
-**NOTE**: On Windows, vcpkg's "static" triplets (e.g. x64-windows-static) create static libs that link against the static CRT (/MT), while CMake generates shared library builds that link against the dynamic CRT (/MD). Thus, when building, the linker will emit: `LINK : warning LNK4098: defaultlib 'LIBCMT' conflicts with use of other libs; use /NODEFAULTLIB:library`. You can ignore this for the most part; however, you can fix this problem by creating a custom vcpkg triplet, e.g. x64-windows-static-md.cmake, that is a copy of x64-windows-static.cmake, except with `set(VCPKG_CRT_LINKAGE dynamic)`. If you use this triplet to build dependencies with vcpkg, and specify it as CMake's `VCPKG_TARGET_TRIPLET`, all libraries will use the dynamic CRT, and no warning will be emitted by the linker.
+**NOTE**: On Windows, vcpkg's "static" triplets (e.g. x64-windows-static) create static libs that link against the static CRT (/MT), while CMake generates shared library builds that link against the dynamic CRT (/MD). Thus, when building, the linker will emit: `LINK : warning LNK4098: defaultlib 'LIBCMT' conflicts with use of other libs; use /NODEFAULTLIB:library`. You can ignore this for the most part; however, you can fix this warning by creating a custom vcpkg triplet, e.g. x64-windows-static-md.cmake, that is a copy of x64-windows-static.cmake, except with `set(VCPKG_CRT_LINKAGE dynamic)`. If you use this triplet to build dependencies with vcpkg, and specify it as CMake's `VCPKG_TARGET_TRIPLET`, all libraries will use the dynamic CRT, and no warning will be emitted by the linker.
 
 #### DEBUG_UI=on|off (Default: on)
 
