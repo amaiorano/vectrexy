@@ -126,7 +126,7 @@ jobs:
 
     # Use the python cli because cloudsmith-io/action@master only works on Linux
     - name: push build to Cloudsmith
-      if: ${{ (env.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev') && matrix.config == 'Release' }}
+      if: ${{ (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev') && matrix.config == 'Release' }}
       shell: bash
       run: |
         set -o xtrace
