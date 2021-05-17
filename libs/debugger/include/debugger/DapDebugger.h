@@ -38,7 +38,7 @@ public:
                      RenderContext& renderContext, AudioContext& audioContext);
 
 private:
-    void ParseRst(const fs::path& rstFile);
+    void ParseStabs(const fs::path& rstFile);
     void InitDap();
     void WaitDap();
     enum class Event { BreakpointHit, Stepped, Paused };

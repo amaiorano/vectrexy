@@ -5,6 +5,7 @@
 #include "debugger/RstParser.h"
 #include "emulator/Cpu.h"
 #include "emulator/Emulator.h"
+#include "stabs_parser/StabsParser.h"
 
 #include "dap/io.h"
 #include "dap/protocol.h"
@@ -93,15 +94,15 @@ void DapDebugger::OnRomLoaded(const char* file) {
     m_sourceRoot = MakePath(file).remove_filename().generic_string();
 
     // Collect .rst files in the same folder as the rom file
-    std::vector<fs::path> rstFiles;
+    std::vector<fs::path> stabsFiles;
     for (auto& d : fs::directory_iterator(m_sourceRoot)) {
         if (d.path().extension() == ".rst") {
-            rstFiles.push_back(d.path());
+            stabsFiles.push_back(d.path());
         }
     }
 
-    for (auto& rstFile : rstFiles) {
-        ParseRst(rstFile);
+    for (auto& stabsFile : stabsFiles) {
+        ParseStabs(stabsFile);
     }
 
     WaitDap();
@@ -119,9 +120,10 @@ bool DapDebugger::FrameUpdate(double frameTime, const EmuEvents& emuEvents, cons
     return true;
 }
 
-void DapDebugger::ParseRst(const fs::path& rstFile) {
-    RstParser parser{m_debugSymbols};
-    parser.Parse(rstFile);
+void DapDebugger::ParseStabs(const fs::path& stabsFile) {
+    // RstParser parser{ m_debugSymbols };
+    StabsParser parser;
+    parser.Parse(stabsFile);
 }
 
 void DapDebugger::InitDap() {
