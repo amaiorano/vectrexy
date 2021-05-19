@@ -203,7 +203,10 @@ namespace stabs {
                               DEFAULT_PARAM_DESC_RULE, DEFAULT_PARAM_VALUE_RULE> {};
 
     // N_SOL = 132;   // 0x84 Name of include file
+    // 26 ;	.stabs	"foo.cpp",100,0,0,Ltext0
     // 80 ;	.stabs	"src/main.cpp",132,0,0,Ltext2
+    // TODO: This isn't only the include file, but is emitted for the current source file once we're
+    // done with the included file section. So we should emit a "current source file" event.
     struct stabs_directive_include_file
         : stabs_directive_for<include_file, TAO_PEGTL_STRING("132"), DEFAULT_PARAM_OTHER_RULE,
                               DEFAULT_PARAM_DESC_RULE, DEFAULT_PARAM_VALUE_RULE> {};
@@ -241,9 +244,25 @@ namespace stabs {
               sor<TAO_PEGTL_STRING("36"), TAO_PEGTL_STRING("38"), TAO_PEGTL_STRING("40")>,
               DEFAULT_PARAM_OTHER_RULE, DEFAULT_PARAM_DESC_RULE, section_symbol_label> {};
 
-    struct stabs_directive
-        : sor<stabs_directive_lsym, stabs_directive_include_file, stabs_directive_section_symbol> {
-    };
+    // NOTE: This seems to appear once for each source file, and doesn't include the full path. We
+    // basically ignore this and use N_SOL instead.
+    //
+    // N_SO = 100; // 0x64 Path and name of source file
+    struct main_source_file
+        : stabs_directive_for<file_path, TAO_PEGTL_STRING("100"), DEFAULT_PARAM_OTHER_RULE,
+                              DEFAULT_PARAM_DESC_RULE, DEFAULT_PARAM_VALUE_RULE> {};
+
+    // NOTE: In my examples, this is usually something like "gcc2_compiled." Not really useful.
+    //
+    // N_OPT = 60; // 0x3C Debugger options (Solaris2).
+    struct debugger_options : stabs_directive_for<until_not_at<dquote>, TAO_PEGTL_STRING("60"),
+                                                  DEFAULT_PARAM_OTHER_RULE, DEFAULT_PARAM_DESC_RULE,
+                                                  DEFAULT_PARAM_VALUE_RULE> {};
+
+    struct stabs_directive_to_ignore : sor<main_source_file, debugger_options> {};
+
+    struct stabs_directive : sor<stabs_directive_lsym, stabs_directive_include_file,
+                                 stabs_directive_section_symbol, stabs_directive_to_ignore> {};
 
     // N_SLINE = 68;  // 0x44 Line number in text segment
     // 70 ;	.stabd	68,0,3
@@ -280,9 +299,11 @@ namespace stabs {
     struct label : seq<blanks, label_address, blanks, plus<digits>, blanks, label_name, one<':'>> {
     };
 
-    struct grammar
-        : must<seq<sor<instruction, label, stabs_directive, stabd_directive, stabn_directive>,
-                   eof>> {};
+    // Indirection so that error output is cleaner
+    struct grammar_
+        : seq<sor<instruction, label, stabs_directive, stabd_directive, stabn_directive>, eof> {};
+
+    struct grammar : must<grammar_> {};
 
     // Types selected in for parse tree
     template <typename Rule>
@@ -381,7 +402,7 @@ bool StabsParser::Parse(const std::filesystem::path& file) {
         try {
             if (const auto root =
                     pegtl::parse_tree::parse<stabs::grammar, stabs::Node, stabs::selector>(in)) {
-                stabs::PrintParseTree(*root);
+                // stabs::PrintParseTree(*root);
             }
         } catch (const pegtl::parse_error& e) {
             bool isMatchError =
@@ -393,7 +414,7 @@ bool StabsParser::Parse(const std::filesystem::path& file) {
                 continue;
             }
 
-            Errorf("PEGTL exception: '%s'\n", e.what());
+            Errorf("PEGTL exception: %s\n  Source: %s\n", e.what(), line.c_str());
             // const auto p = e.positions().front();
             // Errorf("PEGTL exception: '%s' [%s(%zu, %zu)]\n", e.what(), in.source().c_str(),
             //       in.line_at(p), p.column);
