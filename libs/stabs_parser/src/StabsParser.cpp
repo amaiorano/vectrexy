@@ -44,6 +44,7 @@ namespace stabs {
     // Type definitions:
     // "int:t7"
     // "char:t13=r13;0;255;"
+    // "uint8_t:t25=10" <-- typedef of type 10
     //
     // Local variables:
     // "a:7"
@@ -57,6 +58,11 @@ namespace stabs {
     //  7: upper-bound of range
 
     // Primitive type def
+    // TODO: Add support for user-defined types (class/struct), like:
+    // clang-format off
+    // 64;.stabs	"static_assert_impl:T30=s0static_assert_failed:31=ar32=r32;0;-1;;0;-1;13,0,0;;", 128, 0, 0, 0
+    // 65;.stabs	"static_assert_impl:t30", 128, 0, 0, 0
+    // clang-format on
     struct type_def_name : plus<seq<identifier, blanks>> {};
     struct type_def_id : digits {};
     struct type_def_range_def_id : digits {};
@@ -65,7 +71,9 @@ namespace stabs {
     struct type_def_range
         : seq<one<'='>, one<'r', 'R'>, type_def_range_def_id, one<';'>, type_def_range_lower_bound,
               one<';'>, type_def_range_upper_bound, one<';'>> {};
-    struct type_def : seq<type_def_name, one<':'>, one<'t'>, type_def_id, opt<type_def_range>> {};
+    struct type_def_alias : seq<one<'='>, digits> {};
+    struct type_def : seq<type_def_name, one<':'>, one<'t'>, type_def_id,
+                          opt<sor<type_def_range, type_def_alias>>> {};
 
     // Variable decl and pointer def
     // a:7
@@ -321,7 +329,7 @@ namespace stabs {
                   array, array_name, array_type_id, array_max_index,
                   // type_def
                   type_def, type_def_name, type_def_id, type_def_range_lower_bound,
-                  type_def_range_upper_bound,
+                  type_def_range_upper_bound, type_def_alias,
                   // variable
                   variable, type_ref, variable_name, type_ref_id, pointer_def, pointer_def_id,
                   pointer_ref_id,
