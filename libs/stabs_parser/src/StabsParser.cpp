@@ -37,6 +37,9 @@ namespace stabs {
     struct sep : seq<blanks, comma, blanks> {};
     struct file_path : star<sor<alnum, one<'-'>, one<'_'>, one<'/'>, one<'.'>>> {};
 
+    // For identifiers that may be anonymous (enums)
+    struct anon_identifier : seq<opt<one<'$', '_'>>, identifier> {};
+
     // Match stabs type string for N_LSYM: type definitions or variable declarations
     // Type definitions:
     // "int:t7"
@@ -108,7 +111,7 @@ namespace stabs {
     // 1: type (enum) name
     // 2: type def #
     // 3: values (comma-separated key:value pairs)
-    struct enum_name : identifier {};
+    struct enum_name : anon_identifier {};
     struct enum_id : digits {};
     struct enum_value_id : identifier {};
     struct enum_value_num : digits {};
@@ -213,11 +216,12 @@ namespace stabs {
 
     // https://sourceware.org/gdb/current/onlinedocs/stabs/Statics.html#Statics
     // 107 ;	.stabs	"var_const:S7",36,0,0,__ZL9var_const
-    // 108;     .stabs	"var_init:S7", 38, 0, 0, __ZL8var_init
-    // 109;     .stabs	"var_noinit:S7", 40, 0, 0, __ZL10var_noinit
-    // 94 ;	    .stabs	"main:F7",36,0,0,_main
+    // 108 ;	.stabs	"var_init:S7", 38, 0, 0, __ZL8var_init
+    // 109 ;	.stabs	"var_noinit:S7", 40, 0, 0, __ZL10var_noinit
+    //  94 ;	.stabs	"main:F7",36,0,0,_main
+    //  71 ;	.stabs	"dsafjlkasjdflkajfs():F7",36,0,0,__Z18dsafjlkasjdflkajfsv
     // 101 ;	.stabs	"c_a:S7",36,0,0,__ZL3c_a
-    // 105;     .stabs	"var_s_local:V7", 38, 0, 0, __ZZ4mainE11var_s_local
+    // 105 ;	.stabs	"var_s_local:V7", 38, 0, 0, __ZZ4mainE11var_s_local
     //
     // S means file static, V means function static, F means function
     // These constant names aren't very meaningful or good.
@@ -225,7 +229,8 @@ namespace stabs {
     // N_STSYM = 38;  // 0x26 Data section (runtime initialized - i.e. ctor calls)
     // N_LCSYM = 40;  // 0x28 BSS section (uninitialized)
 
-    struct symbol_name : identifier {};
+    struct symbol_function_identifer : seq<identifier, seq<one<'('>, until<one<')'>>>> {};
+    struct symbol_name : sor<symbol_function_identifer, identifier> {};
     struct symbol_id : digits {};
     struct symbol_type_function : one<'F'> {};
     struct symbol_type_file_static : one<'S'> {};
