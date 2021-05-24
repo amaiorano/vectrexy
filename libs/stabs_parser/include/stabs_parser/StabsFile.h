@@ -1,13 +1,13 @@
 #pragma once
 
-#include <fstream>
+#include <iostream>
 #include <string>
 #include <vector>
 
 class StabsFile {
 public:
     StabsFile() = default;
-    StabsFile(std::ifstream& fin);
+    StabsFile(std::istream& in);
 
     bool ReadLine(std::string& line);
     bool PeekNextLine(std::string& line);

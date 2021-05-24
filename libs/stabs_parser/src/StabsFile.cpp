@@ -6,8 +6,8 @@ namespace {
     const std::regex StabsStringRe(
         R"(.*\.stabs[[:space:]]*\"(.*)\",[[:space:]]*(.*),[[:space:]]*(.*),[[:space:]]*(.*),[[:space:]]*(.*))");
 
-    bool GetLine(std::ifstream& fin, std::string& line, size_t& linesRead) {
-        if (!std::getline(fin, line))
+    bool GetLine(std::istream& in, std::string& line, size_t& linesRead) {
+        if (!std::getline(in, line))
             return false;
 
         linesRead = 1;
@@ -23,7 +23,7 @@ namespace {
             auto s = match[1].str();
             while (s.size() >= 2 && s.substr(s.size() - 2) == LineContinuationToken) {
                 std::string nextLine;
-                if (!std::getline(fin, nextLine))
+                if (!std::getline(in, nextLine))
                     return false;
 
                 bool nextMatched = std::regex_match(nextLine, match, StabsStringRe);
@@ -43,12 +43,12 @@ namespace {
     }
 } // namespace
 
-StabsFile::StabsFile(std::ifstream& fin) {
+StabsFile::StabsFile(std::istream& in) {
     size_t lineNum = 1;
 
     std::string line;
     size_t linesRead;
-    while (GetLine(fin, line, linesRead)) {
+    while (GetLine(in, line, linesRead)) {
         m_lines.push_back({std::move(line), lineNum});
         lineNum += linesRead;
     }

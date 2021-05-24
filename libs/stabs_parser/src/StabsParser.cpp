@@ -214,7 +214,6 @@ namespace stabs {
                               DEFAULT_PARAM_DESC_RULE, DEFAULT_PARAM_VALUE_RULE> {};
 
     // N_SOL = 132;   // 0x84 Name of include file
-    // 26 ;	.stabs	"foo.cpp",100,0,0,Ltext0
     // 80 ;	.stabs	"src/main.cpp",132,0,0,Ltext2
     // TODO: This isn't only the include file, but is emitted for the current source file once we're
     // done with the included file section. So we should emit a "current source file" event.
@@ -379,12 +378,25 @@ namespace stabs {
 
 } // namespace stabs
 
-bool StabsParser::Parse(const std::filesystem::path& file) {
+bool StabsParser::ParseFile(const std::filesystem::path& file) {
     std::ifstream fin(file);
     if (!fin)
         return false;
 
-    StabsFile stabsFile(fin);
+    return Parse(fin, file.string().c_str());
+}
+
+bool StabsParser::Parse(std::string_view source, std::string_view sourceFileName) {
+    std::string s{source};
+    std::stringstream ss(s);
+    if (!ss)
+        return false;
+
+    return Parse(ss, sourceFileName);
+}
+
+bool StabsParser::Parse(std::istream& in, std::string_view sourceFileName) {
+    StabsFile stabsFile(in);
 
     // Analyze grammar lazily on first call
     static auto analyzeGrammar = [&] {
@@ -405,16 +417,15 @@ bool StabsParser::Parse(const std::filesystem::path& file) {
 
         // pegtl::standard_trace<stabs::grammar>(pegtl::string_input(s, "stabs source"));
 
-        const auto& sourceFile = file.string();
         const size_t offset = 0;
         const size_t lineNum = stabsFile.LineNum();
         const size_t column = 1;
-        pegtl::memory_input in(&line[0], &line[line.size() - 1] + 1, sourceFile, offset, lineNum,
-                               column);
+        pegtl::memory_input input(&line[0], &line[line.size() - 1] + 1, sourceFileName, offset,
+                                  lineNum, column);
 
         try {
             if (const auto root =
-                    pegtl::parse_tree::parse<stabs::grammar, stabs::Node, stabs::selector>(in)) {
+                    pegtl::parse_tree::parse<stabs::grammar, stabs::Node, stabs::selector>(input)) {
                 // stabs::PrintParseTree(*root);
             }
         } catch (const pegtl::parse_error& e) {
@@ -431,6 +442,8 @@ bool StabsParser::Parse(const std::filesystem::path& file) {
             // const auto p = e.positions().front();
             // Errorf("PEGTL exception: '%s' [%s(%zu, %zu)]\n", e.what(), in.source().c_str(),
             //       in.line_at(p), p.column);
+
+            return false;
         }
     }
 

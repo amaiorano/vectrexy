@@ -123,7 +123,7 @@ bool DapDebugger::FrameUpdate(double frameTime, const EmuEvents& emuEvents, cons
 void DapDebugger::ParseStabs(const fs::path& stabsFile) {
     // RstParser parser{ m_debugSymbols };
     StabsParser parser;
-    parser.Parse(stabsFile);
+    parser.ParseFile(stabsFile);
 }
 
 void DapDebugger::InitDap() {
