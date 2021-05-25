@@ -110,7 +110,8 @@ namespace stabs {
                             one<';'>, digits, one<';'>, array_max_index, one<';'>> {};
     // 7
     struct terminal_array_type : seq<type_ref> {};
-    struct array : seq<array_name, one<':'>, plus<array_type>, terminal_array_type> {};
+    struct array_ref : seq<plus<array_type>, terminal_array_type> {};
+    struct array : seq<array_name, one<':'>, array_ref> {};
 
     // Match stabs type string for N_LSYM: enum type definitions
     // "bool:t22=eFalse:0,True:1,;"
@@ -145,7 +146,7 @@ namespace stabs {
     struct struct_member_name : identifier {};
     struct struct_member_bit_offset : digits {};
     struct struct_member_bit_size : digits {};
-    struct struct_member : seq<struct_member_name, one<':'>, type_ref, comma,
+    struct struct_member : seq<struct_member_name, one<':'>, sor<array_ref, type_ref>, comma,
                                struct_member_bit_offset, comma, struct_member_bit_size, one<';'>> {
     };
     struct struct_ : seq<struct_name, one<':'>, one<'T'>, struct_id, one<'='>, one<'s'>,

@@ -144,11 +144,42 @@ TEST_F(StabsParserTest, ArrayDefinition) {
 }
 
 TEST_F(StabsParserTest, StructTypeDefinition) {
+    // struct MyStruct {
+    //     int a;
+    //     float b;
+    //     bool c;
+    //     int* d;
+    //     MyStruct* e;
+    // };
     const char* source =
         R"(
                              59 ;	.stabs	"MyStruct:T25=s10a:7,0,8;b:18,8,32;c:22,40,8;d:26=*7,48,16;\\",128,0,0,0
                              60 ;	.stabs	"e:27=*25,64,16;;",128,0,0,0
                              61 ;	.stabs	"MyStruct:t25",128,0,0,0
+)";
+    ASSERT_NO_FATAL_FAILURE(Test(source));
+}
+
+TEST_F(StabsParserTest, StructTypeDefinitionWithStaticMember) {
+    // struct MyStruct {
+    //    static int static_member;
+    //};
+    const char* source =
+        R"(
+                             59 ;	.stabs	"MyStruct:T25=s1static_member:7,0,0;;",128,0,0,0
+                             60 ;	.stabs	"MyStruct:t25",128,0,0,0
+)";
+    ASSERT_NO_FATAL_FAILURE(Test(source));
+}
+
+TEST_F(StabsParserTest, StructTypeDefinitionWithArrayMember) {
+    // struct MyStruct {
+    //    int array_member[10];
+    //};
+    const char* source =
+        R"(
+                             59 ;	.stabs	"MyStruct:T25=s10array_member:26=ar27=r27;0;-1;;0;9;7,0,80;;",128,0,0,0
+                             60 ;	.stabs	"MyStruct:t25",128,0,0,0
 )";
     ASSERT_NO_FATAL_FAILURE(Test(source));
 }
