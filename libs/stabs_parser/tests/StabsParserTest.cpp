@@ -50,13 +50,6 @@ TEST_F(StabsParserTest, Multiline) {
 }
 
 TEST_F(StabsParserTest, PrimitiveTypeDefinition) {
-    const char* todo = R"(
-                             30 ;	.stabs	"__builtin_va_list:t1=*2=2",128,0,0,0
-                             34 ;	.stabs	"complex int:t6=s2real:7=r7;-128;127;,0,8;imag:7,8,8;;",128,0,0,0
-                             56 ;	.stabs	"__vtbl_ptr_type:t23=*24=f7",128,0,0,0
-)";
-    (void)todo;
-
     const char* source =
         R"(
                              31 ;	.stabs	"complex long double:t3=R3;8;0;",128,0,0,0
@@ -83,6 +76,16 @@ TEST_F(StabsParserTest, PrimitiveTypeDefinition) {
                              53 ;	.stabs	"void:t2",128,0,0,0
                              54 ;	.stabs	"wchar_t:t21=r21;-128;127;",128,0,0,0
                              55 ;	.stabs	"bool:t22=eFalse:0,True:1,;",128,0,0,0
+)";
+    ASSERT_NO_FATAL_FAILURE(Test(source));
+}
+
+TEST_F(StabsParserTest, DISABLED_PrimitiveTypeDefinition2) {
+    const char* source =
+        R"(
+                             30 ;	.stabs	"__builtin_va_list:t1=*2=2",128,0,0,0
+                             34 ;	.stabs	"complex int:t6=s2real:7=r7;-128;127;,0,8;imag:7,8,8;;",128,0,0,0
+                             56 ;	.stabs	"__vtbl_ptr_type:t23=*24=f7",128,0,0,0
 )";
     ASSERT_NO_FATAL_FAILURE(Test(source));
 }

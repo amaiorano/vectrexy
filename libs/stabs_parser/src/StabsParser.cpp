@@ -408,6 +408,8 @@ bool StabsParser::Parse(std::istream& in, std::string_view sourceFileName) {
         return issues == 0;
     }();
 
+    bool result = true;
+
     std::string line;
     while (stabsFile.ReadLine(line)) {
         if (line.empty())
@@ -444,9 +446,10 @@ bool StabsParser::Parse(std::istream& in, std::string_view sourceFileName) {
             // Errorf("PEGTL exception: '%s' [%s(%zu, %zu)]\n", e.what(), in.source().c_str(),
             //       in.line_at(p), p.column);
 
-            return false;
+            // We parse the entire file, even when an error occurs
+            result = false;
         }
     }
 
-    return true;
+    return result;
 }
