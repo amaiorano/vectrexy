@@ -1,4 +1,5 @@
 #include "stabs_parser/StabsParser.h"
+#include "ScopedOstreamCapture.h"
 #include "core/ConsoleOutput.h"
 #include "stabs_parser/StabsFile.h"
 
@@ -60,8 +61,8 @@ namespace stabs {
     // Primitive type def
     // TODO: Add support for user-defined types (class/struct), like:
     // clang-format off
-    // 64;.stabs	"static_assert_impl:T30=s0static_assert_failed:31=ar32=r32;0;-1;;0;-1;13,0,0;;", 128, 0, 0, 0
-    // 65;.stabs	"static_assert_impl:t30", 128, 0, 0, 0
+	// 64;.stabs	"static_assert_impl:T30=s0static_assert_failed:31=ar32=r32;0;-1;;0;-1;13,0,0;;", 128, 0, 0, 0
+	// 65;.stabs	"static_assert_impl:t30", 128, 0, 0, 0
     // clang-format on
     struct type_def_name : plus<seq<identifier, blanks>> {};
     struct type_def_id : digits {};
@@ -377,6 +378,20 @@ namespace stabs {
         Printf("\n");
     }
 
+    // Copied and modified from trace.hpp so that we can customize trace output
+    using custom_tracer_traits = pegtl::tracer_traits<true,  // HideInternal
+                                                      false, // UseColor
+                                                      2,     // IndentIncrement
+                                                      8      // InitialIndent
+                                                      >;
+    template <typename Rule, template <typename...> class Action = pegtl::nothing,
+              template <typename...> class Control = pegtl::normal, typename ParseInput,
+              typename... States>
+    bool custom_trace(ParseInput&& in, States&&... st) {
+        tracer<custom_tracer_traits> tr(in);
+        return tr.parse<Rule, Action, Control>(in, st...);
+    }
+
 } // namespace stabs
 
 bool StabsParser::ParseFile(const std::filesystem::path& file) {
@@ -397,16 +412,25 @@ bool StabsParser::Parse(std::string_view source, std::string_view sourceFileName
 }
 
 bool StabsParser::Parse(std::istream& in, std::string_view sourceFileName) {
+    const bool failOnFirstError = false;
+    const bool dumpTraceOnFailure = failOnFirstError;
+
     StabsFile stabsFile(in);
 
     // Analyze grammar lazily on first call
     static auto analyzeGrammar = [&] {
         // If any issues are found, they are written to stderr
-        // TODO: See if we can route issues to our own print stream
+        ScopedOstreamCapture ssc;
         const std::size_t issues = tao::pegtl::analyze<stabs::grammar>();
-        (void)issues;
-        return issues == 0;
+        if (issues != 0) {
+            Errorf("PEGTL analyze found issues with stabs::grammar:\n%s", ssc.str().c_str());
+            return false;
+        }
+        return true;
     }();
+    if (!analyzeGrammar) {
+        return false;
+    }
 
     bool result = true;
 
@@ -417,8 +441,6 @@ bool StabsParser::Parse(std::istream& in, std::string_view sourceFileName) {
 
         // Non-exhaustive, but if we fail to parse, we'll only output a error for these cases.
         bool expectMatch = line.find(".stab") != std::string::npos;
-
-        // pegtl::standard_trace<stabs::grammar>(pegtl::string_input(s, "stabs source"));
 
         const size_t offset = 0;
         const size_t lineNum = stabsFile.LineNum();
@@ -442,12 +464,24 @@ bool StabsParser::Parse(std::istream& in, std::string_view sourceFileName) {
             }
 
             Errorf("PEGTL exception: %s\n  Source: %s\n", e.what(), line.c_str());
-            // const auto p = e.positions().front();
-            // Errorf("PEGTL exception: '%s' [%s(%zu, %zu)]\n", e.what(), in.source().c_str(),
-            //       in.line_at(p), p.column);
 
             // We parse the entire file, even when an error occurs
             result = false;
+
+            if (dumpTraceOnFailure) {
+                ScopedOstreamCapture ssc;
+
+                try {
+                    stabs::custom_trace<stabs::grammar>(pegtl::string_input(line, "stabs source"));
+                } catch (...) {
+                }
+
+                Errorf("  Trace:\n%s\n", ssc.str().c_str());
+            }
+
+            if (failOnFirstError) {
+                break;
+            }
         }
     }
 
