@@ -31,7 +31,7 @@ target_link_libraries(${MODULE_NAME}
 		SDL2::SDL2main
 
 	PRIVATE
-		SDL2::SDL2-static
+		SDL2::SDL2
 		SDL2::SDL2_net
 		imgui::imgui
 		GLEW::GLEW

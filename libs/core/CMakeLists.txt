@@ -36,7 +36,7 @@ target_link_libraries(${MODULE_NAME}
 		STB
 		noc
 		$<$<BOOL:${LINUX}>:linenoise>
-		$<$<BOOL:${USE_SDL_ENGINE}>:SDL2::SDL2-static>
+		$<$<BOOL:${USE_SDL_ENGINE}>:SDL2::SDL2>
 		$<$<BOOL:${USE_SDL_ENGINE}>:SDL2::SDL2_net>
 )
 

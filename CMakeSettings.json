@@ -4,12 +4,12 @@
       "name": "x64-Debug",
       "generator": "Ninja",
       "configurationType": "Debug",
-      "inheritEnvironments": [ "msvc_x64_x64" ],
       "buildRoot": "${projectDir}\\out\\build\\${name}",
       "installRoot": "${projectDir}\\out\\install\\${name}",
       "buildCommandArgs": "-v",
       "ctestCommandArgs": "",
-      "variables": []
+      "inheritEnvironments": [ "msvc_x64_x64" ],
+      "cmakeToolchain": "${projectDir}/external/vcpkg/scripts/buildsystems/vcpkg.cmake"
     },
     {
       "name": "x64-Release",
@@ -20,13 +20,7 @@
       "buildCommandArgs": "-v",
       "ctestCommandArgs": "",
       "inheritEnvironments": [ "msvc_x64_x64" ],
-      "variables": [
-        {
-          "name": "BUILD_SHARED_LIBS",
-          "value": "False",
-          "type": "BOOL"
-        }
-      ]
+      "cmakeToolchain": "${projectDir}/external/vcpkg/scripts/buildsystems/vcpkg.cmake"
     },
     {
       "name": "x86-Debug",
@@ -37,7 +31,7 @@
       "buildCommandArgs": "-v",
       "ctestCommandArgs": "",
       "inheritEnvironments": [ "msvc_x86" ],
-      "variables": []
+      "cmakeToolchain": "${projectDir}/external/vcpkg/scripts/buildsystems/vcpkg.cmake"
     },
     {
       "name": "x86-Release",
@@ -48,7 +42,7 @@
       "buildCommandArgs": "-v",
       "ctestCommandArgs": "",
       "inheritEnvironments": [ "msvc_x86" ],
-      "variables": []
+      "cmakeToolchain": "${projectDir}/external/vcpkg/scripts/buildsystems/vcpkg.cmake"
     },
     {
       "name": "x64-Clang-Release",
@@ -59,7 +53,7 @@
       "buildCommandArgs": "-v",
       "ctestCommandArgs": "",
       "inheritEnvironments": [ "clang_cl_x64" ],
-      "variables": []
+      "cmakeToolchain": "${projectDir}/external/vcpkg/scripts/buildsystems/vcpkg.cmake"
     }
   ]
 }
