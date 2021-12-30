@@ -69,12 +69,6 @@ Although the emulator core is written by me, Antonio Maiorano (Daroou2), it make
 Install:
 * [CMake](https://cmake.org/)
 * [Visual Studio](https://www.visualstudio.com/downloads/)
-* [vcpkg](https://github.com/Microsoft/vcpkg)
-
-Install dependent packages with vcpkg:
-```bash
-vcpkg install --triplet x64-windows-static sdl2 sdl2-net glew glm stb imgui gtest
-```
 
 Clone and build vectrexy using CMake:
 ```bash
@@ -90,7 +84,6 @@ cmake --build .
 Install:
 * [CMake](https://cmake.org/)
 * gcc 8 or higher
-* [vcpkg](https://github.com/Microsoft/vcpkg)
 
 Install a compiler and some Linux-specific libs we depend on:
 ```bash
@@ -105,12 +98,6 @@ SDL2 has many dependencies, some of which you may need to install:
 sudo apt-get install build-essential mercurial make cmake autoconf automake libtool libasound2-dev libpulse-dev libaudio-dev libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxinerama-dev libxxf86vm-dev libxss-dev libgl1-mesa-dev libesd0-dev libdbus-1-dev libudev-dev libgles1-mesa-dev libgles2-mesa-dev libegl1-mesa-dev libibus-1.0-dev fcitx-libs-dev libsamplerate0-dev libsndio-dev
 ```
 
-Install the rest of the dependencies through vcpkg:
-```bash
-cd vcpkg
-./vcpkg install sdl2 sdl2-net glew glm stb imgui gtest
-```
-
 Clone and build vectrexy using CMake:
 ```bash
 git clone --recursive https://github.com/amaiorano/vectrexy.git
@@ -119,18 +106,6 @@ mkdir build && cd build
 cmake ..
 cmake --build .
 ```
-
-### Tips for building
-
-If you opted for vcpkg's integrated installation, via `vcpkg integrate install`, then everything should just work. If not, it's recommended to clone `vcpkg` in the same parent directory where `vectrexy` is cloned so that it's found automatically. Alternatively, you can either specify the vcpkg toolchain file via cmake arg:
-
-```bash
-cmake -DCMAKE_TOOLCHAIN_FILE=../../vcpkg/scripts/buildsystems/vcpkg.cmake ..
-```
-
-Or by setting environment variable `VCPKG_ROOT` to the root path of your vcpkg install.
-
-Finally, you may set environment variable `VCPKG_DEFAULT_TRIPLET` to the vcpkg triplet to build with. If not set, a good default will automatically be set.
 
 ### Extra CMake Build Args
 

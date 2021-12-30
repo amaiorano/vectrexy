@@ -59,15 +59,6 @@ jobs:
       shell: bash
       run: sudo apt-get install libgl-dev libgtk2.0-dev libglu1-mesa-dev
 
-    - name: install vcpkg dependencies
-      shell: bash
-      run: |
-        #cd `which vcpkg|xargs readlink -f|xargs dirname`
-        #git fetch
-        #vcpkg update
-        if [ "$RUNNER_OS" = "Windows" ]; then export VCPKG_TRIPLET_ARG="--triplet $ARCH-windows-static"; fi
-        vcpkg install $VCPKG_TRIPLET_ARG sdl2 sdl2-net glew glm stb imgui gtest
-
     - name: configure
       shell: bash
       run: |
@@ -80,13 +71,9 @@ jobs:
             else
                 export CMAKE_GENERATOR_ARG="-A Win32"
             fi
-
-            # Set vcpkg triplet
-            export VCPKG_DEFAULT_TRIPLET="$ARCH-windows-static"
         fi
         cmake .. \
           $CMAKE_GENERATOR_ARG \
-          -DCMAKE_TOOLCHAIN_FILE=$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake \
           -DCMAKE_BUILD_TYPE:STRING=${CONFIG} \
           -DCMAKE_INSTALL_PREFIX:PATH=~/.local
 

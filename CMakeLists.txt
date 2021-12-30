@@ -6,17 +6,38 @@ cmake_policy(SET CMP0091 NEW)
 # Disable adding MSVC warning flags to CMAKE_<LANG>_FLAGS by default.
 cmake_policy(SET CMP0092 NEW)
 
-include(cmake/DepUtil.cmake)
-init_vcpkg_vars()
+option(BUILD_SHARED_LIBS "Build libs as shared libraries." OFF)
+option(DEBUG_UI "Enable the debug UI." ON)
+option(BUILD_TESTS "Build tests." OFF)
+
+# Attempt to set VCPKG_TARGET_TRIPLET on Windows to use static libs.
+# This is currently required by certain packages like ImGui.
+if(WIN32 AND NOT VCPKG_TARGET_TRIPLET)
+	set(VCPKG_ARCH x64) # Default to x64
+	# VS's open folder/CMake support sets CMAKE_INSTALL_PREFIX
+	if(CMAKE_INSTALL_PREFIX MATCHES "x86-")
+		set(VCPKG_ARCH x86)
+	# Otherwise see if user set the arch via -A
+	elseif(CMAKE_GENERATOR_PLATFORM STREQUAL Win32)
+		set(VCPKG_ARCH x86)
+	endif()
+	set(VCPKG_TARGET_TRIPLET ${VCPKG_ARCH}-windows-static)
+	unset(VCPKG_ARCH)
+	message(STATUS "VCPKG_TARGET_TRIPLET set to: ${VCPKG_TARGET_TRIPLET}")
+endif()
+
+# Setup vcpkg manifest mode. This will automatically bootstrap and download/update
+# packages listed in vcpkg.json.
+# https://github.com/microsoft/vcpkg/blob/master/docs/users/manifests.md
+if(BUILD_TESTS)
+	list(APPEND VCPKG_MANIFEST_FEATURES "tests")
+endif()
+set(CMAKE_TOOLCHAIN_FILE ${CMAKE_SOURCE_DIR}/external/vcpkg/scripts/buildsystems/vcpkg.cmake CACHE STRING "Vcpkg toolchain file")
 
 project(vectrexy
 	DESCRIPTION "A Vectrexy emulator by Antonio Maiorano"
 	HOMEPAGE_URL https://github.com/amaiorano/vectrexy
 )
-
-option(BUILD_SHARED_LIBS "Build libs as shared libraries." OFF)
-option(DEBUG_UI "Enable the debug UI." ON)
-option(BUILD_TESTS "Build tests." OFF)
 
 set(ENGINE_TYPE sdl CACHE STRING "Engine Type")
 set_property(CACHE ENGINE_TYPE PROPERTY STRINGS sdl null)
@@ -70,7 +91,7 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 		_SCL_SECURE_NO_WARNINGS
 	)
 	add_compile_options(/MP /W4 /WX)
-	# Use dynamic CRT for shared lib builds to avoido issues with allocations in one DLL
+	# Use dynamic CRT for shared lib builds to avoid issues with allocations in one DLL
 	# being freed in another. For static buids, use static CRT so the user doesn't have to
 	# install the right CRT.
 	if (BUILD_SHARED_LIBS)

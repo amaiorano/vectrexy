@@ -10,3 +10,6 @@
 [submodule "external/subprocess/subprocess"]
 	path = external/subprocess/subprocess
 	url = https://github.com/sheredom/subprocess.h.git
+[submodule "external/vcpkg"]
+	path = external/vcpkg
+	url = https://github.com/Microsoft/vcpkg

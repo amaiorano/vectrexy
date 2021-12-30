@@ -14,7 +14,6 @@ endif()
 if(DEBUG_UI)
 	find_package(imgui CONFIG REQUIRED)
 endif()
-find_package(STB MODULE REQUIRED)
 if(LINUX)
 	find_package(GTK2 2.4 REQUIRED)
 	target_include_directories(${MODULE_NAME} PRIVATE ${GTK2_INCLUDE_DIRS})
@@ -22,8 +21,9 @@ if(LINUX)
 endif()
 
 # Make a wrapper module for STB
+find_path(STB_INCLUDE_DIRS "stb.h" REQUIRED)
 add_library(STB INTERFACE)
-target_include_directories(STB INTERFACE ${STB_INCLUDE_PATH})
+target_include_directories(STB INTERFACE ${STB_INCLUDE_DIRS})
 
 target_include_directories(${MODULE_NAME}
 	PUBLIC "include"
@@ -36,7 +36,7 @@ target_link_libraries(${MODULE_NAME}
 		STB
 		noc
 		$<$<BOOL:${LINUX}>:linenoise>
-		$<$<BOOL:${USE_SDL_ENGINE}>:SDL2::SDL2-static>
+		$<$<BOOL:${USE_SDL_ENGINE}>:SDL2::SDL2>
 		$<$<BOOL:${USE_SDL_ENGINE}>:SDL2::SDL2_net>
 )
 

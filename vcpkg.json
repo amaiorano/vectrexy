@@ -1,0 +1,20 @@
+{
+    "name": "vectrexy",
+    "version-string": "0.0.0",
+    "dependencies": [
+        "sdl2",
+        "sdl2-net",
+        "glew",
+        "glm",
+        "stb",
+        "imgui"
+    ],
+    "features": {
+        "tests": {
+            "description": "Build Tests",
+            "dependencies": [
+                "gtest"
+            ]
+        }
+    }
+}
