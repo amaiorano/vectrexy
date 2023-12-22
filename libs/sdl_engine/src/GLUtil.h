@@ -6,6 +6,7 @@
 
 #include <array>
 #include <cassert>
+#include <cstdio>
 #include <functional>
 #include <optional>
 
