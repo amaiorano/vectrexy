@@ -460,12 +460,16 @@ void Via::Write(uint16_t address, uint8_t value) {
         //@TODO: validate if this is the correct behaviour
 
         // Assert if trying to clear an interrupt we don't handle yet
-#define ASSERT_UNHANDLED(flag)                                                                     \
-    ASSERT_MSG(!TestBits(value, flag), "Write to clear interrupt not supported yet: %s", #flag)
-        ASSERT_UNHANDLED(InterruptFlag::CA2);
-        ASSERT_UNHANDLED(InterruptFlag::CB1);
-        ASSERT_UNHANDLED(InterruptFlag::CB2);
-#undef ASSERT_UNHANDLED
+#define LOG_UNHANDLED(flag)                                                                        \
+    if (TestBits(value, flag))                                                                     \
+        do {                                                                                       \
+            ErrorHandler::Unsupported("Write to clear interrupt not supported yet: %s\n", #flag);  \
+    } while (false)
+
+        LOG_UNHANDLED(InterruptFlag::CA2);
+        LOG_UNHANDLED(InterruptFlag::CB1);
+        LOG_UNHANDLED(InterruptFlag::CB2);
+#undef LOG_UNHANDLED
 
         if (TestBits(value, InterruptFlag::CA1))
             m_ca1InterruptFlag = false;
@@ -484,13 +488,16 @@ void Via::Write(uint16_t address, uint8_t value) {
         SetBits(m_interruptEnable, (value & 0x7F), TestBits(value, BITS(7)));
 
         // Assert if trying to enable interrupt we don't handle yet
-#define ASSERT_UNHANDLED(flag)                                                                     \
-    ASSERT_MSG(!TestBits(m_interruptEnable, flag),                                                 \
-               "Write to enable interrupt not supported yet: %s", #flag)
-        ASSERT_UNHANDLED(InterruptFlag::CA2);
-        ASSERT_UNHANDLED(InterruptFlag::CB1);
-        ASSERT_UNHANDLED(InterruptFlag::CB2);
-#undef ASSERT_UNHANDLED
+#define LOG_UNHANDLED(flag)                                                                        \
+    if (TestBits(m_interruptEnable, flag))                                                         \
+        do {                                                                                       \
+            ErrorHandler::Unsupported("Write to enable interrupt not supported yet: %s\n", #flag); \
+    } while (false)
+
+        LOG_UNHANDLED(InterruptFlag::CA2);
+        LOG_UNHANDLED(InterruptFlag::CB1);
+        LOG_UNHANDLED(InterruptFlag::CB2);
+#undef LOG_UNHANDLED
 
     } break;
 
