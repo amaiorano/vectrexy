@@ -5,11 +5,6 @@
 #include "emulator/MemoryMap.h"
 
 namespace {
-    enum class ShiftRegisterMode {
-        // There are actually many more modes, but I think Vectrex only uses one
-        ShiftOutUnder02
-    };
-
     namespace Register {
         enum Type {
             PortB = 0x0,
@@ -51,10 +46,14 @@ namespace {
         inline ShiftRegisterMode GetShiftRegisterMode(uint8_t auxCntrl) {
             uint8_t result =
                 ReadBitsWithShift(auxCntrl, ShiftRegisterModeMask, ShiftRegisterModeShift);
-            if (result != 0b110) {
-                ErrorHandler::Unsupported(
-                    "ShiftRegisterMode expected to only support ShiftOutUnder02\n");
+            switch (result) {
+            case 0:
+                return ShiftRegisterMode::Disabled;
+            case 0b110:
+                return ShiftRegisterMode::ShiftOutUnder02;
             }
+            ErrorHandler::Unsupported(
+                "Unexpected ShiftRegisterMode: 0x%X, forcing to ShiftOutUnder02\n", result);
             return ShiftRegisterMode::ShiftOutUnder02;
         }
 
@@ -209,8 +208,7 @@ void Via::DoSync(cycles_t cycles, const Input& input, RenderContext& renderConte
         m_shiftRegister.Update(cycles);
 
         // Shift register's CB2 line drives /BLANK
-        //@TODO: check some flag on the shift register to know whether it's active
-        if (m_shiftRegister.Enabled()) {
+        if (m_shiftRegister.Mode() == ShiftRegisterMode::ShiftOutUnder02) {
             m_screen.SetBlankEnabled(m_shiftRegister.CB2Active());
         }
 
@@ -425,9 +423,7 @@ void Via::Write(uint16_t address, uint8_t value) {
         break;
 
     case Register::AuxCntl: {
-        // For now just read the shift register mode, which will assert if it's invalid/unexpected
-        auto shiftRegisterMode = AuxCntl::GetShiftRegisterMode(value);
-        (void)shiftRegisterMode;
+        m_shiftRegister.SetMode(AuxCntl::GetShiftRegisterMode(value));
 
         ASSERT_MSG(AuxCntl::GetTimer1Mode(value) == TimerMode::OneShot,
                    "t1 assumed always on one-shot mode");
@@ -450,7 +446,7 @@ void Via::Write(uint16_t address, uint8_t value) {
                    "Top 2 bits should always be 1 (right?)");
 
         m_periphCntl = value;
-        if (!m_shiftRegister.Enabled()) {
+        if (m_shiftRegister.Mode() == ShiftRegisterMode::Disabled) {
             m_screen.SetBlankEnabled(PeriphCntl::IsBlankEnabled(m_periphCntl));
         }
     } break;
