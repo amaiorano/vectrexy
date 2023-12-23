@@ -9,7 +9,7 @@ add_library(${MODULE_NAME} ${SRC_FILES})
 
 if(USE_SDL_ENGINE)
 	find_package(SDL2 CONFIG REQUIRED)
-	find_package(sdl2-net CONFIG REQUIRED)
+	find_package(SDL2_net CONFIG REQUIRED)
 endif()
 if(DEBUG_UI)
 	find_package(imgui CONFIG REQUIRED)
@@ -21,9 +21,11 @@ if(LINUX)
 endif()
 
 # Make a wrapper module for STB
-find_path(STB_INCLUDE_DIRS "stb.h" REQUIRED)
+find_package(Stb REQUIRED)
+#target_include_directories(main PRIVATE ${Stb_INCLUDE_DIR})
+#find_path(STB_INCLUDE_DIRS "stb.h" REQUIRED)
 add_library(STB INTERFACE)
-target_include_directories(STB INTERFACE ${STB_INCLUDE_DIRS})
+target_include_directories(STB INTERFACE ${Stb_INCLUDE_DIR})
 
 target_include_directories(${MODULE_NAME}
 	PUBLIC "include"
@@ -37,7 +39,7 @@ target_link_libraries(${MODULE_NAME}
 		noc
 		$<$<BOOL:${LINUX}>:linenoise>
 		$<$<BOOL:${USE_SDL_ENGINE}>:SDL2::SDL2>
-		$<$<BOOL:${USE_SDL_ENGINE}>:SDL2::SDL2_net>
+		$<$<BOOL:${USE_SDL_ENGINE}>:SDL2_net::SDL2_net-static>
 )
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
