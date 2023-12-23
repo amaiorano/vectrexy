@@ -425,25 +425,36 @@ void Via::Write(uint16_t address, uint8_t value) {
     case Register::AuxCntl: {
         m_shiftRegister.SetMode(AuxCntl::GetShiftRegisterMode(value));
 
-        ASSERT_MSG(AuxCntl::GetTimer1Mode(value) == TimerMode::OneShot,
-                   "t1 assumed always on one-shot mode");
-        ASSERT_MSG(AuxCntl::GetTimer2Mode(value) == TimerMode::OneShot,
-                   "t2 assumed always on one-shot mode");
-        m_timer1.SetTimerMode(AuxCntl::GetTimer1Mode(value));
-        m_timer2.SetTimerMode(AuxCntl::GetTimer2Mode(value));
+        const TimerMode mode1 = AuxCntl::GetTimer1Mode(value);
+        if (mode1 == TimerMode::OneShot) {
+            m_timer1.SetTimerMode(mode1);
+        } else {
+            ErrorHandler::Unsupported("t1 assumed always on one-shot mode, read: %s\n",
+                                      TimerModeToString(mode1));
+        }
+
+        const TimerMode mode2 = AuxCntl::GetTimer2Mode(value);
+        if (mode2 == TimerMode::OneShot) {
+            m_timer2.SetTimerMode(mode2);
+        } else {
+            ErrorHandler::Unsupported("t2 assumed always on one-shot mode, read: %s\n",
+                                      TimerModeToString(mode2));
+        }
 
         m_timer1.SetPB7Flag(TestBits(value, AuxCntl::PB7Flag));
 
     } break;
 
     case Register::PeriphCntl: {
-        ASSERT_MSG(ReadBitsWithShift(value, PeriphCntl::CA2Mask, PeriphCntl::CA2Shift) == 0b110 ||
-                       ReadBitsWithShift(value, PeriphCntl::CA2Mask, PeriphCntl::CA2Shift) == 0b111,
-                   "Unexpected value for CA2 bits");
+        const uint8_t ca2 = ReadBitsWithShift(value, PeriphCntl::CA2Mask, PeriphCntl::CA2Shift);
+        if (ca2 != 0b110 && ca2 != 0b111) {
+            ErrorHandler::Undefined("Unexpected value for CA2 bits, read: 0x%X\n", ca2);
+        }
 
-        ASSERT_MSG(ReadBitsWithShift(value, PeriphCntl::CB2Mask, PeriphCntl::CB2Shift) == 0b110 ||
-                       ReadBitsWithShift(value, PeriphCntl::CB2Mask, PeriphCntl::CB2Shift) == 0b111,
-                   "Top 2 bits should always be 1 (right?)");
+        const uint8_t cb2 = ReadBitsWithShift(value, PeriphCntl::CB2Mask, PeriphCntl::CB2Shift);
+        if (cb2 != 0b110 && cb2 != 0b111) {
+            ErrorHandler::Undefined("Unexpected value for CB2 bits, read: 0x%X\n", cb2);
+        }
 
         m_periphCntl = value;
         if (m_shiftRegister.Mode() == ShiftRegisterMode::Disabled) {
@@ -455,7 +466,6 @@ void Via::Write(uint16_t address, uint8_t value) {
         // Clear interrupt flags for any bits that are enabled
         //@TODO: validate if this is the correct behaviour
 
-        // Assert if trying to clear an interrupt we don't handle yet
 #define LOG_UNHANDLED(flag)                                                                        \
     if (TestBits(value, flag))                                                                     \
         do {                                                                                       \
@@ -483,7 +493,6 @@ void Via::Write(uint16_t address, uint8_t value) {
         // (Zeros in bit positions are left unchanged)
         SetBits(m_interruptEnable, (value & 0x7F), TestBits(value, BITS(7)));
 
-        // Assert if trying to enable interrupt we don't handle yet
 #define LOG_UNHANDLED(flag)                                                                        \
     if (TestBits(m_interruptEnable, flag))                                                         \
         do {                                                                                       \

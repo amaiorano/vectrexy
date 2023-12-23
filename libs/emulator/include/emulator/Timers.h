@@ -3,6 +3,10 @@
 #include "core/Base.h"
 
 enum class TimerMode { FreeRunning, OneShot, PulseCounting };
+inline const char* TimerModeToString(TimerMode mode) {
+    constexpr char* v[] = {"FreeRunning", "OneShot", "PulseCounting"};
+    return v[static_cast<int>(mode)];
+}
 
 // Timer 1 is used mainly for drawing.
 // Supports timed interrupt each time t1 is loaded (one-shot), or continuous interrupts
