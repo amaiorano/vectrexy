@@ -103,6 +103,15 @@ class SDLEngineImpl {
 public:
     void RegisterClient(IEngineClient& client) { m_client = &client; }
 
+    std::string GetVersionString() const {
+        if (auto fin = std::ifstream("version.txt"); fin) {
+            std::string version;
+            fin >> version;
+            return version;
+        }
+        return "(Dev)";
+    }
+
     bool Run(int argc, char** argv) {
         const auto args = std::vector<std::string_view>(argv + 1, argv + argc);
 
@@ -205,13 +214,7 @@ public:
         if (m_options.Get<bool>("windowMaximized"))
             windowCreateFlags |= SDL_WINDOW_MAXIMIZED;
 
-        std::string windowTitle = "Vectrexy";
-        if (auto fin = std::ifstream("version.txt"); fin) {
-            std::string version;
-            fin >> version;
-            windowTitle += " " + version;
-        }
-
+        std::string windowTitle = std::string{"Vectrexy"} + " (" + GetVersionString() + ")";
         m_window = SDL_CreateWindow(windowTitle.c_str(), windowX, windowY, windowWidth,
                                     windowHeight, windowCreateFlags);
         if (m_window == nullptr) {
@@ -586,7 +589,7 @@ private:
             ImGui::BeginPopupModal("About Vectrexy", &open, ImGuiWindowFlags_AlwaysAutoResize)) {
             m_paused[PauseSource::Menu] = true;
 
-            ImGui::Text("Vectrexy");
+            ImGui::Text("Vectrexy (%s)", GetVersionString().c_str());
             ImGui::Text("Programmed by Antonio Maiorano (amaiorano@gmail.com)");
 
             ImGui::Text("Available at");
