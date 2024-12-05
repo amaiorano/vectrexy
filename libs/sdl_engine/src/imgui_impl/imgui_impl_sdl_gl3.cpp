@@ -430,7 +430,9 @@ void ImGui_ImplSdlGL3_NewFrame(SDL_Window* window) {
     Uint32 time = SDL_GetTicks();
     double current_time = time / 1000.0;
     io.DeltaTime = g_Time > 0.0 ? (float)(current_time - g_Time) : (float)(1.0f / 60.0f);
-    g_Time = current_time;
+    if (io.DeltaTime <= 0.0) {
+        io.DeltaTime = (float)(1.0f / 60.0f);
+    }
 
     // Setup inputs
     // (we already got mouse wheel, keyboard keys & characters from SDL_PollEvent())
