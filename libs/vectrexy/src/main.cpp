@@ -149,6 +149,9 @@ private:
                                                    audioContext);
         }
 
+        // Send option-based values
+        m_emulator.GetVia().GetScreen().SetBrightnessCurve(options.Get<float>("brightnessCurve"));
+
         m_emulator.FrameUpdate(frameTime);
 
         return keepGoing;

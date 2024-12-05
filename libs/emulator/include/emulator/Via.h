@@ -32,6 +32,8 @@ public:
     bool IrqEnabled() const;
     bool FirqEnabled() const;
 
+    Screen& GetScreen() { return m_screen; }
+
 private:
     uint8_t Read(uint16_t address) const override;
     void Write(uint16_t address, uint8_t value) override;
@@ -54,7 +56,7 @@ private:
     uint8_t m_periphCntl{};
     uint8_t m_interruptEnable{};
 
-    Screen m_screen;
+    Screen m_screen; // TODO: Move to Emulator
     Psg m_psg;
     Timer1 m_timer1;
     Timer2 m_timer2;

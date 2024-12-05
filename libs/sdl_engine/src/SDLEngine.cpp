@@ -43,8 +43,12 @@ extern void ImGui_ImplSdlGL3_RenderDrawLists(ImDrawData*);
 namespace {
     // Display window dimensions
     const int DEFAULT_WINDOW_WIDTH = 600;
-    inline int WindowHeightFromWidth(int width) { return static_cast<int>(width * 4.0f / 3.0f); }
-    inline int WindowWidthFromHeight(int height) { return static_cast<int>(height * 3.0f / 4.0f); }
+    inline int WindowHeightFromWidth(int width) {
+        return static_cast<int>(width * 4.0f / 3.0f);
+    }
+    inline int WindowWidthFromHeight(int height) {
+        return static_cast<int>(height * 3.0f / 4.0f);
+    }
 
     namespace PauseSource {
         enum Type { Game, Menu, Size };
@@ -176,6 +180,7 @@ public:
         m_options.Add<std::string>("lastOpenedFile", {});
         m_options.Add<float>("volume", 0.5f);
         m_options.Add<bool>("vsync", false);
+        m_options.Add<float>("brightnessCurve", 0.0f);
         m_inputManager.AddOptions(m_options);
         m_options.SetFilePath(Paths::optionsFile);
         m_options.Load();
@@ -512,6 +517,16 @@ private:
                 if (vsync != m_options.Get<bool>("vsync")) {
                     SetVSyncEnabled(vsync);
                     m_options.Set("vsync", vsync);
+                    m_options.Save();
+                }
+
+                static float brightnessCurve = m_options.Get<float>("brightnessCurve");
+                ImGui::SliderFloat("Brightness curve", &brightnessCurve, 0.f, 1.f);
+                if (brightnessCurve != m_options.Get<float>("brightnessCurve")) {
+                    // Just update the value in the options file. This value must be polled by the
+                    // engine client.
+                    m_options.Set("brightnessCurve", brightnessCurve);
+                    m_options.Save();
                 }
 
                 ImGui::Separator();

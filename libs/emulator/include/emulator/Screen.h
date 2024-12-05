@@ -21,6 +21,8 @@ public:
     void SetIntegratorXYOffset(int8_t value) { m_xyOffset = value; }
     void SetBrightness(uint8_t value) { m_brightness = value; }
 
+    void SetBrightnessCurve(float v) { m_brightnessCurve = v; }
+
 private:
     bool m_integratorsEnabled{};
     Vector2 m_pos;
@@ -35,4 +37,6 @@ private:
     bool m_blank = false;
     enum class RampPhase { RampOff, RampUp, RampOn, RampDown } m_rampPhase = RampPhase::RampOff;
     int32_t m_rampDelay = 0;
+
+    float m_brightnessCurve = 0.f; // Set externally
 };

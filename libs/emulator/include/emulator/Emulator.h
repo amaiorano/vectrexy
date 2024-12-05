@@ -25,6 +25,7 @@ public:
     MemoryBus& GetMemoryBus() { return m_memoryBus; }
     Cpu& GetCpu() { return m_cpu; }
     Ram& GetRam() { return m_ram; }
+    Via& GetVia() { return m_via; }
 
 private:
     MemoryBus m_memoryBus;

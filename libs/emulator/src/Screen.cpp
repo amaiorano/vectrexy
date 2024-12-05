@@ -85,7 +85,14 @@ void Screen::Update(cycles_t cycles, RenderContext& renderContext) {
             !renderContext.lines.empty()) {
             renderContext.lines.back().p1 = m_pos;
         } else {
-            renderContext.lines.emplace_back(Line{lastPos, m_pos, m_brightness / 128.f});
+            auto lerp = [](float a, float b, float t) { return a + t * (b - a); };
+            auto easeOut = [](float v) { return 1.f - powf(1.f - v, 5); };
+
+            // Lerp between the linear brightness value and an ease out curve based on the user-set
+            // brightness curve value.
+            float b = m_brightness / 128.f;
+            b = lerp(b, easeOut(b), m_brightnessCurve);
+            renderContext.lines.emplace_back(Line{lastPos, m_pos, b});
         }
     }
 
