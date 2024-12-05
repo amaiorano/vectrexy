@@ -105,7 +105,7 @@ jobs:
         curl -L https://dl.cloudsmith.io/public/vectrexy/vectrexy/raw/files/data.zip -o data.zip
         unzip data.zip -d $PACKAGE_DIR
 
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v4
       with:
         name: ${{ env.PACKAGE_DIR }}
         path: ${{ env.PACKAGE_DIR }}
